@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types/database";
@@ -75,9 +76,7 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
       {/* Logo / brand */}
       <div className="flex h-16 items-center px-5 border-b border-divider">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky text-white text-sm font-bold">
-            iMS
-          </div>
+          <Logo width={52} />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold tracking-tight">
               Coach OS

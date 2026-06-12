@@ -1,5 +1,7 @@
 "use client";
 
+import { Logo } from "@/components/brand/logo";
+
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail } from "lucide-react";
@@ -74,9 +76,7 @@ function LoginForm() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-center mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-sky text-white text-base font-bold">
-            iMS
-          </div>
+          <Logo width={110} priority />
         </div>
         <CardTitle className="text-center text-xl">
           Welcome to IMS Coach OS

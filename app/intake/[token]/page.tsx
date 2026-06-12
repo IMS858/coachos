@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/server";
 import { IntakeForm } from "@/components/intake/intake-form";
+import { Logo } from "@/components/brand/logo";
 
 /**
  * Public intake form. Accessed via tokenized link emailed to a lead
@@ -66,9 +67,7 @@ export default async function IntakePage({
     <div className="theme-light min-h-screen bg-paper py-8 px-4">
       <div className="mx-auto max-w-xl">
         <header className="mb-8 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-md bg-navy text-white text-base font-bold mb-3">
-            iMS
-          </div>
+          <Logo width={130} withTagline className="mx-auto mb-3" priority />
           <h1 className="text-2xl font-semibold text-navy">
             Welcome to IMS
           </h1>
