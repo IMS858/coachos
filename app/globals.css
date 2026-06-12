@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   IMS Design System — navy/cream premium aesthetic
+   Colors sourced from /coach-os DELIVERABLES_REDESIGN.md
+   ============================================================================= */
+
+@theme {
+  /* Core palette */
+  --color-navy-deep: #060d18;
+  --color-navy: #0b1e31;
+  --color-navy-soft: #16304d;
+  --color-navy-elev: #0f2742;
+  --color-ghost: #1a2f4a;
+  --color-divider: #2a4468;
+
+  --color-sky: #3477bb;
+  --color-sky-light: #5f9bd5;
+
+  --color-cream: #ebeef4;
+  --color-cream-dim: #a8b2c4;
+  --color-cream-faint: #7888a0;
+
+  /* Light surfaces (used in client mobile views) */
+  --color-paper: #f6f3ec;
+  --color-paper-deep: #ede8dd;
+  --color-line: #e5e0d4;
+
+  /* Status */
+  --color-status-optimal: #4ca98a;
+  --color-status-moderate: #d4a836;
+  --color-status-limited: #e25c45;
+  --color-status-skipped: #7888a0;
+  --color-status-na: #5a6878;
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+}
+
+/* Default dark theme for trainer/owner surfaces */
+:root {
+  color-scheme: dark;
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Scoped light theme for client mobile views */
+.theme-light {
+  color-scheme: light;
+  background: var(--color-paper);
+  color: var(--color-navy);
+}
+
+/* Subtle scrollbar across the app */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-divider);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sky);
+}
+
+/* =============================================================================
+   UI Pass 1 — typography, motion, skeletons, focus, print
+   ============================================================================= */
+
+/* Editorial display face for headings + hero numbers */
+h1, h2, .font-display {
+  font-family: "Fraunces", Georgia, serif;
+  letter-spacing: -0.015em;
+  font-feature-settings: "ss01";
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Calm, consistent motion */
+a, button, [role="button"] {
+  transition: background-color 150ms ease, color 150ms ease,
+    border-color 150ms ease, opacity 150ms ease, transform 150ms ease;
+}
+button:active, [role="button"]:active { transform: scale(0.98); }
+
+/* Page content fades up on load */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 240ms ease both; }
+
+/* Skeleton shimmer for loading states */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+.skeleton {
+  background: var(--color-ghost);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+/* Visible keyboard focus everywhere, mouse clicks stay clean */
+:focus-visible {
+  outline: 2px solid var(--color-sky-light);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect users who turn motion off */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Programs and session summaries print clean */
+@media print {
+  aside, nav, .no-print { display: none !important; }
+  :root { background: #fff; color: #0b1e31; }
+  main { padding: 0 !important; }
+}
