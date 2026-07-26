@@ -1,0 +1,266 @@
+@import "tailwindcss";
+
+/* Brand typefaces — self-hosted via Fontsource (no runtime Google dependency).
+   Barlow Condensed = display (matches the studio wall graphics)
+   Barlow           = utility (UI labels, forms, data)
+   Literata         = prose (coach notes, descriptions, client reading) */
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+@import "@fontsource/literata/400.css";
+@import "@fontsource/literata/500.css";
+
+/* =============================================================================
+   IMS Design System — matched to imsmethod.com
+   White ground · near-black deep bands · brand blue accent
+   Display Barlow Condensed · UI Barlow · Prose Literata
+
+   NOTE ON TOKEN NAMES: the legacy navy- and cream- names now carry LIGHT
+   values, so the ~100 components referencing them adopt the site's system with
+   no edits. Read them semantically:
+       navy-  = surfaces (page, card, elevated)
+       cream- = ink (primary, dim, faint)
+   New work should prefer the surface- and ink- aliases below.
+   ============================================================================= */
+
+@theme {
+  /* Surfaces. The site can sit on flat white because it has full-bleed photos
+     and air between sections; a dense app can't — so the GROUND is tinted and
+     CARDS are white, which is what gives a card its edge. */
+  --color-navy: #eef1f4;        /* page ground (tinted) */
+  --color-navy-soft: #ffffff;   /* cards (lift off it)  */
+  --color-navy-elev: #f7f9fb;   /* inputs inside cards  */
+  --color-navy-deep: #e4e8ed;   /* recessed panels      */
+  --color-ghost: #e4e8ed;
+  --color-divider: #d7dce2;
+
+  --color-surface: #ffffff;
+  --color-surface-soft: #f7f9fb;
+  --color-ground: #eef1f4;
+
+  /* Ink */
+  --color-cream: #17191c;       /* primary text       */
+  --color-cream-dim: #4b5563;   /* secondary text     */
+  --color-cream-faint: #6b7280; /* tertiary / captions*/
+  --color-ink: #17191c;
+  --color-ink-dim: #4b5563;
+
+  /* Brand blue.
+     sky      #1c6a9c — interactive: passes contrast as text on white AND with
+                        white text on top, so buttons and links share one value.
+     sky-light #2a85be — the brighter brand blue: hover, arcs, accents.
+     sky-deep  #14527a — pressed / deepest. */
+  --color-sky: #1c6a9c;
+  --color-sky-light: #2a85be;
+  --color-sky-deep: #14527a;
+
+  /* Deep band — the near-black the site uses for its footer and dark sections.
+     Navigation chrome lives here so the working surface stays white. */
+  --color-band: #17191c;
+  --color-band-soft: #22252a;
+  --color-band-line: #2e3238;
+  --color-band-ink: #f4f5f6;
+  --color-band-dim: #9aa1ab;
+  --color-band-accent: #5aa6d6;
+
+  /* Client-facing aliases (kept for existing markup) */
+  --color-paper: #eef1f4;       /* client page ground */
+  --color-paper-deep: #ffffff;  /* client cards       */
+  --color-line: #d7dce2;
+
+  /* Status — tuned for contrast on white */
+  --color-status-optimal: #1f7a5c;
+  --color-status-moderate: #a3740d;
+  --color-status-limited: #b83a22;
+  --color-status-skipped: #6b7280;
+  --color-status-na: #9aa1ab;
+
+  /* Typography */
+  --font-sans: "Barlow", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-prose: "Literata", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+}
+
+:root {
+  color-scheme: light;
+  background: var(--color-ground);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings carry the studio-wall voice: condensed, tight, lightly tracked so
+   short labels read as signage rather than body copy. */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+/* Prose passages — coach notes, metric explanations, client reading. */
+.prose-ims {
+  font-family: var(--font-prose);
+  line-height: 1.6;
+}
+
+/* Numeric readouts (loads, ROM, scores) align in columns. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* The site's eyebrow → headline pairing, reused for app page headers. */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-sky);
+}
+
+/* Deep band: navigation chrome, matching the site's dark sections. */
+.band {
+  background: var(--color-band);
+  color: var(--color-band-ink);
+}
+.band .border-divider { border-color: var(--color-band-line); }
+.band .text-cream { color: var(--color-band-ink); }
+.band .text-cream-dim { color: var(--color-band-dim); }
+.band .text-cream-faint { color: var(--color-band-dim); }
+.band .bg-navy-soft,
+.band .bg-navy-elev,
+.band .bg-navy-deep { background-color: var(--color-band-soft); }
+.band .text-sky,
+.band .text-sky-light { color: var(--color-band-accent); }
+
+/* Cards lift off the tinted ground. */
+.card-surface,
+.bg-navy-soft {
+  box-shadow: 0 1px 2px rgb(23 25 28 / 0.05), 0 1px 1px rgb(23 25 28 / 0.03);
+}
+
+/* The site runs one saturated blue band per page on its closing CTA. Same move
+   here, so pages end on colour instead of trailing off into grey. */
+.band-blue {
+  background: var(--color-sky);
+  color: #ffffff;
+}
+.band-blue .eyebrow { color: #bfe0f2; }
+.band-blue .text-cream,
+.band-blue h1, .band-blue h2, .band-blue h3 { color: #ffffff; }
+.band-blue .text-cream-dim,
+.band-blue .text-cream-faint { color: rgb(255 255 255 / 0.78); }
+
+/* Accent rule for stat cards — gives the numbers somewhere to sit. */
+.stat-rule { border-top: 3px solid var(--color-sky); }
+
+/* Client-facing wrapper — the app is light throughout now, so this only needs
+   to assert the ground for standalone pages like intake. */
+.theme-light {
+  color-scheme: light;
+  background: var(--color-ground);
+  color: var(--color-ink);
+}
+
+/* ---- Accessibility floor ---- */
+:focus-visible {
+  outline: 2px solid var(--color-sky);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.band :focus-visible {
+  outline-color: var(--color-band-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Subtle scrollbar across the app */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-divider);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sky);
+}
+
+/* ---- Loading skeleton ---- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-soft) 25%,
+    var(--color-ghost) 50%,
+    var(--color-surface-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+.band .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-band-soft) 25%,
+    var(--color-band-line) 50%,
+    var(--color-band-soft) 75%
+  );
+  background-size: 200% 100%;
+}
+@keyframes skeleton-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- Print support for reports ---- */
+@media print {
+  /* Hide everything not meant for paper */
+  .no-print, nav, aside, header button, .app-sidebar, .band { display: none !important; }
+  /* Force light, readable output */
+  html, body { background: #fff !important; color: #111 !important; }
+  .print-area, .print-area * {
+    color: #111 !important;
+    background: transparent !important;
+    border-color: #ccc !important;
+  }
+  .print-area { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+  .print-break { page-break-before: always; }
+  a { text-decoration: none !important; color: #111 !important; }
+}
+
+/* ---- PWA safe areas (iOS standalone) ----
+   Top inset goes on the body so content clears the notch.
+   Bottom inset must go on the FIXED nav itself — a fixed element ignores
+   body padding, so without this the tab row sits under the home indicator. */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
