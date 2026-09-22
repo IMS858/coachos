@@ -3,7 +3,7 @@
 ## Connected systems and scope
 - GitHub: IMS858/coachos, feature/public-consultation-entry; draft PR #2.
 - Supabase: active project `ims-coach-os`, project ref `hatcusqagwpmebzsbolw` (us-west-2). Read-only schema inspection completed; **no production database writes**.
-- Vercel: connected app exposed, but `list_teams` returned no teams and a project listing under an unverified team slug returned 403. **Production project and deployment have not been verified.** Re-authorize Vercel access to the actual project/team, then inspect production and preview deployments before merging.
+- Vercel: verified project `coachos` (`prj_B5Fu00jMneA2DitUjgsJ2880F9JB`) under `innovative-movement-solutions` (`team_jeEx9EhG01h6NQLyOKs3v6jK`). The connector can list projects and deployments **when `teamId` is an empty string**; passing the explicit team ID returns 403. Production deployment `dpl_9aVuN21CZgL8gXjSZdwWPZpCTLmj` is READY and serves `coachos-opal.vercel.app` from `main` commit `52376a51ad7464447be8fb9503dcb25cb256010b`. Preview deployment `dpl_FoPL1bQJhkkgr6z1PkXsrwAdF8cN` is READY from this feature branch commit `52e97193f1d805e2875ea04273f798418b6a8cad`. The preview URL is protected and `web_fetch_vercel_url` returned access denied; runtime diagnostics require a team ID and currently return an authorization error. **READY verifies build/deployment status, not functional route or database integration.**
 
 ## Verified production Supabase structure
 - `profiles`, `clients`, `sessions`, `assessments`, `programs`, `intake_forms`, `intake_tokens`, `waivers`, `agreement_requests`, `recurring_series`, `rooms`, `app_events` exist and have RLS enabled where inspected.
@@ -21,7 +21,7 @@
 - `proxy.ts` now allows public `/consult` access.
 
 ## Migration safety gates
-1. Confirm Vercel project/team and which Supabase project is configured for production (inspect environment variable **names and URL host only**; never print secret values).
+1. Vercel project/team identified. Still verify which Supabase project is configured for production (inspect environment variable **names and URL host only**; never print secret values); do not assume the connected project is the production database.
 2. Verify live route, mobile layout, accessibility and build on preview.
 3. Establish a reliable authoritative calendar feed/integration or migrate the full gym calendar with conflict checks. `vagaro_event_id` alone is not a sync.
 4. Implement phone consultation as a separate appointment type and duration only after deciding how it appears in scheduling and availability. Never generate bookable phone slots from opening hours alone.
