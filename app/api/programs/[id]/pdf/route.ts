@@ -12,6 +12,10 @@ export async function GET(
   const { data: program } = await supabase.from("programs")
     .select("data,status").eq("id", id).maybeSingle();
   if (!program) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (program.data?.pdf_mode === "coach" && !["owner", "trainer"].includes(profile?.role ?? "")) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
+  }
   const encoded = program.data?.pdf_base64;
   if (typeof encoded !== "string" || encoded.length > 7_000_000) {
     return NextResponse.json({ error: "No stored PDF" }, { status: 404 });
