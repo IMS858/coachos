@@ -167,6 +167,14 @@ export default async function ProgramPage({
                 </div>
               </CardContent>
             </Card>
+            {generated.pdf_base64 && (
+              <a href={`/api/programs/${id}/pdf`} className="text-sky-light underline underline-offset-2 text-sm">Download saved PDF</a>
+            )}
+            {isStaff && generated.structured_program && (
+              <Card><CardHeader><CardTitle>Generated plan data — coach review</CardTitle></CardHeader>
+                <CardContent><pre className="text-xs whitespace-pre-wrap break-words max-h-96 overflow-auto">{JSON.stringify(generated.structured_program, null, 2)}</pre></CardContent>
+              </Card>
+            )}
             {isStaff && (program as any).assessment_id && (
               <GenerateProgramButton assessmentId={(program as any).assessment_id} />
             )}
