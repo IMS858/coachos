@@ -173,12 +173,15 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const assessmentId = body.assessment_id;
+  const pdfMode = body.pdf_mode === "coach" ? "coach" : "client";
   if (!assessmentId) {
     return NextResponse.json({ error: "assessment_id required" }, { status: 400 });
   }
 
+  // Use the caller-scoped client to enforce assessment RLS; never fetch an
+  // arbitrary assessment through service-role privileges from a supplied ID.
   const svc = createServiceClient();
-  const { data: assessment } = await svc
+  const { data: assessment } = await supabase
     .from("assessments")
     .select("id, client_id, data")
     .eq("id", assessmentId)
@@ -204,7 +207,9 @@ export async function POST(request: NextRequest) {
   const summary = a.summary ?? {};
   const client = a.client ?? {};
 
-  const sessionsPerWeek = summary.recommended_sessions_per_week || goals.target_sessions_per_week || 3;
+  const rawFrequency = Number(summary.recommended_sessions_per_week || goals.target_sessions_per_week || 3);
+  const sessionsPerWeek = Number.isInteger(rawFrequency) && rawFrequency >= 1 && rawFrequency <= 5
+    ? rawFrequency : 3;
   const { constraints, concerns, concernNotes } = mapConstraints(a);
 
   // FRA priorities: use coach-ranked if available, otherwise auto-derive from screen
@@ -286,7 +291,7 @@ export async function POST(request: NextRequest) {
         ? "fat_loss"
         : "maintenance"),
     coach_notes: [summary.recommendation, summary.focus_areas, summary.red_flags].filter(Boolean).join(". "),
-    pdf_mode: body.pdf_mode || "client",
+    pdf_mode: pdfMode,
     // ── Coach OS integration fields ──
     sleep_quality: lifestyle.sleep_quality || "",
     sleep_hours: lifestyle.sleep_hours || "",
@@ -333,11 +338,13 @@ export async function POST(request: NextRequest) {
       cardio_days: generatorPayload.cardio_days,
     }));
     console.log("[generate] calling IMS generator at", GENERATOR_URL);
+    const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
     const res = await fetch(`${GENERATOR_URL}/api/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/pdf",
+        ...(generatorSecret ? { "Authorization": `Bearer ${generatorSecret}` } : {}),
       },
       body: JSON.stringify(generatorPayload),
       signal: AbortSignal.timeout(55000),
@@ -349,16 +356,22 @@ export async function POST(request: NextRequest) {
       const errText = await res.text().catch(() => "");
       console.error("[generate] generator error", res.status, errText.slice(0, 500));
       return NextResponse.json(
-        { error: `Generator returned ${res.status}`, detail: errText.slice(0, 300) },
+        { error: `Generator returned ${res.status}`, detail: res.status === 400 || res.status === 422 ? errText.slice(0, 300) : "The generator is temporarily unavailable." },
         { status: 502 }
       );
     }
 
-    // The generator returns a PDF
+    // Do not create a program record if the upstream returns HTML/JSON as a 200.
+    if (!(res.headers.get("content-type") ?? "").toLowerCase().includes("application/pdf")) {
+      return NextResponse.json({ error: "Generator returned an invalid document" }, { status: 502 });
+    }
     const pdfBuffer = await res.arrayBuffer();
+    if (pdfBuffer.byteLength < 5 || new TextDecoder().decode(pdfBuffer.slice(0, 5)) !== "%PDF-") {
+      return NextResponse.json({ error: "Generator returned an invalid PDF" }, { status: 502 });
+    }
 
     // Store a record in programs table
-    const { data: program } = await svc
+    const { data: program, error: saveError } = await svc
       .from("programs")
       .insert({
         client_id: assessment.client_id,
@@ -366,12 +379,11 @@ export async function POST(request: NextRequest) {
         trainer_id: user.id,
         name: `${clientProfile?.full_name ?? "Client"} — IMS Plan`,
         weeks: 4,
-        status: "published",
-        published_at: new Date().toISOString(),
+        status: "draft",
         data: {
           source: "ims_generator",
           generated_at: new Date().toISOString(),
-          pdf_mode: body.pdf_mode || "client",
+          pdf_mode: pdfMode,
           assessment_summary: {
             goal: goals.primary,
             fra_priorities: fraPriorities,
@@ -382,12 +394,17 @@ export async function POST(request: NextRequest) {
       })
       .select("id")
       .single();
+    if (saveError || !program) {
+      console.error("[generate] could not save draft", saveError?.code);
+      return NextResponse.json({ error: "PDF generated but could not save the program draft. Please retry." }, { status: 500 });
+    }
 
     // Return the PDF directly for download
     const safeName = (clientProfile?.full_name ?? "client").toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
+        "X-IMS-Program-ID": program.id,
         "Content-Disposition": `attachment; filename="${safeName}_ims_plan.pdf"`,
       },
     });
