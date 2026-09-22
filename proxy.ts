@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/callback",
   "/api/auth/reset-password",
   "/intake",
+  "/consult",
   "/sign",
   "/api/agreements",
 ];
