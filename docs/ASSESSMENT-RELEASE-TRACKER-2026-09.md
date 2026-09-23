@@ -28,15 +28,15 @@ This checklist is the release sequence. CI success proves compilation, not runti
 - [ ] Decide whether device readings require staff-only table rather than assessment JSON (complete assessments have client RLS read)
 - [ ] Client, trainer and owner authorization tests
 - [ ] Concurrency, idempotency, duplicate CSV and partial failure tests
-- [ ] Confirm no PHI in logs, generator errors or public program data
+- [x] Remove upstream error-body logging, require authenticated generator, archive private draft metadata and allowlist published program data (runtime access tests pending)
 - [ ] Review service-role usage and private bucket policies
 - [ ] Audit assessment and device retention requirements
 
 ## 4. Coach approval and PDF
 - [ ] Edit exercise, dose, tempo and progression; save and reload
-- [ ] Regenerate PDF; compare against reviewed structured program
-- [ ] Publish only a valid reviewed draft with current PDF
-- [ ] Client can retrieve published PDF, not draft/private coach artifacts
+- [x] Implement reviewed PDF regeneration with private storage and optimistic concurrency (live PDF comparison pending)
+- [x] Add dedicated reviewed publish endpoint; block generic publish bypass (authenticated E2E pending)
+- [x] Enforce explicit client ownership and published-only PDF access in route (client-account E2E pending)
 - [ ] Retry and rollback for failed generator, upload and publish steps
 
 ## 5. Synthetic end-to-end scenarios and release
@@ -48,3 +48,9 @@ This checklist is the release sequence. CI success proves compilation, not runti
 - [ ] Deploy to controlled environment; verify logs and client isolation
 
 **Scope:** No VALD. Vagaro remains booking source of truth. No live device API claims. No production changes before these gates pass.
+
+## Integration audit notes (latest)
+- The Coach OS integration branch now includes dedicated regenerate and publish routes adapted from the stacked premium UI branch. Reconcile duplicate endpoint versions when stacking/merging PR #4; do not blindly overwrite the private-storage-column contract.
+- Initial generator output is a draft and requires coach edits plus a reviewed regeneration before publication. Synthetic unit and TypeScript checks are not a full assessment-to-PDF test.
+- **Release blocker:** completed assessments still embed raw ActivForce and VOLTRA data in assessments.data, which clients can read under current assessment RLS. Move raw records to a staff-only table or explicitly approve client visibility before production.
+- **Release blocker:** run authenticated staff/client E2E against an isolated environment and verify generator deployment compatibility, private bucket, coach review, regenerated PDF and publication.
