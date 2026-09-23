@@ -63,8 +63,9 @@ export async function POST(
   const { error: uploadError } = await svc.storage.from("ims-program-pdfs")
     .upload(storagePath, pdf, { contentType: "application/pdf", upsert: false });
   if (uploadError) return NextResponse.json({ error: "Private PDF storage unavailable" }, { status: 503 });
+  const { pdf_base64: _legacyPdf, ...safeRecordData } = record.data ?? {};
   const nextData = {
-    ...record.data,
+    ...safeRecordData,
     structured_program: reviewed,
     pdf_storage_path: storagePath,
     pdf_mode: "client",
