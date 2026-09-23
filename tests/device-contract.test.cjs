@@ -96,7 +96,7 @@ test("shared Python fixture produces identical VOLTRA summary", () => {
     total_duration_s: 3,
   }]);
 });
-test("malformed quotes and empty trace columns fail closed", () => {
+test("malformed quotes fail closed; optional empty traces match Python", () => {
   const header = VOLTRA_COLUMNS.join(",");
   const valid = row(1,1);
   assert.throws(() => summarizeVoltraCSV([header, valid.map((v,i) => i === 2 ? '18"0' : v).join(",")].join("\n")), /quote/);
