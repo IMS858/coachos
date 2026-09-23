@@ -24,20 +24,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try { summary = summarizeVoltraCSV(body.csv); }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid CSV" }, { status: 400 }); }
   const { data: assessment, error: readError } = await supabase.from("assessments")
-    .select("id, data, updated_at").eq("id", id).maybeSingle();
+    .select("id").eq("id", id).maybeSingle();
   if (readError || !assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
-  const data = assessment.data && typeof assessment.data === "object" && !Array.isArray(assessment.data)
-    ? assessment.data as Record<string, unknown> : {};
-  const existing = Array.isArray(data.voltra_sessions) ? data.voltra_sessions : [];
+  const { data: evidence, error: evidenceError } = await supabase.from("assessment_device_evidence")
+    .select("voltra_sessions,updated_at").eq("assessment_id",id).maybeSingle();
+  if (evidenceError) return NextResponse.json({ error: "Could not load private workouts" }, { status: 500 });
+  const existing = Array.isArray(evidence?.voltra_sessions) ? evidence.voltra_sessions : [];
   if (existing.length >= 30) return NextResponse.json({ error: "Workout limit reached" }, { status: 400 });
   const session = { ...summary, exercise: body.exercise.trim(), session_date: body.session_date,
     side: body.side, training_mode: body.training_mode.trim(),
     recorded_by: user.id, recorded_at: new Date().toISOString() };
-  // Store summary only; avoid retaining large raw force traces in assessment JSON.
-  const { data: saved, error } = await supabase.from("assessments")
-    .update({ data: { ...data, voltra_sessions: [...existing, session] }, updated_at: new Date().toISOString() })
-    .eq("id", id).eq("updated_at", assessment.updated_at).select("id").maybeSingle();
-  if (error) return NextResponse.json({ error: "Could not save workout" }, { status: 500 });
-  if (!saved) return NextResponse.json({ error: "Assessment changed. Reload and retry." }, { status: 409 });
+  const now = new Date().toISOString();
+  const query = evidence ? supabase.from("assessment_device_evidence")
+    .update({ voltra_sessions:[...existing,session], updated_at:now })
+    .eq("assessment_id",id).eq("updated_at",evidence.updated_at)
+    : supabase.from("assessment_device_evidence").insert({ assessment_id:id,voltra_sessions:[session] });
+  const { data: saved, error } = await query.select("assessment_id").maybeSingle();
+  if (error || !saved) return NextResponse.json({ error: error ? "Could not save workout" : "Workouts changed; reload and retry" }, { status: error ? 500 : 409 });
   return NextResponse.json({ session });
 }
