@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Activity, ArrowUpRight, ClipboardCheck, Dumbbell, ShieldCheck } from "lucide-react";
 
 type Exercise = {
@@ -12,8 +13,46 @@ type Session = { day_number?: number; day_type?: string; focus?: string; blocks?
 type Week = { week_number?: number; intent?: string; progression_notes?: string[]; sessions?: Session[] };
 type Plan = { weeks?: Week[]; progression?: Record<string, unknown>; assessment?: {primary_goal?: string; fra_priorities?: Array<{description?: string}>; constraints?: string[]; concerns?: string[]} };
 
-export function ImsProgramStudio({ plan }: { plan: Plan }) {
-  const weeks = Array.isArray(plan.weeks) ? plan.weeks : [];
+export function ImsProgramStudio({ plan, programId, initialEdits }: { plan: Plan; programId: string; initialEdits?: Plan | null }) {
+  const router = useRouter();
+  const [working, setWorking] = useState<Plan>(() => structuredClone(initialEdits ?? plan));
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [savedEdits, setSavedEdits] = useState(Boolean(initialEdits));
+  function editExercise(bi: number, ei: number, field: "name" | "dose" | "tempo" | "rationale" | "progression_note", value: string) {
+    setWorking(previous => {
+      const next = structuredClone(previous);
+      const exercise = next.weeks?.[selectedWeek]?.sessions?.[selectedSession]?.blocks?.[bi]?.exercises?.[ei];
+      if (exercise) exercise[field] = value;
+      return next;
+    });
+    setDirty(true);
+    setNotice("");
+  }
+  async function save() {
+    setBusy(true); setNotice("");
+    try {
+      const response = await fetch(`/api/programs/${programId}`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({coach_edits:{structured_program:working}})});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "Could not save draft");
+      setDirty(false); setSavedEdits(true); setNotice("Coach edits saved. Regenerate the PDF before publishing.");
+      router.refresh();
+    } catch (error) {setNotice(error instanceof Error ? error.message : "Save failed");}
+    finally {setBusy(false);}
+  }
+  async function regenerate() {
+    setBusy(true); setNotice("");
+    try {
+      const response = await fetch(`/api/programs/${programId}/regenerate`, {method:"POST"});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "Could not regenerate PDF");
+      setSavedEdits(false); setNotice("Reviewed client PDF regenerated. Ready for final coach approval.");
+      router.refresh();
+    } catch (error) {setNotice(error instanceof Error ? error.message : "Regeneration failed");}
+    finally {setBusy(false);}
+  }
+  const weeks = Array.isArray(working.weeks) ? working.weeks : [];
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedSession, setSelectedSession] = useState(0);
   const week = weeks[selectedWeek];
@@ -23,6 +62,15 @@ export function ImsProgramStudio({ plan }: { plan: Plan }) {
   if (!weeks.length) return <p className="text-sm text-cream-dim">No structured weeks were returned. Review the saved PDF before publishing.</p>;
   return (
     <section className="ims-program-studio space-y-5" aria-label="Generated training program">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-divider bg-navy-soft p-4">
+        <div><p className="eyebrow">Coach review</p><p className="text-sm text-cream-dim">Edit the prescription, save your changes, then regenerate the client PDF.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={busy || !dirty} onClick={save} className="rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">Save draft</button>
+          <button type="button" disabled={busy || dirty || !savedEdits} onClick={regenerate} className="rounded-lg bg-[#237d61] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Regenerate PDF</button>
+        </div>
+        {notice && <p role="status" className="w-full text-sm text-sky">{notice}</p>}
+        {dirty && <p className="w-full text-xs text-status-moderate">Unsaved changes — publishing is blocked until the reviewed PDF is regenerated.</p>}
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="ims-studio-stat"><Dumbbell className="h-5 w-5 text-sky" /><span>Training block</span><strong>{weeks.length} weeks</strong></div>
         <div className="ims-studio-stat"><Activity className="h-5 w-5 text-sky" /><span>Weekly frequency</span><strong>{sessions.length} sessions</strong></div>
@@ -80,8 +128,11 @@ export function ImsProgramStudio({ plan }: { plan: Plan }) {
                   <span className="shrink-0 text-xs text-sky group-open:rotate-90">View details →</span>
                 </summary>
                 <div className="space-y-2 border-t border-divider px-3 py-3 text-sm text-cream-dim">
-                  {ex.rationale && <p><strong className="text-cream">Why this exercise:</strong> {ex.rationale}</p>}
-                  {ex.progression_note && <p><strong className="text-cream">Progression:</strong> {ex.progression_note}</p>}
+                  <label className="block"><span className="mb-1 block text-xs text-sky">Exercise name</span><input className="w-full rounded-lg border border-divider bg-navy-elev p-2 text-cream" value={ex.name ?? ""} onChange={e=>editExercise(bi,ei,"name",e.target.value)} /></label>
+                  <label className="block"><span className="mb-1 block text-xs text-sky">Dose · sets / reps / time</span><input className="w-full rounded-lg border border-divider bg-navy-elev p-2 text-cream" value={ex.dose ?? ""} onChange={e=>editExercise(bi,ei,"dose",e.target.value)} /></label>
+                  <label className="block"><span className="mb-1 block text-xs text-sky">Tempo</span><input className="w-full rounded-lg border border-divider bg-navy-elev p-2 text-cream" value={ex.tempo ?? ""} onChange={e=>editExercise(bi,ei,"tempo",e.target.value)} /></label>
+                  <label className="block"><span className="mb-1 block text-xs text-sky">Why this exercise</span><textarea className="w-full rounded-lg border border-divider bg-navy-elev p-2 text-cream" value={ex.rationale ?? ""} onChange={e=>editExercise(bi,ei,"rationale",e.target.value)} /></label>
+                  <label className="block"><span className="mb-1 block text-xs text-sky">Progression notes</span><textarea className="w-full rounded-lg border border-divider bg-navy-elev p-2 text-cream" value={ex.progression_note ?? ""} onChange={e=>editExercise(bi,ei,"progression_note",e.target.value)} /></label>
                   {(ex.week_prescriptions ?? []).filter(p => p.week === week.week_number).map((p,i) =>
                     <p key={i}><strong className="text-cream">Prescription:</strong> {[p.sets && `${p.sets} sets`, p.reps && `${p.reps} reps`, p.weight && `${p.weight} ${p.weight_unit ?? ""}`, p.rpe && `RPE ${p.rpe}`, p.fallback_text].filter(Boolean).join(" · ")}</p>)}
                 </div>
