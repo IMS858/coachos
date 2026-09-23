@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { AssessmentWizard } from "@/components/assessments/assessment-wizard";
 import { ActivForceEntry } from "@/components/assessments/activforce-entry";
 import { VoltraImport } from "@/components/assessments/voltra-import";
+import { DeviceReview } from "@/components/assessments/device-review";
 import {
   emptyAssessment,
   type AssessmentData,
@@ -150,6 +151,9 @@ export default async function AssessmentPage({
 
         <ActivForceEntry assessmentId={row.id} />
         <VoltraImport assessmentId={row.id} />
+        <DeviceReview assessmentId={row.id}
+          measurements={Array.isArray((stored as any).device_measurements) ? (stored as any).device_measurements : []}
+          workouts={Array.isArray((stored as any).voltra_sessions) ? (stored as any).voltra_sessions : []} />
         <AssessmentWizard
           assessmentId={row.id}
           clientId={row.client_id}
