@@ -331,15 +331,18 @@ export async function POST(request: NextRequest) {
     } : {}),
   };
 
+  const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
+  if (!generatorSecret || !process.env.PROGRAM_GENERATOR_URL) {
+    return NextResponse.json({ error: "Secure generator is not configured" }, { status: 503 });
+  }
   const started = Date.now();
   try {
-    const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
     const res = await fetch(`${GENERATOR_URL}/api/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        ...(generatorSecret ? { "Authorization": `Bearer ${generatorSecret}` } : {}),
+        "Authorization": `Bearer ${generatorSecret}`,
       },
       body: JSON.stringify(generatorPayload),
       signal: AbortSignal.timeout(55000),
