@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   DollarSign,
@@ -72,6 +72,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const items = NAV_BY_ROLE[role];
 
   async function handleSignOut() {
@@ -107,9 +108,10 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
         <ul className="flex flex-col gap-0.5">
           {items.map((item) => {
             const active = item.href === "/dashboard?view=owner"
-              ? typeof window !== "undefined" && window.location.search.includes("view=owner")
-              : pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              ? pathname === "/dashboard" && searchParams.get("view") === "owner"
+              : item.href === "/dashboard"
+                ? pathname === "/dashboard" && searchParams.get("view") !== "owner"
+                : pathname === item.href || pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
               <li key={item.href}>
