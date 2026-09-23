@@ -86,3 +86,12 @@ test("published client PDF is independent of coach draft mode and never serves c
   assert.doesNotMatch(route, /!isStaff && \(!program\.pdf_client_url \|\| program\.data\?\.pdf_mode === "coach"\)/);
   assert.match(route, /Cache-Control": "private, no-store"/);
 });
+
+test("assessment pipeline cannot drop cardio restrictions or infer surgical clearance", () => {
+  const route = read("app/api/generate/route.ts");
+  assert.match(route, /cardio_profile: generatorCardioProfile\(ct, conditioning\)/);
+  assert.match(route, /includeUnverifiedSurgicalHistory\(/);
+  assert.match(route, /generatorRichRestrictions\(a\.pain_map/);
+  assert.match(route, /\.\.\.recommendedTrainingDays\(sessionsPerWeek\)/);
+  assert.doesNotMatch(route, /\.\.\.\(ct\.primary_machine \?/);
+});
