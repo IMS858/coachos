@@ -35,7 +35,7 @@ export default async function ProgramPage({
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, name, status, data, client_id, assessment_id")
+    .select("id, name, status, data, coach_edits, client_id, assessment_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -169,10 +169,13 @@ export default async function ProgramPage({
               </CardContent>
             </Card>
             {generated.pdf_base64 && (
+              <p className="text-xs text-cream-faint">This PDF reflects the last regenerated version. Saved coach edits must be regenerated before sharing.</p>
+            )}
+            {generated.pdf_base64 && (
               <a href={`/api/programs/${id}/pdf`} className="text-sky-light underline underline-offset-2 text-sm">Download saved PDF</a>
             )}
             {isStaff && generated.structured_program && (
-              <ImsProgramStudio plan={generated.structured_program} />
+              <ImsProgramStudio plan={generated.structured_program} programId={id} initialEdits={(program as any).coach_edits?.structured_program ?? null} />
             )}
             {isStaff && (program as any).assessment_id && (
               <GenerateProgramButton assessmentId={(program as any).assessment_id} />
