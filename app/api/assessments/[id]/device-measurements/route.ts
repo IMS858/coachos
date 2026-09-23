@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_MEASUREMENTS = 100;
-const MAX_SESSIONS = 30;
 type Measurement = { device: "activforce_2"; kind: "rom" | "force"; joint: string;
   motion: string; side: "left" | "right" | "bilateral"; value: number;
-  unit: "degrees" | "lb" | "N"; test_date: string; position: string; notes: string };
+  unit: "degrees" | "lb" | "N"; test_date: string; position: string; notes: string;
+  protocol: "peak_isometric" | "unspecified" | "rom_unspecified" };
 function valid(m: unknown): m is Measurement {
   if (!m || typeof m !== "object" || Array.isArray(m)) return false;
   const x = m as Record<string, unknown>;
@@ -18,6 +18,7 @@ function valid(m: unknown): m is Measurement {
     && typeof x.value === "number" && Number.isFinite(x.value) && x.value >= 0
     && (x.kind === "rom" ? x.unit === "degrees" && x.value <= 360
       : ["lb", "N"].includes(String(x.unit)) && x.value <= 10000)
+    && (x.kind === "force" ? ["peak_isometric", "unspecified"].includes(String(x.protocol)) : x.protocol === "rom_unspecified")
     && date && typeof x.notes === "string" && x.notes.length <= 500;
 }
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
