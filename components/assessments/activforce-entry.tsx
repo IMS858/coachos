@@ -10,6 +10,7 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
   const [value, setValue] = useState("");
   const [unit, setUnit] = useState<"degrees" | "lb" | "N">("degrees");
   const [position, setPosition] = useState("");
+  const [protocol, setProtocol] = useState("unspecified");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +24,7 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ measurement: { device: "activforce_2", kind, joint, motion,
           side, value: Number(value), unit: kind === "rom" ? "degrees" : unit,
-          position, test_date: date, notes } }),
+          position, protocol: kind === "force" ? protocol : "rom_unspecified", test_date: date, notes } }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save");
@@ -63,6 +64,12 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
           <option value="degrees">Degrees</option><option value="lb">Pounds-force</option><option value="N">Newtons</option>
         </select>
       </label>
+      {kind === "force" && <label className="grid gap-1 text-sm">Test protocol
+        <select className={field} value={protocol} onChange={e => setProtocol(e.target.value)}>
+          <option value="unspecified">Not specified — descriptive only</option>
+          <option value="peak_isometric">Verified peak isometric</option>
+        </select>
+      </label>}
       <label className="grid gap-1 text-sm">Testing position
         <input className={field} required maxLength={150} value={position} onChange={e => setPosition(e.target.value)} placeholder="Seated, elbow at 90°" />
       </label>
