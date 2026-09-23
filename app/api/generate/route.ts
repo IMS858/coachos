@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { approvedDeviceEvidence } from "@/lib/devices/approved-evidence";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -197,6 +198,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   const a = (assessment.data as any) ?? {};
+  const deviceEvidence = approvedDeviceEvidence(a);
   const goals = a.goals ?? {};
   const health = a.health ?? {};
   const screen = a.movement_screen ?? {};
@@ -290,7 +292,10 @@ export async function POST(request: NextRequest) {
       goals.primary?.toLowerCase().includes("fat")
         ? "fat_loss"
         : "maintenance"),
-    coach_notes: [summary.recommendation, summary.focus_areas, summary.red_flags].filter(Boolean).join(". "),
+    coach_notes: [summary.recommendation, summary.focus_areas, summary.red_flags,
+      ...deviceEvidence.approved_voltra_notes.map(note => `Approved VOLTRA workout (descriptive only): ${note}`)]
+      .filter(Boolean).join(". "),
+    ...(deviceEvidence.objective_measures ? { objective_measures: deviceEvidence.objective_measures } : {}),
     pdf_mode: pdfMode,
     // ── Coach OS integration fields ──
     sleep_quality: lifestyle.sleep_quality || "",
