@@ -328,16 +328,8 @@ export async function POST(request: NextRequest) {
 
   const started = Date.now();
   try {
-    console.log("[generate] payload:", JSON.stringify({
-      fra_priorities: generatorPayload.fra_priorities,
-      mobility_map_count: generatorPayload.mobility_map.length,
-      strength_markers: generatorPayload.strength_markers,
-      constraints: generatorPayload.constraints,
-      concerns: generatorPayload.concerns,
-      strength_days: generatorPayload.strength_days,
-      cardio_days: generatorPayload.cardio_days,
-    }));
-    console.log("[generate] calling IMS generator at", GENERATOR_URL);
+    // Do not log health, mobility, injury or training payloads.
+    console.log("[generate] starting request to IMS generator");
     const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
     const res = await fetch(`${GENERATOR_URL}/api/generate`, {
       method: "POST",
