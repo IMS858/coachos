@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { AssessmentWizard } from "@/components/assessments/assessment-wizard";
 import { ActivForceEntry } from "@/components/assessments/activforce-entry";
+import { VoltraImport } from "@/components/assessments/voltra-import";
 import {
   emptyAssessment,
   type AssessmentData,
@@ -148,6 +149,7 @@ export default async function AssessmentPage({
         </div>
 
         <ActivForceEntry assessmentId={row.id} />
+        <VoltraImport assessmentId={row.id} />
         <AssessmentWizard
           assessmentId={row.id}
           clientId={row.client_id}
