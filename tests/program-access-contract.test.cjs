@@ -43,3 +43,25 @@ test("published client JSON is an allowlist and clears private generator inputs"
   assert.match(source, /request_payload: null/);
   assert.match(source, /objective_summary: null/);
 });
+
+test("generated program publishing is locked until explicit release and all canonical approvals", () => {
+  const source = read("app/api/programs/[id]/publish/route.ts");
+  assert.match(source, /IMS_GENERATOR_CLIENT_RELEASE_APPROVED !== "true"/);
+  assert.match(source, /mappings\.length !== 423/);
+  assert.match(source, /fourWeekStructureIssues\(record\.data\.structured_program\)/);
+  assert.match(source, /approvedIds\.has\(m\.matched_exercise_id\)/);
+});
+
+test("exercise review approval requires confirmed canonical mapping", () => {
+  const source = read("app/api/exercise-reviews/route.ts");
+  assert.match(source, /canonical_exercise_queue/);
+  assert.match(source, /\.eq\("mapping_status","coach_confirmed"\)/);
+  assert.match(source, /primary_joints_confirmed/);
+  assert.match(source, /contraindications_confirmed/);
+});
+
+test("canonical identity mapping does not automatically grant safety approval", () => {
+  const source = read("app/api/exercise-reviews/canonical/route.ts");
+  assert.match(source, /safety_approved:false/);
+  assert.match(source, /review_notes\.trim\(\)\.length<15/);
+});
