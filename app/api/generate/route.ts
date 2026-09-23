@@ -333,16 +333,6 @@ export async function POST(request: NextRequest) {
 
   const started = Date.now();
   try {
-    console.log("[generate] payload:", JSON.stringify({
-      fra_priorities: generatorPayload.fra_priorities,
-      mobility_map_count: generatorPayload.mobility_map.length,
-      strength_markers: generatorPayload.strength_markers,
-      constraints: generatorPayload.constraints,
-      concerns: generatorPayload.concerns,
-      strength_days: generatorPayload.strength_days,
-      cardio_days: generatorPayload.cardio_days,
-    }));
-    console.log("[generate] calling IMS generator at", GENERATOR_URL);
     const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
     const res = await fetch(`${GENERATOR_URL}/api/generate`, {
       method: "POST",
@@ -358,10 +348,9 @@ export async function POST(request: NextRequest) {
     console.log("[generate] generator responded", res.status, "in", Date.now() - started, "ms");
 
     if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[generate] generator error", res.status, errText.slice(0, 500));
+      // Upstream errors may contain assessment details; never log or echo them.
       return NextResponse.json(
-        { error: `Generator returned ${res.status}`, detail: res.status === 400 || res.status === 422 ? errText.slice(0, 300) : "The generator is temporarily unavailable." },
+        { error: `Generator returned ${res.status}`, detail: "The generator could not process this assessment. Review its inputs or retry." },
         { status: 502 }
       );
     }
