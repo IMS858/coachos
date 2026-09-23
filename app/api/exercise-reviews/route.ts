@@ -24,6 +24,15 @@ export async function POST(request: NextRequest) {
     .select("id,name,primary_joints,client_visible").eq("id", body.exercise_id).maybeSingle();
   if (!exercise) return NextResponse.json({ error: "Exercise not found" }, { status: 404 });
   const approved = body.safety_status === "approved";
+  if (approved) {
+    const { data: mapped } = await supabase.from("canonical_exercise_queue")
+      .select("canonical_id,mapping_status,matched_exercise_id")
+      .eq("canonical_id",body.canonical_id).eq("matched_exercise_id",exercise.id)
+      .eq("mapping_status","coach_confirmed").maybeSingle();
+    if (!mapped) return NextResponse.json({
+      error: "Confirm this exercise's canonical identity in the canonical mapping queue before safety approval."
+    },{status:422});
+  }
   if (approved && (
     !["exact_normalized", "coach_confirmed"].includes(body.mapping_status) ||
     !body.primary_joints_confirmed || !body.contraindications_confirmed ||
