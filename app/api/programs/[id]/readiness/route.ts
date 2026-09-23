@@ -10,11 +10,6 @@ export async function GET(
 ) {
   const {id} = await params;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    const releaseChecks = generated ? [
-    {key:"review_signoff",label:"Coach marked the plan ready to publish",ok:program.data?.review_status === "ready_to_publish"},
-    {key:"catalog_safety",label:"All canonical identities mapped to safety-approved exercises",ok:catalogVerified},
-    {key:"release_gate",label:"Formal generator client-release sign-off enabled",ok:process.env.IMS_GENERATOR_CLIENT_RELEASE_APPROVED === "true"},
-  ] : [];
   return NextResponse.json({error: "Invalid program ID"}, {status: 400});
   }
   const supabase = await createClient();
@@ -52,6 +47,11 @@ export async function GET(
     {key:"coach_edits",label:"No unsynchronized coach edits",ok:!generated || !program.coach_edits || Object.keys(program.coach_edits).length === 0},
   ];
   const blockers = checks.filter(check => !check.ok).map(({key,label}) => ({key,label}));
+  const releaseChecks = generated ? [
+    {key:"review_signoff",label:"Coach marked the plan ready to publish",ok:program.data?.review_status === "ready_to_publish"},
+    {key:"catalog_safety",label:"All canonical identities mapped to safety-approved exercises",ok:catalogVerified},
+    {key:"release_gate",label:"Formal generator client-release sign-off enabled",ok:process.env.IMS_GENERATOR_CLIENT_RELEASE_APPROVED === "true"},
+  ] : [];
   return NextResponse.json({
     program_id:program.id,
     program_name:program.name,
