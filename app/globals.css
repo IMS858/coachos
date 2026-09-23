@@ -392,3 +392,27 @@ html, body { background-color: #eef1f4; color: #17191c; }
   .ims-staff-dark .rounded-lg.border.bg-navy-soft { transition: border-color .2s, transform .2s; }
   .ims-staff-dark .rounded-lg.border.bg-navy-soft:hover { border-color: #53746b; }
 }
+
+/* Interactive IMS program studio */
+.ims-program-studio .ims-studio-stat {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
+  min-height: 116px; border: 1px solid #34454b; border-radius: 14px;
+  padding: 1rem; background: linear-gradient(135deg,#203038,#18262d);
+}
+.ims-program-studio .ims-studio-stat span { color: #c3cfcc; font-size: .8rem; }
+.ims-program-studio .ims-studio-stat strong { color: #f3f7f6; font-size: 1.25rem; }
+.ims-program-studio .ims-studio-panel {
+  border: 1px solid #34454b; border-radius: 16px;
+  background: linear-gradient(145deg,#203038,#19272d);
+}
+.ims-program-studio .ims-week-tab {
+  padding: .65rem 1.1rem; border-radius: 999px; font-size: .875rem;
+  color: #c3cfcc; background: #26353d; border: 1px solid #34454b;
+}
+.ims-program-studio .ims-week-tab-active {
+  color: #10261d; background: #b3f7d7; border-color: #b3f7d7; font-weight: 700;
+}
+.ims-program-studio .ims-exercise-row {
+  border: 1px solid #34454b; border-radius: 10px; background: #152228;
+}
+.ims-program-studio .ims-exercise-row[open] { border-color: #53746b; }
