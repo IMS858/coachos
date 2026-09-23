@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import "./assessment-workspace.css";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -131,8 +132,7 @@ export function AssessmentWizard({
   async function finish() {
     const ok = await save(true);
     if (ok) {
-      if (id) router.push(`/assessments/${id}`);
-      else router.push("/assessments");
+      router.push(id ? `/assessments/${id}` : "/assessments");
       router.refresh();
     }
   }
@@ -146,9 +146,22 @@ export function AssessmentWizard({
   const sm = data.summary;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="assessment-workspace flex flex-col gap-5">
+      <header className="assessment-hero">
+        <div className="assessment-eyebrow">IMS METHOD / MOVEMENT INTELLIGENCE</div>
+        <div className="assessment-hero-row">
+          <div>
+            <h2>Assessment studio</h2>
+            <p>Capture the baseline. Identify priorities. Build a program with intent.</p>
+          </div>
+          <div className="assessment-step-counter"><strong>{String(step + 1).padStart(2, "0")}</strong><span> / {STEPS.length} · {STEPS[step]}</span></div>
+        </div>
+        <div className="assessment-progress-track" aria-label={`Section ${step + 1} of ${STEPS.length}`}>
+          <div style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+        </div>
+      </header>
       {/* Step progress */}
-      <div className="flex flex-wrap gap-1.5 mb-2">
+      <div className="assessment-step-nav flex flex-wrap gap-1.5 mb-2">
         {STEPS.map((label, i) => {
           const done = sections[SECTION_KEYS[i]] === "complete" && i !== step;
           const active = i === step;
@@ -167,6 +180,7 @@ export function AssessmentWizard({
         })}
       </div>
 
+      <main className="assessment-form-panel">
       {/* Client picker (new assessment only) */}
       {!assessmentId && step === 0 && clients && (
         <div className="mb-3">
@@ -590,8 +604,9 @@ export function AssessmentWizard({
         </div>
       )}
 
+      </main>
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-2 border-t border-divider">
+      <div className="assessment-footer flex items-center justify-between pt-2 border-t border-divider">
         <Button variant="secondary" size="sm" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
           ← Back
         </Button>
