@@ -16,6 +16,7 @@ function splitCSV(text: string): string[][] {
       else if (ch === '"') quoted = false;
       else field += ch;
     } else if (ch === '"' && field === "") quoted = true;
+    else if (ch === '"') throw new Error("Unexpected CSV quote");
     else if (ch === ",") { row.push(field); field = ""; }
     else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i++;
@@ -52,7 +53,7 @@ export function summarizeVoltraCSV(csv: string) {
     for (const column of VOLTRA_COLUMNS.slice(2, 11)) numeric(row[column], column);
     for (const column of VOLTRA_COLUMNS.slice(11)) {
       const trace = row[column].trim();
-      if (!trace) continue;
+      if (!trace) throw new Error("Missing trace " + column);
       const samples = trace.split(";");
       if (samples.length > 10000) throw new Error("Trace too long");
       samples.forEach(s => numeric(s, column, true));
