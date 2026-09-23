@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
   const [kind, setKind] = useState<"rom" | "force">("rom");
@@ -11,8 +12,10 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
   const [unit, setUnit] = useState<"degrees" | "lb" | "N">("degrees");
   const [position, setPosition] = useState("");
   const [protocol, setProtocol] = useState("unspecified");
+  const [romMode, setRomMode] = useState("unspecified");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   async function save(event: FormEvent) {
@@ -24,13 +27,14 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ measurement: { device: "activforce_2", kind, joint, motion,
           side, value: Number(value), unit: kind === "rom" ? "degrees" : unit,
-          position, protocol: kind === "force" ? protocol : "rom_unspecified", test_date: date, notes } }),
+          position, protocol: kind === "force" ? protocol : "rom_unspecified", rom_mode: kind === "rom" ? romMode : undefined, test_date: date, notes } }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save");
       setValue("");
       setNotes("");
-      setMessage("Measurement saved for coach review. New results will appear in the review panel after refresh.");
+      setMessage("Measurement saved for coach review.");
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save measurement");
     } finally { setBusy(false); }
@@ -64,6 +68,13 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
           <option value="degrees">Degrees</option><option value="lb">Pounds-force</option><option value="N">Newtons</option>
         </select>
       </label>
+      {kind === "rom" && <label className="grid gap-1 text-sm">ROM method
+        <select className={field} value={romMode} onChange={e => setRomMode(e.target.value)}>
+          <option value="unspecified">Not specified — descriptive only</option>
+          <option value="active">Active ROM</option>
+          <option value="passive">Passive ROM</option>
+        </select>
+      </label>}
       {kind === "force" && <label className="grid gap-1 text-sm">Test protocol
         <select className={field} value={protocol} onChange={e => setProtocol(e.target.value)}>
           <option value="unspecified">Not specified — descriptive only</option>
