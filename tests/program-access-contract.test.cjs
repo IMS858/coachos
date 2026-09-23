@@ -65,3 +65,15 @@ test("canonical identity mapping does not automatically grant safety approval", 
   assert.match(source, /safety_approved:false/);
   assert.match(source, /review_notes\.trim\(\)\.length<15/);
 });
+
+test("published generator page offers stored client PDF and hides raw generator inputs", () => {
+  const page = read("app/programs/[id]/page.tsx");
+  assert.match(page, /pdf_client_url, pdf_coach_url/);
+  assert.match(page, /\(program as any\)\.pdf_client_url/);
+  assert.match(page, /\/api\/programs\/\$\{id\}\/pdf/);
+  assert.match(page, /isStaff && generated\.assessment_summary/);
+  assert.match(page, /!hasGenerated && !isImsGenerator/);
+  const publish = read("app/api/programs/[id]/publish/route.ts");
+  assert.match(publish, /pdf_client_url/);
+  assert.match(publish, /request_payload: null/);
+});
