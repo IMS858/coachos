@@ -1,12 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizePublicAssessmentData } from "@/lib/assessments/sanitize-public-data";
 
 /**
  * PATCH /api/assessments/[id] — save wizard progress (staff only).
- * Body may include any of: data, section_status, status, notes, assessment_date.
- * `data` and `section_status` replace the stored jsonb wholesale — the wizard
- * always holds the full payload, which keeps the Python generator contract
- * intact (assessments.data is exactly what the engine consumes).
+ * Device measurements and VOLTRA sessions are deliberately excluded from
+ * assessments.data; staff-only evidence is stored separately.
  */
 export async function PATCH(
   request: NextRequest,
@@ -35,17 +34,16 @@ export async function PATCH(
 
   let expectedUpdatedAt: string | null = null;
   if ("data" in body) {
-    if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
+    const publicData = sanitizePublicAssessmentData(body.data);
+    if (!publicData) {
       return NextResponse.json({ error: "Invalid assessment data" }, { status: 400 });
     }
     const { data: existing, error: readError } = await supabase.from("assessments")
-      .select("data, updated_at").eq("id", id).maybeSingle();
+      .select("updated_at").eq("id", id).maybeSingle();
     if (readError || !existing) {
       return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
     }
-    const previous = existing.data && typeof existing.data === "object" && !Array.isArray(existing.data)
-      ? existing.data as Record<string, unknown> : {};
-    update.data = { ...body.data, device_measurements: previous.device_measurements ?? [], voltra_sessions: previous.voltra_sessions ?? [] };
+    update.data = publicData;
     expectedUpdatedAt = existing.updated_at;
   }
   if ("section_status" in body) update.section_status = body.section_status;
