@@ -64,11 +64,12 @@ export default async function ProgramPage({
     Array.isArray(generated.weekly_structure) &&
     generated.weekly_structure.length > 0;
 
+  // Never fetch trainer-only notes for a client-rendered page.
   const { data: assignments } = await supabase
     .from("program_exercises")
     .select(
       `id, block, sort_order, sets, reps, load, rest_seconds, tempo, duration_seconds,
-       notes_trainer, notes_client,
+       ${isStaff ? "notes_trainer, " : ""}notes_client,
        exercises!inner(id, name, ims_label, slug, category, movement_pattern,
                        coaching_cues, video_id, video_provider, primary_joints)`
     )
