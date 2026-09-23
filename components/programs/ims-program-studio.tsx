@@ -6,7 +6,7 @@ import { PublishImsProgramButton } from "@/components/programs/publish-ims-progr
 import { Activity, ArrowUpRight, ClipboardCheck, Dumbbell, ShieldCheck } from "lucide-react";
 
 type Exercise = {
-  name?: string; dose?: string; tempo?: string | null;
+  name?: string; dose?: string; tempo?: string | null; coach_override_dose?: boolean;
   rationale?: string | null; progression_note?: string | null;
   week_prescriptions?: Array<{week?: number; sets?: number; reps?: number | string; weight?: number; weight_unit?: string; rpe?: number; fallback_text?: string}>;
 };
@@ -26,7 +26,10 @@ export function ImsProgramStudio({ plan, programId, initialEdits, canPublish = f
     setWorking(previous => {
       const next = structuredClone(previous);
       const exercise = next.weeks?.[selectedWeek]?.sessions?.[selectedSession]?.blocks?.[bi]?.exercises?.[ei];
-      if (exercise) exercise[field] = value;
+      if (exercise) {
+        exercise[field] = value;
+        if (field === "dose") exercise.coach_override_dose = true;
+      }
       return next;
     });
     setDirty(true);
