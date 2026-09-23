@@ -8,6 +8,7 @@ type Readiness = {
   ready_for_client_release:boolean;
   checks:Check[];
   blockers:{key:string;label:string}[];
+  release_checks?:Check[];
   note:string;
 };
 
@@ -64,6 +65,14 @@ export function ProgramReadinessPanel({programId}:{programId:string}) {
           <span className="text-cream">{item.label}</span>
         </li>)}
       </ul>
+      {!!result.release_checks?.length && <div className="rounded-lg border border-divider p-4">
+        <h3 className="font-semibold text-cream">Client release gates</h3>
+        <p className="mt-1 text-xs text-cream-dim">Coach review readiness is not permission to publish.</p>
+        <ul className="mt-3 divide-y divide-divider">{result.release_checks.map(item=><li key={item.key} className="flex gap-3 py-2 text-sm">
+          <span aria-hidden="true" className={item.ok?"text-sky":"text-status-limited"}>{item.ok?"✓":"!"}</span>
+          <span className="text-cream">{item.label}</span>
+        </li>)}</ul>
+      </div>}
       <p className="text-xs text-cream-dim">{result.note}</p>
     </div>}
   </section>;
