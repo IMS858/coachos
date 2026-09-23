@@ -9,6 +9,7 @@ import { ProgramExercises } from "@/components/programs/program-exercises";
 import { EditableProgram } from "@/components/programs/editable-program";
 import { GenerateProgramButton } from "@/components/programs/generate-program-button";
 import { FourWeekProgramPreview } from "@/components/programs/four-week-program-preview";
+import { ProgramReadinessPanel } from "@/components/programs/program-readiness-panel";
 
 const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
 
@@ -103,6 +104,8 @@ export default async function ProgramPage({
             </p>
           </div>
         </div>
+
+        {isStaff && (program as any).status === "draft" && <ProgramReadinessPanel programId={id} />}
 
         {/* IMS Generator program — PDF-based */}
         {isImsGenerator && (
