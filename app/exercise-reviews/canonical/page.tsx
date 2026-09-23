@@ -11,7 +11,7 @@ export default async function CanonicalMappingPage(){
  const {data:profile}=await supabase.from("profiles").select("role").eq("id",user.id).maybeSingle();
  if(!profile||!["owner","trainer"].includes(profile.role))redirect("/dashboard");
  const [{data:rows,error:rowError},{data:exercises,error:exerciseError}]=await Promise.all([
-  supabase.from("canonical_exercise_queue").select("canonical_id,canonical_name,source_status,source_confidence,source_primary_joints,mapping_status,matched_exercise_id,review_notes").order("canonical_id").limit(1000),
+  supabase.from("canonical_exercise_queue").select("canonical_id,canonical_name,source_status,source_confidence,source_primary_joints,mapping_status,matched_exercise_id,review_notes,review_priority,review_priority_reason,exact_candidate_id,exact_candidate_name,exact_candidate_count,safety_data_gap").order("review_priority").order("canonical_id").limit(1000),
   supabase.from("exercises").select("id,name,ims_label,primary_joints").order("name").limit(1000),
  ]);
  return <AppShell><main className="mx-auto max-w-6xl space-y-6 pb-16">
