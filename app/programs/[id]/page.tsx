@@ -168,7 +168,7 @@ export default async function ProgramPage({
                 </div>
               </CardContent>
             </Card>
-            {generated.pdf_base64 && (
+            {generated.pdf_storage_path && (
               <p className="text-xs text-cream-faint">This PDF reflects the last regenerated version. Saved coach edits must be regenerated before sharing.</p>
             )}
             {generated.pdf_base64 && (
