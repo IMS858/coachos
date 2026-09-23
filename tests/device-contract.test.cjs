@@ -100,5 +100,5 @@ test("malformed quotes fail closed; optional empty traces match Python", () => {
   const header = VOLTRA_COLUMNS.join(",");
   const valid = row(1,1);
   assert.throws(() => summarizeVoltraCSV([header, valid.map((v,i) => i === 2 ? '18"0' : v).join(",")].join("\n")), /quote/);
-  assert.throws(() => summarizeVoltraCSV([header, valid.map((v,i) => i === 11 ? "" : v).join(",")].join("\n")), /trace/);
+  assert.equal(summarizeVoltraCSV([header, valid.map((v,i) => i === 11 ? "" : v).join(",")].join("\n")).total_repetitions, 1);
 });
