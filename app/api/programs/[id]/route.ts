@@ -50,6 +50,13 @@ export async function PATCH(
         || JSON.stringify(body.coach_edits).length > 100_000) {
       return NextResponse.json({ error: "Invalid coach edits" }, { status: 400 });
     }
+    if (existing.data?.source === "ims_generator") {
+      if (existing.status !== "draft") return NextResponse.json({ error: "Only drafts can be edited" }, { status: 409 });
+      const reviewed = body.coach_edits.structured_program;
+      if (!reviewed || !Array.isArray(reviewed.weeks) || !reviewed.weeks.length || reviewed.weeks.length > 8) {
+        return NextResponse.json({ error: "Invalid reviewed training block" }, { status: 400 });
+      }
+    }
     update.coach_edits = body.coach_edits;
   }
   if (body.status !== undefined) {
@@ -64,6 +71,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
     }
     if (["published", "active"].includes(body.status) && existing.data?.source === "ims_generator") {
+      if (body.coach_edits !== undefined) return NextResponse.json({ error: "Save and regenerate reviewed edits before publishing" }, { status: 409 });
       if (existing.data?.pdf_mode === "coach") {
         return NextResponse.json({ error: "Coach-only PDF cannot be published to clients" }, { status: 400 });
       }
