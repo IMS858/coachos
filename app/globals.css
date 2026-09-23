@@ -322,3 +322,97 @@ html, body { background-color: #eef1f4; color: #17191c; }
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* IMS Coach OS premium staff workspace — scoped to staff so client intake,
+   public booking and mobile client views retain their accessible light theme. */
+.ims-staff-dark {
+  --color-navy: #10191e;
+  --color-navy-soft: #1b292f;
+  --color-navy-elev: #25343b;
+  --color-navy-deep: #152228;
+  --color-ghost: #26353d;
+  --color-divider: #34454b;
+  --color-cream: #f3f7f6;
+  --color-cream-dim: #c3cfcc;
+  --color-cream-faint: #a4b6b1;
+  --color-sky: #9ce9c5;
+  --color-sky-light: #b3f7d7;
+  --color-sky-deep: #6cd4a6;
+  --color-status-optimal: #9ce9c5;
+  --color-status-moderate: #f8d48a;
+  --color-status-limited: #ff9f91;
+  color-scheme: dark;
+  background: #10191e;
+  color: #f3f7f6;
+}
+.ims-staff-dark .ims-workspace {
+  background: radial-gradient(ellipse at 80% -10%, rgba(87, 147, 124, .15), transparent 44%),
+              linear-gradient(160deg, #10191e 0%, #132128 58%, #10191e 100%);
+}
+.ims-staff-dark .bg-navy { background-color: #10191e; }
+.ims-staff-dark .bg-navy-soft { background-color: #1b292f; box-shadow: 0 10px 32px rgba(0,0,0,.12); }
+.ims-staff-dark .bg-navy-elev { background-color: #25343b; }
+.ims-staff-dark .bg-navy-deep { background-color: #152228; }
+.ims-staff-dark .bg-ghost { background-color: #26353d; }
+.ims-staff-dark .text-cream { color: #f3f7f6; }
+.ims-staff-dark .text-cream-dim { color: #c3cfcc; }
+.ims-staff-dark .text-cream-faint { color: #a4b6b1; }
+.ims-staff-dark .text-sky,
+.ims-staff-dark .text-sky-light { color: #9ce9c5; }
+.ims-staff-dark .border-divider { border-color: #34454b; }
+.ims-staff-dark .bg-sky { background-color: #237d61; }
+.ims-staff-dark .border-sky { border-color: #9ce9c5; }
+.ims-staff-dark .text-status-optimal { color: #9ce9c5; }
+.ims-staff-dark .text-status-moderate { color: #f8d48a; }
+.ims-staff-dark .text-status-limited { color: #ff9f91; }
+.ims-staff-dark .rounded-lg.border.bg-navy-soft {
+  border-color: #34454b;
+  border-radius: 16px;
+  background: linear-gradient(155deg, #203038, #19272d);
+}
+.ims-staff-dark input,
+.ims-staff-dark select,
+.ims-staff-dark textarea {
+  color-scheme: dark;
+}
+.ims-staff-dark :focus-visible { outline-color: #9ce9c5; }
+.ims-sidebar {
+  background: linear-gradient(180deg, #101b21, #14242b 75%, #0c161b);
+  border-right-color: #34454b;
+}
+.ims-staff-dark .eyebrow { color: #9ce9c5; }
+.ims-staff-dark h1 { font-size: clamp(2rem, 3vw, 3rem); letter-spacing: .015em; }
+.ims-staff-dark .stat-rule { border-top-color: #9ce9c5; }
+.ims-staff-dark .band-blue { background: #237d61; }
+.ims-staff-dark .band-blue .eyebrow { color: #d5ffec; }
+.ims-staff-dark .band-blue .text-cream,
+.ims-staff-dark .band-blue h1,
+.ims-staff-dark .band-blue h2 { color: #fff; }
+@media (prefers-reduced-motion: no-preference) {
+  .ims-staff-dark .rounded-lg.border.bg-navy-soft { transition: border-color .2s, transform .2s; }
+  .ims-staff-dark .rounded-lg.border.bg-navy-soft:hover { border-color: #53746b; }
+}
+
+/* Interactive IMS program studio */
+.ims-program-studio .ims-studio-stat {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
+  min-height: 116px; border: 1px solid #34454b; border-radius: 14px;
+  padding: 1rem; background: linear-gradient(135deg,#203038,#18262d);
+}
+.ims-program-studio .ims-studio-stat span { color: #c3cfcc; font-size: .8rem; }
+.ims-program-studio .ims-studio-stat strong { color: #f3f7f6; font-size: 1.25rem; }
+.ims-program-studio .ims-studio-panel {
+  border: 1px solid #34454b; border-radius: 16px;
+  background: linear-gradient(145deg,#203038,#19272d);
+}
+.ims-program-studio .ims-week-tab {
+  padding: .65rem 1.1rem; border-radius: 999px; font-size: .875rem;
+  color: #c3cfcc; background: #26353d; border: 1px solid #34454b;
+}
+.ims-program-studio .ims-week-tab-active {
+  color: #10261d; background: #b3f7d7; border-color: #b3f7d7; font-weight: 700;
+}
+.ims-program-studio .ims-exercise-row {
+  border: 1px solid #34454b; border-radius: 10px; background: #152228;
+}
+.ims-program-studio .ims-exercise-row[open] { border-color: #53746b; }

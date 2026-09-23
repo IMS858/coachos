@@ -14,6 +14,7 @@ export function GenerateProgramButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
 
   async function generate(pdfMode: string = "client") {
     setBusy(true);
@@ -36,6 +37,8 @@ export function GenerateProgramButton({
         return;
       }
 
+      const savedDraftId = res.headers.get("X-IMS-Program-ID");
+      if (savedDraftId) setDraftId(savedDraftId);
       // Response is a PDF — handle differently for mobile vs desktop
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -85,7 +88,7 @@ export function GenerateProgramButton({
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
-          {busy ? "Generating…" : done ? "Download again" : "Generate Client Plan"}
+          {busy ? "Generating…" : done ? "Generate another draft" : "Generate Client Plan"}
         </Button>
         <Button variant="secondary" onClick={() => generate("coach")} disabled={busy}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -96,7 +99,10 @@ export function GenerateProgramButton({
         <p className="text-sm text-status-limited">{error}</p>
       )}
       {done && !error && (
-        <p className="text-xs text-status-optimal">Plan generated and downloading. Check your Downloads folder.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-status-optimal">Draft saved. Review the training block before sharing.</p>
+          {draftId && <Button size="sm" variant="secondary" onClick={() => router.push(`/programs/${draftId}`)}>Open program studio →</Button>}
+        </div>
       )}
     </div>
   );

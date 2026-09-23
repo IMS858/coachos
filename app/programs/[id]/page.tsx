@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProgramExercises } from "@/components/programs/program-exercises";
 import { EditableProgram } from "@/components/programs/editable-program";
 import { GenerateProgramButton } from "@/components/programs/generate-program-button";
+import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
 
 const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
 
@@ -34,7 +35,7 @@ export default async function ProgramPage({
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, name, status, data, client_id, assessment_id")
+    .select("id, name, status, data, coach_edits, client_id, assessment_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -52,6 +53,10 @@ export default async function ProgramPage({
   }
 
   const generated = (program as any).data;
+  const { data: privateArtifact } = isStaff && generated?.source === "ims_generator" && (program as any).status !== "draft"
+    ? await supabase.from("program_coach_artifacts").select("structured_program,assessment_summary").eq("program_id", id).maybeSingle()
+    : { data: null };
+  const coachSummary = generated?.assessment_summary ?? privateArtifact?.assessment_summary;
   const isImsGenerator = generated?.source === "ims_generator";
   const hasGenerated =
     !isImsGenerator &&
@@ -59,11 +64,12 @@ export default async function ProgramPage({
     Array.isArray(generated.weekly_structure) &&
     generated.weekly_structure.length > 0;
 
+  // Never fetch trainer-only notes for a client-rendered page.
   const { data: assignments } = await supabase
     .from("program_exercises")
     .select(
       `id, block, sort_order, sets, reps, load, rest_seconds, tempo, duration_seconds,
-       notes_trainer, notes_client,
+       ${isStaff ? "notes_trainer, " : ""}notes_client,
        exercises!inner(id, name, ims_label, slug, category, movement_pattern,
                        coaching_cues, video_id, video_provider, primary_joints)`
     )
@@ -121,35 +127,35 @@ export default async function ProgramPage({
                     </div>
                   </div>
                 </div>
-                {generated.assessment_summary && (
+                {isStaff && coachSummary && (
                   <div className="flex flex-col gap-2 text-sm">
-                    {generated.assessment_summary.goal && (
+                    {coachSummary.goal && (
                       <div>
                         <span className="text-cream-faint">Goal: </span>
-                        <span className="text-cream">{generated.assessment_summary.goal}</span>
+                        <span className="text-cream">{coachSummary.goal}</span>
                       </div>
                     )}
-                    {generated.assessment_summary.fra_priorities?.length > 0 && (
+                    {coachSummary.fra_priorities?.length > 0 && (
                       <div>
                         <span className="text-cream-faint">FRA Priorities: </span>
                         <span className="text-cream">
-                          {generated.assessment_summary.fra_priorities.join(" · ")}
+                          {coachSummary.fra_priorities.join(" · ")}
                         </span>
                       </div>
                     )}
-                    {generated.assessment_summary.constraints?.length > 0 && (
+                    {coachSummary.constraints?.length > 0 && (
                       <div>
                         <span className="text-cream-faint">Constraints: </span>
                         <span className="text-cream">
-                          {generated.assessment_summary.constraints.join(", ")}
+                          {coachSummary.constraints.join(", ")}
                         </span>
                       </div>
                     )}
-                    {generated.assessment_summary.concerns?.length > 0 && (
+                    {coachSummary.concerns?.length > 0 && (
                       <div>
                         <span className="text-cream-faint">Concerns: </span>
                         <span className="text-cream">
-                          {generated.assessment_summary.concerns.join(", ")}
+                          {coachSummary.concerns.join(", ")}
                         </span>
                       </div>
                     )}
@@ -167,13 +173,20 @@ export default async function ProgramPage({
                 </div>
               </CardContent>
             </Card>
-            {generated.pdf_base64 && (
+            {generated.pdf_storage_path && (
+              <p className="text-xs text-cream-faint">This PDF reflects the last regenerated version. Saved coach edits must be regenerated before sharing.</p>
+            )}
+            {generated.pdf_storage_path && (
               <a href={`/api/programs/${id}/pdf`} className="text-sky-light underline underline-offset-2 text-sm">Download saved PDF</a>
             )}
-            {isStaff && generated.structured_program && (
-              <Card><CardHeader><CardTitle>Generated plan data — coach review</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs whitespace-pre-wrap break-words max-h-96 overflow-auto">{JSON.stringify(generated.structured_program, null, 2)}</pre></CardContent>
-              </Card>
+            {isStaff && (program as any).status === "draft" && generated.structured_program && (
+              <ImsProgramStudio plan={generated.structured_program} programId={id} initialEdits={(program as any).coach_edits?.structured_program ?? null} canPublish={generated.review_status === "ready_to_publish"} />
+            )}
+            {isStaff && (program as any).status !== "draft" && privateArtifact?.structured_program && (
+              <div className="rounded-xl border border-divider bg-navy-soft p-5">
+                <h2 className="text-lg text-cream">Private coach archive</h2>
+                <p className="mt-2 text-sm text-cream-dim">The full training block and assessment rationale remain private to staff. The client sees only the approved PDF.</p>
+              </div>
             )}
             {isStaff && (program as any).assessment_id && (
               <GenerateProgramButton assessmentId={(program as any).assessment_id} />
