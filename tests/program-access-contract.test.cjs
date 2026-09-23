@@ -77,3 +77,12 @@ test("published generator page offers stored client PDF and hides raw generator 
   assert.match(publish, /pdf_client_url/);
   assert.match(publish, /request_payload: null/);
 });
+
+test("published client PDF is independent of coach draft mode and never serves coach PDF", () => {
+  const route = read("app/api/programs/[id]/pdf/route.ts");
+  assert.match(route, /if \(!isStaff && !program\.pdf_client_url\)/);
+  assert.match(route, /const pdfPath = isStaff && program\.data\?\.pdf_mode === "coach"/);
+  assert.match(route, /\? program\.pdf_coach_url : program\.pdf_client_url/);
+  assert.doesNotMatch(route, /!isStaff && \(!program\.pdf_client_url \|\| program\.data\?\.pdf_mode === "coach"\)/);
+  assert.match(route, /Cache-Control": "private, no-store"/);
+});
