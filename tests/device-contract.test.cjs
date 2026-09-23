@@ -81,3 +81,24 @@ test("reject duplicate VOLTRA repetitions and malformed headers", () => {
   assert.throws(() => summarizeVoltraCSV(csv), /Duplicate/);
   assert.throws(() => summarizeVoltraCSV("Set,Rep\n1,1"), /header/);
 });
+
+test("shared Python fixture produces identical VOLTRA summary", () => {
+  const csv = [VOLTRA_COLUMNS.join(","),
+    [1,1,180,0,0,.43,1,.38,.9,309,700,"180;181",".3;.4","100;200","180;180","-.3;-.4","-200;-300"].join(","),
+    [1,2,180,0,0,.43,1,.47,.9,374,700,"180;181",".3;.4","100;200","180;180","-.3;-.4","-200;-300"].join(","),
+    [1,3,180,0,0,.43,1,.50,.9,399,700,"180;181",".3;.4","100;200","180;180","-.3;-.4","-200;-300"].join(",")].join("\n");
+  const summary = summarizeVoltraCSV(csv);
+  assert.equal(summary.total_repetitions, 3);
+  assert.deepEqual(summary.sets, [{
+    set_index: 1, repetitions: 3, base_load_lb_min: 180, base_load_lb_max: 180,
+    mean_velocity_m_s: .45, peak_velocity_m_s: .9,
+    mean_power_w: 360.7, peak_power_w: 700, mean_rom_m: .43,
+    total_duration_s: 3,
+  }]);
+});
+test("malformed quotes and empty trace columns fail closed", () => {
+  const header = VOLTRA_COLUMNS.join(",");
+  const valid = row(1,1);
+  assert.throws(() => summarizeVoltraCSV([header, valid.map((v,i) => i === 2 ? '18"0' : v).join(",")].join("\n")), /quote/);
+  assert.throws(() => summarizeVoltraCSV([header, valid.map((v,i) => i === 11 ? "" : v).join(",")].join("\n")), /trace/);
+});
