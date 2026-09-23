@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProgramExercises } from "@/components/programs/program-exercises";
 import { EditableProgram } from "@/components/programs/editable-program";
 import { GenerateProgramButton } from "@/components/programs/generate-program-button";
+import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
 
 const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
 
@@ -171,9 +172,7 @@ export default async function ProgramPage({
               <a href={`/api/programs/${id}/pdf`} className="text-sky-light underline underline-offset-2 text-sm">Download saved PDF</a>
             )}
             {isStaff && generated.structured_program && (
-              <Card><CardHeader><CardTitle>Generated plan data — coach review</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs whitespace-pre-wrap break-words max-h-96 overflow-auto">{JSON.stringify(generated.structured_program, null, 2)}</pre></CardContent>
-              </Card>
+              <ImsProgramStudio plan={generated.structured_program} />
             )}
             {isStaff && (program as any).assessment_id && (
               <GenerateProgramButton assessmentId={(program as any).assessment_id} />
