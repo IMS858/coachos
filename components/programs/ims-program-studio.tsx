@@ -68,7 +68,7 @@ export function ImsProgramStudio({ plan, programId, initialEdits, canPublish = f
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-divider bg-navy-soft p-4">
         <div><p className="eyebrow">Coach review</p><p className="text-sm text-cream-dim">Edit the prescription, save your changes, then regenerate the client PDF.</p></div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={busy || (!dirty && savedEdits)} onClick={save} className="rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">{dirty ? "Save draft" : "Approve unchanged plan"}</button>
+          <button type="button" disabled={busy || (!dirty && (savedEdits || pdfReady))} onClick={save} className="rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">{dirty ? "Save draft" : "Approve unchanged plan"}</button>
           <button type="button" disabled={busy || dirty || !savedEdits} onClick={regenerate} className="rounded-lg bg-[#237d61] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Regenerate PDF</button>
         </div>
         {pdfReady && !dirty && !busy && <PublishImsProgramButton programId={programId} />}
