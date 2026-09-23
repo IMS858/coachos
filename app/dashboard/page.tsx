@@ -69,10 +69,9 @@ export default async function DashboardPage({
     }
   }
 
-  // Owners can switch between owner overview and trainer "today" view
-  // via ?view=trainer — for when Jason is actually running sessions.
+  // Coach-first: owners land on their training day; financial overview is opt-in.
   const view =
-    role === "owner" && params.view === "trainer" ? "trainer" : role;
+    role === "owner" ? (params.view === "owner" ? "owner" : "trainer") : role;
 
   return (
     <AppShell>
