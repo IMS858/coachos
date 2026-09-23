@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./assessment-workspace.css";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, Circle } from "lucide-react";
@@ -95,6 +95,13 @@ export function AssessmentWizard({
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   function upd(fn: (d: AssessmentData) => void) {
     setDirty(true);
