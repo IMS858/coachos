@@ -354,6 +354,15 @@ export async function POST(request: NextRequest) {
 
     console.log("[generate] generator responded", res.status, "in", Date.now() - started, "ms");
 
+    if (res.status === 422) {
+      const hold = await res.json().catch(() => null);
+      if (hold?.error === "coach_review_required") {
+        return NextResponse.json({
+          error: "coach_review_required",
+          detail: "No verified exercise option is available for these restrictions. Review the assessment and approve an appropriate substitution before generating a client plan.",
+        }, { status: 422 });
+      }
+    }
     if (!res.ok) {
       // Upstream errors may contain assessment details; never log or echo them.
       return NextResponse.json(
