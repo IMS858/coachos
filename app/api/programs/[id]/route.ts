@@ -76,18 +76,6 @@ export async function PATCH(
       // separates the coach record from the client-facing projection.
       return NextResponse.json({ error: "Publishing generated plans requires private coach artifact storage. Download the reviewed client PDF instead." }, { status: 409 });
     }
-    if (false && ["published", "active"].includes(body.status) && existing.data?.source === "ims_generator") {
-      if (body.coach_edits !== undefined) return NextResponse.json({ error: "Save and regenerate reviewed edits before publishing" }, { status: 409 });
-      if (existing.data?.pdf_mode === "coach") {
-        return NextResponse.json({ error: "Coach-only PDF cannot be published to clients" }, { status: 400 });
-      }
-      if (existing.coach_edits && Object.keys(existing.coach_edits).length > 0) {
-        return NextResponse.json({ error: "Regenerate the PDF to include coach edits before publishing" }, { status: 409 });
-      }
-      if (!existing.data?.structured_program || !existing.data?.pdf_base64) {
-        return NextResponse.json({ error: "Incomplete generated program" }, { status: 409 });
-      }
-    }
     update.status = body.status;
     if (body.status === "published") update.published_at = new Date().toISOString();
   }
