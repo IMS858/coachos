@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -56,10 +56,17 @@ export async function POST(
   if (pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
     return NextResponse.json({ error: "Invalid PDF header" }, { status: 502 });
   }
+  const { data: current } = await supabase.from("programs").select("client_id").eq("id", id).single();
+  if (!current?.client_id) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const storagePath = `${current.client_id}/${id}/reviewed-${crypto.randomUUID()}.pdf`;
+  const svc = createServiceClient();
+  const { error: uploadError } = await svc.storage.from("ims-program-pdfs")
+    .upload(storagePath, pdf, { contentType: "application/pdf", upsert: false });
+  if (uploadError) return NextResponse.json({ error: "Private PDF storage unavailable" }, { status: 503 });
   const nextData = {
     ...record.data,
     structured_program: reviewed,
-    pdf_base64: rendered.pdf_base64,
+    pdf_storage_path: storagePath,
     pdf_mode: "client",
     generated_at: new Date().toISOString(),
     reviewed_by: user.id,
@@ -70,7 +77,12 @@ export async function POST(
     .update({ data: nextData, coach_edits: {}, updated_at: new Date().toISOString() })
     .eq("id", id).eq("status", "draft").eq("updated_at", record.updated_at)
     .select("id").maybeSingle();
-  if (error) return NextResponse.json({ error: "Unable to save regenerated PDF" }, { status: 500 });
-  if (!saved) return NextResponse.json({ error: "Draft changed during rendering; reload and retry" }, { status: 409 });
+  if (error || !saved) {
+    await svc.storage.from("ims-program-pdfs").remove([storagePath]);
+    return NextResponse.json({ error: error ? "Unable to save regenerated PDF" : "Draft changed during rendering; reload and retry" }, { status: error ? 500 : 409 });
+  }
+  if (typeof record.data?.pdf_storage_path === "string") {
+    await svc.storage.from("ims-program-pdfs").remove([record.data.pdf_storage_path]);
+  }
   return NextResponse.json({ ok: true, program_id: id, pdf_url: `/api/programs/${id}/pdf` });
 }
