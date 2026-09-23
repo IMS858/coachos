@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { approvedDeviceEvidence } from "@/lib/devices/approved-evidence";
+import { generatorCardioProfile, generatorRichRestrictions, includeUnverifiedSurgicalHistory, recommendedTrainingDays } from "@/lib/programs/cardio-assessment";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -45,13 +46,8 @@ function mapConstraints(data: any): { constraints: string[]; concerns: string[];
   if (pm.left_ankle?.severity && Number(pm.left_ankle.severity) >= 3) concerns.push("ankle");
   if (pm.right_ankle?.severity && Number(pm.right_ankle.severity) >= 3) concerns.push("ankle");
 
-  // Health history → constraints
-  if (health.surgeries) {
-    const s = health.surgeries.toLowerCase();
-    if (s.includes("knee")) constraints.push("post_surgery_knee");
-    if (s.includes("shoulder")) constraints.push("post_surgery_shoulder");
-    if (s.includes("hip")) constraints.push("post_surgery_hip");
-  }
+  // Surgical history is represented in constraints_rich with a clearance
+  // status, not inferred from a mention of a body part in free text.
 
   // Build concern notes from pain descriptions + health notes
   for (const [area, val] of Object.entries(pm) as [string, any][]) {
@@ -242,16 +238,12 @@ export async function POST(request: NextRequest) {
   // Cardio tolerance
   const ct = a.cardio_tolerance ?? {};
 
-  // Constraint status enrichment
-  const constraintsRich = Object.entries(a.pain_map ?? {})
-    .filter(([, v]: any) => v?.status && v.status !== "")
-    .map(([key, v]: any) => ({
-      key: key.replace(/_/g, " "),
-      display_name: key.replace(/_/g, " "),
-      status: v.status,
-      pain_level: v.severity ? Number(v.severity) : null,
-      avoid_notes: v.description || null,
-    }));
+  // Normalize sided joint keys. A surgical history without documented clearance
+  // remains on hold rather than being silently treated as a safe exercise pool.
+  const constraintsRich = includeUnverifiedSurgicalHistory(
+    generatorRichRestrictions(a.pain_map ?? {}),
+    health.surgeries
+  );
 
   // Build background string from lifestyle + training history
   const bgParts = [
@@ -274,9 +266,7 @@ export async function POST(request: NextRequest) {
     age_range: client.age_range || "",
     sex: client.sex || "",
     background: bgParts.join(". ") || "",
-    strength_days: Math.min(sessionsPerWeek, 4),
-    cardio_days: sessionsPerWeek > 3 ? 1 : 0,
-    training_frequency: sessionsPerWeek,
+    ...recommendedTrainingDays(sessionsPerWeek),
     primary_goal: goals.primary || "General strength and movement quality",
     fra_priorities: fraPriorities,
     mobility_map: mobilityMap,
@@ -324,15 +314,10 @@ export async function POST(request: NextRequest) {
     ),
     red_flags: summary.red_flags || "",
     accessory_categories: a.accessory_categories ?? [],
-    // Cardio profile
-    ...(ct.primary_machine ? {
-      cardio_profile: {
-        primary_modality: ct.primary_machine,
-        secondary_modalities: ct.tolerated_machines ?? [],
-        avoid_modalities: ct.avoid_machines ?? [],
-        interval_clearance: ct.interval_clearance || "not_assessed",
-      },
-    } : {}),
+    // Always send restrictions even without a selected primary machine.
+    // An unassessed interval clearance MUST NOT unlock pickups.
+    cardio_profile: generatorCardioProfile(ct, conditioning),
+    conditioning_level: conditioning.conditioning_level || "",
   };
 
   const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
