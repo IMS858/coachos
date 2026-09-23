@@ -65,6 +65,9 @@ export default async function AssessmentPage({
     );
   }
 
+  const { data: deviceEvidence } = await supabase.from("assessment_device_evidence")
+    .select("device_measurements,voltra_sessions").eq("assessment_id", id).maybeSingle();
+
   const { data: clientProfile } = await supabase
     .from("profiles")
     .select("full_name")
@@ -149,8 +152,8 @@ export default async function AssessmentPage({
             <VoltraImport assessmentId={row.id} />
           </div>
           <DeviceReview assessmentId={row.id}
-            measurements={Array.isArray((stored as any).device_measurements) ? (stored as any).device_measurements : []}
-            workouts={Array.isArray((stored as any).voltra_sessions) ? (stored as any).voltra_sessions : []} />
+            measurements={Array.isArray(deviceEvidence?.device_measurements) ? deviceEvidence.device_measurements : []}
+            workouts={Array.isArray(deviceEvidence?.voltra_sessions) ? deviceEvidence.voltra_sessions : []} />
         </section>
       </div>
     </AppShell>
