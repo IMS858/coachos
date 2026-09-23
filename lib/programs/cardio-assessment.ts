@@ -100,3 +100,43 @@ export function generatorRichRestrictions(painMap: unknown) {
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
 }
+
+
+/** A surgery field alone never establishes that loading has been cleared. */
+export function includeUnverifiedSurgicalHistory(
+  rows: ReturnType<typeof generatorRichRestrictions>,
+  surgeryHistory: unknown
+) {
+  const history = typeof surgeryHistory === "string" ? surgeryHistory.trim() : "";
+  if (!history) return rows;
+  const lower = history.toLowerCase();
+  const mentions: Array<[RegExp, string]> = [
+    [/\b(knee|acl|meniscus)\b/, "knee"],
+    [/\b(shoulder|rotator cuff|labrum)\b/, "shoulder"],
+    [/\b(hip|hip replacement)\b/, "hip"],
+    [/\b(back|spine|lumbar|disc)\b/, "lumbar"],
+    [/\b(ankle|achilles)\b/, "ankle"],
+    [/\b(wrist|hand)\b/, "wrist"],
+  ];
+  const joints = mentions.filter(([pattern]) => pattern.test(lower)).map(([, joint]) => joint);
+  // A non-joint surgery also requires a coach to decide whether activity is
+  // cleared; do not attempt a diagnosis from unstructured free text.
+  if (!joints.length) joints.push("unknown");
+  const result = [...rows];
+  for (const joint of [...new Set(joints)]) {
+    if (rows.some(row => row.key === joint && ["cleared", "active_flare_up", "post_surgery", "avoid_loading"].includes(row.status))) continue;
+    result.push({
+      key: joint, display_name: "Surgical history — clearance not documented",
+      side: "bilateral", status: "avoid_loading", pain_level: null,
+      avoid_notes: "Coach must verify current restrictions and clearance before generation",
+    });
+  }
+  return result;
+}
+
+/** Weekly training frequency is total sessions, not strength days PLUS extras. */
+export function recommendedTrainingDays(total: number) {
+  const days = Number.isInteger(total) && total >= 1 && total <= 5 ? total : 3;
+  const cardio_days = days >= 4 ? 1 : 0;
+  return { strength_days: days - cardio_days, cardio_days, training_frequency: days };
+}
