@@ -10,15 +10,21 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: program } = await supabase.from("programs")
-    .select("data,status,pdf_client_url,pdf_coach_url").eq("id", id).maybeSingle();
+    .select("data,status,pdf_client_url,pdf_coach_url,client_id").eq("id", id).maybeSingle();
   if (!program) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (program.data?.pdf_mode === "coach" && !["owner", "trainer"].includes(profile?.role ?? "")) {
     return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
   const isStaff = ["owner", "trainer"].includes(profile?.role ?? "");
+  if (!isStaff && (program.client_id !== user.id || !["published", "active", "completed"].includes(program.status))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const pdfPath = isStaff && program.data?.pdf_mode === "coach"
     ? program.pdf_coach_url : program.pdf_client_url;
+  if (!isStaff && (!program.pdf_client_url || program.data?.pdf_mode === "coach")) {
+    return NextResponse.json({ error: "No published client PDF" }, { status: 404 });
+  }
   if (typeof pdfPath === "string" && pdfPath.length > 0) {
     const svc = createServiceClient();
     const { data: stored, error } = await svc.storage.from("ims-program-pdfs").download(pdfPath);
@@ -31,7 +37,7 @@ export async function GET(
     } });
   }
   // Read-only compatibility for legacy drafts created before private storage.
-  const encoded = program.data?.pdf_base64;
+  const encoded = isStaff ? program.data?.pdf_base64 : null;
   if (typeof encoded !== "string" || encoded.length > 7_000_000) {
     return NextResponse.json({ error: "No stored PDF" }, { status: 404 });
   }
