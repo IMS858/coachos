@@ -25,6 +25,7 @@ export default async function ExerciseReviewsPage() {
         <h1 className="mt-3 flex items-center gap-3 text-3xl font-semibold text-cream"><ShieldCheck className="h-8 w-8 text-sky"/> Coach Review Center</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-cream-dim">Verify exercise identity, primary joints and contraindications. Approval records are attributed to your account. Approval never automatically publishes an exercise or client program.</p>
       </header>
+      <Link href="/exercise-reviews/canonical" className="inline-flex min-h-11 items-center rounded-xl border border-sky/40 px-5 text-sm font-semibold text-sky hover:bg-sky/10">Review 423 canonical source mappings →</Link>
       {exerciseError || reviewError ? <div role="alert" className="rounded-xl border border-status-limited p-5 text-status-limited">Unable to load review records. No approvals can be recorded until the connection is restored.</div>
         : <ExerciseReviewWorkspace exercises={exercises ?? []} reviews={reviews ?? []}/>}
     </main>
