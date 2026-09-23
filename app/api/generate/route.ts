@@ -372,10 +372,8 @@ export async function POST(request: NextRequest) {
     if (pdfBuffer.byteLength < 5 || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
       return NextResponse.json({ error: "Generator returned an invalid PDF" }, { status: 502 });
     }
-    // Until a private storage bucket is provisioned, retain the generated PDF
-    // inside the RLS-protected draft record, so a successful generation is
-    // retrievable and never silently lost after the initial download.
-    // Store a record in programs table
+    // Store structured plan metadata first. The PDF goes into private storage,
+    // never into JSONB where it bloats reads and risks accidental exposure.
     const { data: program, error: saveError } = await svc
       .from("programs")
       .insert({
@@ -391,7 +389,6 @@ export async function POST(request: NextRequest) {
         data: {
           source: "ims_generator",
           structured_program: result.program,
-          pdf_base64: result.pdf_base64,
           generator_version: result.generator_version,
           contract_version: result.contract_version,
           generated_at: new Date().toISOString(),
@@ -411,6 +408,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PDF generated but could not save the program draft. Please retry." }, { status: 500 });
     }
 
+    const pdfPath = `${assessment.client_id}/${program.id}/initial-${crypto.randomUUID()}.pdf`;
+    const { error: uploadError } = await svc.storage.from("ims-program-pdfs")
+      .upload(pdfPath, pdfBuffer, { contentType: "application/pdf", upsert: false });
+    if (uploadError) {
+      await svc.from("programs").delete().eq("id", program.id);
+      console.error("[generate] private PDF upload failed", uploadError.name);
+      return NextResponse.json({ error: "Could not securely store the generated PDF. Retry generation." }, { status: 502 });
+    }
+    const { error: linkError } = await svc.from("programs")
+      .update({ pdf_client_url: pdfMode === "client" ? pdfPath : null,
+        pdf_coach_url: pdfMode === "coach" ? pdfPath : null })
+      .eq("id", program.id);
+    if (linkError) {
+      await svc.storage.from("ims-program-pdfs").remove([pdfPath]);
+      await svc.from("programs").delete().eq("id", program.id);
+      return NextResponse.json({ error: "Could not link the private PDF. Retry generation." }, { status: 502 });
+    }
     // Return the PDF directly for download
     const safeName = (clientProfile?.full_name ?? "client").toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     return new NextResponse(pdfBuffer, {
