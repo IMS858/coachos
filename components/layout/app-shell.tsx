@@ -55,16 +55,16 @@ export async function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-navy">
+    <div className="ims-staff-dark flex min-h-screen bg-navy">
       <AppSidebar
         role={role}
         fullName={profile.full_name}
         email={profile.email}
       />
       <UsageTracker />
-      <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+      <main className="ims-workspace flex-1 min-w-0 overflow-y-auto pb-20 lg:pb-0">
         <MobileTopBar />
-        <div className="mx-auto max-w-7xl px-5 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mx-auto max-w-[1560px] px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </div>
       </main>
