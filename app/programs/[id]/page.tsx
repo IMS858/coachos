@@ -171,7 +171,7 @@ export default async function ProgramPage({
             {generated.pdf_storage_path && (
               <p className="text-xs text-cream-faint">This PDF reflects the last regenerated version. Saved coach edits must be regenerated before sharing.</p>
             )}
-            {generated.pdf_base64 && (
+            {generated.pdf_storage_path && (
               <a href={`/api/programs/${id}/pdf`} className="text-sky-light underline underline-offset-2 text-sm">Download saved PDF</a>
             )}
             {isStaff && generated.structured_program && (
