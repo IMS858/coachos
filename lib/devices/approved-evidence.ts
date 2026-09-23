@@ -39,7 +39,7 @@ export function approvedDeviceEvidence(data: RecordValue) {
   const workouts = Array.isArray(data.voltra_sessions) ? data.voltra_sessions.filter(approved) : [];
   const rom: RecordValue[] = [], dynamo: RecordValue[] = [];
   const skipped: string[] = [];
-  const sorted = [...readings].sort((a, b) => text(b.test_date).localeCompare(text(a.test_date)));
+  const sorted = [...readings].sort((a, b) => text(b.test_date).localeCompare(text(a.test_date)) || text(b.recorded_at).localeCompare(text(a.recorded_at)));
   const seen = new Set<string>();
   for (const reading of sorted) {
     const test = normalizedTest(reading);
@@ -53,13 +53,14 @@ export function approvedDeviceEvidence(data: RecordValue) {
     const kind = text(reading.kind);
     const key = [kind, test.joint, test.motion, test.side].join(":");
     if (seen.has(key)) continue;
-    seen.add(key);
-    if (kind === "rom" && reading.unit === "degrees" && value >= 0 && value <= 200) {
+    if (kind === "rom" && reading.unit === "degrees" && ["active", "passive"].includes(text(reading.rom_mode)) && value >= 0 && value <= 200) {
+      seen.add(key);
       rom.push({ joint: test.joint, motion: test.motion, side: test.side,
-        degrees: value, mode: "unspecified", source: "activforce_2_manual",
+        degrees: value, mode: reading.rom_mode, source: "activforce_2_manual",
         measured_on: date });
     } else if (kind === "force" && reading.protocol === "peak_isometric" && ["lb", "N"].includes(text(reading.unit)) &&
                value > 0 && dynamoTests.has(test.joint + "_" + test.motion)) {
+      seen.add(key);
       dynamo.push({ test: test.joint + "_" + test.motion, side: test.side,
         value, unit: reading.unit, source: "activforce_2_manual",
         measured_on: date });
