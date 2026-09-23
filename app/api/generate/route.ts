@@ -378,13 +378,20 @@ export async function POST(request: NextRequest) {
     if (pdfBuffer.byteLength < 5 || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
       return NextResponse.json({ error: "Generator returned an invalid PDF" }, { status: 502 });
     }
-    // Until a private storage bucket is provisioned, retain the generated PDF
-    // inside the RLS-protected draft record, so a successful generation is
-    // retrievable and never silently lost after the initial download.
-    // Store a record in programs table
+    // Persist the PDF in private storage, never in client-readable program JSON.
+    const programId = crypto.randomUUID();
+    const storagePath = `${assessment.client_id}/${programId}/initial-${pdfMode}.pdf`;
+    const { error: uploadError } = await svc.storage.from("ims-program-pdfs")
+      .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: false });
+    if (uploadError) {
+      console.error("[generate] private PDF upload failed", uploadError.message);
+      return NextResponse.json({ error: "Private PDF storage is not configured. Generation was not saved." }, { status: 503 });
+    }
+    // Store coach-only draft metadata and structured plan behind program RLS.
     const { data: program, error: saveError } = await svc
       .from("programs")
       .insert({
+        id: programId,
         client_id: assessment.client_id,
         assessment_id: assessment.id,
         trainer_id: user.id,
@@ -397,7 +404,7 @@ export async function POST(request: NextRequest) {
         data: {
           source: "ims_generator",
           structured_program: result.program,
-          pdf_base64: result.pdf_base64,
+          pdf_storage_path: storagePath,
           generator_version: result.generator_version,
           contract_version: result.contract_version,
           generated_at: new Date().toISOString(),
@@ -413,16 +420,19 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single();
     if (saveError || !program) {
+      await svc.storage.from("ims-program-pdfs").remove([storagePath]);
       console.error("[generate] could not save draft", saveError?.code);
       return NextResponse.json({ error: "PDF generated but could not save the program draft. Please retry." }, { status: 500 });
     }
 
     // Return the PDF directly for download
     const safeName = (clientProfile?.full_name ?? "client").toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
         "X-IMS-Program-ID": program.id,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
         "Content-Disposition": `attachment; filename="${safeName}_ims_plan.pdf"`,
       },
     });
