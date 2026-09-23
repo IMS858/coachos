@@ -16,6 +16,8 @@ export function ExerciseReviewWorkspace({ exercises, reviews }: { exercises: Exe
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(defaults);
   const [busy, setBusy] = useState(false);
+  const [alternatives, setAlternatives] = useState<{id:string;name:string;primary_joints:string[]|null}[]|null>(null);
+  const [alternativeError, setAlternativeError] = useState("");
   const [message, setMessage] = useState("");
   const approved = reviews.filter(r => r.safety_status === "approved").length;
   const visible = exercises.filter(e => e.client_visible).length;
@@ -30,6 +32,18 @@ export function ExerciseReviewWorkspace({ exercises, reviews }: { exercises: Exe
     setSelectedId(e.id);
     setDraft(r ? { canonical_id: r.canonical_id ?? "", mapping_status: r.mapping_status, safety_status: r.safety_status, primary_joints_confirmed: r.primary_joints_confirmed, contraindications_confirmed: r.contraindications_confirmed, review_notes: r.review_notes } : { ...defaults });
     setMessage("");
+    setAlternatives(null);
+    setAlternativeError("");
+  }
+  async function findAlternatives() {
+    if (!selectedId) return;
+    setAlternativeError("");
+    try {
+      const response = await fetch("/api/exercise-reviews/substitutions?exercise_id=" + encodeURIComponent(selectedId));
+      if (!response.ok) { setAlternativeError("Could not load candidates"); return; }
+      const data = await response.json();
+      setAlternatives(data.candidates ?? []);
+    } catch { setAlternativeError("Could not load candidates"); }
   }
   async function save() {
     if (!selectedId) return;
@@ -70,6 +84,13 @@ export function ExerciseReviewWorkspace({ exercises, reviews }: { exercises: Exe
           <label className="flex items-start gap-3 text-sm text-cream-dim"><input type="checkbox" checked={draft.contraindications_confirmed} onChange={e=>setDraft({...draft,contraindications_confirmed:e.target.checked})} className="mt-1"/> I reviewed contraindications and client restrictions.</label>
           <label className="block text-xs text-cream-dim">Review rationale<textarea value={draft.review_notes} onChange={e=>setDraft({...draft,review_notes:e.target.value})} rows={4} maxLength={3000} placeholder="Document the mapping, restrictions and decision." className="mt-2 w-full rounded-lg border border-divider bg-navy p-3 text-sm text-cream"/></label>
           <label className="block text-xs text-cream-dim">Safety decision<select value={draft.safety_status} onChange={e=>setDraft({...draft,safety_status:e.target.value})} className="mt-2 min-h-11 w-full rounded-lg border border-divider bg-navy px-3 text-sm text-cream"><option value="pending">Pending</option><option value="approved">Approve after verification</option><option value="rejected">Reject</option></select></label>
+          <div className="rounded-xl border border-divider bg-navy p-3 space-y-2">
+            <p className="text-sm font-semibold text-cream">Substitution candidates</p>
+            <p className="text-xs text-cream-faint">Shows reviewed entries with the same movement pattern. Never automatic clearance for a client's restrictions.</p>
+            <button type="button" onClick={findAlternatives} className="min-h-10 rounded-lg border border-sky/40 px-3 text-xs font-semibold text-sky">Find reviewed candidates</button>
+            {alternativeError && <p role="alert" className="text-xs text-status-limited">{alternativeError}</p>}
+            {alternatives && (alternatives.length ? <ul className="space-y-2">{alternatives.map(a=><li key={a.id} className="rounded-lg border border-divider p-2 text-xs text-cream">{a.name}<span className="block text-cream-faint">{a.primary_joints?.join(", ") || "Joints not tagged"} · Coach must verify suitability</span></li>)}</ul> : <p className="text-xs text-cream-faint">No approved candidates yet. Keep this substitution on hold.</p>)}
+          </div>
           <p className="text-xs leading-5 text-cream-faint">Approval requires confirmed identity, populated primary joints, both verification checks and at least 15 characters of rationale. It does not publish to clients.</p>
           <button type="button" disabled={busy} onClick={save} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky px-4 font-semibold text-navy disabled:opacity-50">{draft.safety_status==="approved"?<CheckCircle2 className="h-4 w-4"/>:<Save className="h-4 w-4"/>}{busy?"Saving…":"Save coach review"}</button>
           {message&&<p role="status" className="text-sm text-cream-dim">{message}</p>}
