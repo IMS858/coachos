@@ -136,7 +136,7 @@ export function AssessmentWizard({
       setId(json.id);
       // A newly created assessment must open its canonical URL before the
       // coach can navigate away or attach device results.
-      router.replace(`/assessments/${json.id}`);
+      if (!finish) router.replace(`/assessments/${json.id}`);
     }
     setDirty(false);
     setSavedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
