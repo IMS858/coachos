@@ -23,7 +23,7 @@ export async function PATCH(
   }
 
   const { data: existing, error: readError } = await supabase.from("programs")
-    .select("id,status,data,coach_edits,updated_at").eq("id", id).maybeSingle();
+    .select("id,status,data,coach_edits,updated_at,pdf_client_url").eq("id", id).maybeSingle();
   if (readError) return NextResponse.json({ error: "Unable to load program" }, { status: 500 });
   if (!existing) return NextResponse.json({ error: "Program not found" }, { status: 404 });
 
@@ -45,6 +45,9 @@ export async function PATCH(
     }
     update.data = body.data;
   }
+  if (body.coach_edits !== undefined && existing.status !== "draft") {
+    return NextResponse.json({ error: "Only draft programs can be edited" }, { status: 409 });
+  }
   if (body.coach_edits !== undefined) {
     if (!body.coach_edits || typeof body.coach_edits !== "object" || Array.isArray(body.coach_edits)
         || JSON.stringify(body.coach_edits).length > 100_000) {
@@ -63,16 +66,19 @@ export async function PATCH(
     if (typeof body.status !== "string" || !transitions[existing.status]?.includes(body.status)) {
       return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
     }
-    if (["published", "active"].includes(body.status) && existing.data?.source === "ims_generator") {
+    if (body.status === "published" && existing.data?.source === "ims_generator") {
       if (existing.data?.pdf_mode === "coach") {
         return NextResponse.json({ error: "Coach-only PDF cannot be published to clients" }, { status: 400 });
       }
       if (existing.coach_edits && Object.keys(existing.coach_edits).length > 0) {
         return NextResponse.json({ error: "Regenerate the PDF to include coach edits before publishing" }, { status: 409 });
       }
-      if (!existing.data?.structured_program || !existing.data?.pdf_base64) {
+      if (!existing.data?.structured_program || !existing.pdf_client_url) {
         return NextResponse.json({ error: "Incomplete generated program" }, { status: 409 });
       }
+      // Generated programs must pass the dedicated review/publish endpoint,
+      // which archives coach-only data and sanitizes the client-visible row.
+      return NextResponse.json({ error: "Publish generated programs through the coach review workflow" }, { status: 409 });
     }
     update.status = body.status;
     if (body.status === "published") update.published_at = new Date().toISOString();
