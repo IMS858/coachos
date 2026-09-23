@@ -168,6 +168,8 @@ export function AssessmentWizard({
           return (
             <button
               key={label}
+              type="button"
+              aria-current={active ? "step" : undefined}
               onClick={() => (id ? setStep(i) : undefined)}
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
                 active ? "bg-sky text-white" : done ? "bg-status-optimal/20 text-status-optimal" : "bg-navy-soft text-cream-faint border border-divider"
