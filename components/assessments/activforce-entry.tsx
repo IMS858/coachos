@@ -30,15 +30,15 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
       if (!response.ok) throw new Error(result.error || "Could not save");
       setValue("");
       setNotes("");
-      setMessage("Measurement saved for coach review. Reload the assessment before editing other sections.");
+      setMessage("Measurement saved for coach review. New results will appear in the review panel after refresh.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save measurement");
     } finally { setBusy(false); }
   }
-  const field = "rounded-lg border border-white/20 bg-transparent p-2 text-inherit";
-  return <section className="rounded-2xl border border-white/15 p-5">
+  const field = "assessment-device-field rounded-lg border p-2";
+  return <section className="assessment-device-card rounded-2xl border p-5">
     <h2 className="text-lg font-semibold">ActivForce 2 · Manual measurement</h2>
-    <p className="mt-1 text-sm opacity-75">Record the actual test and setup. Measurements require coach review before programming.</p>
+    <p className="mt-1 text-sm text-stone-600">Record the actual test and setup. Measurements require coach review before programming.</p>
     <form onSubmit={save} className="mt-4 grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-sm">Test type
         <select className={field} value={kind} onChange={e => { const k = e.target.value as "rom" | "force"; setKind(k); setUnit(k === "rom" ? "degrees" : "lb"); }}>
@@ -80,7 +80,7 @@ export function ActivForceEntry({ assessmentId }: { assessmentId: string }) {
         <textarea className={field} maxLength={500} value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Protocol, symptoms or retest context" />
       </label>
       <div className="sm:col-span-2 flex items-center gap-3">
-        <button type="submit" disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50">{busy ? "Saving…" : "Save measurement"}</button>
+        <button type="submit" disabled={busy} className="rounded-lg bg-[#354f3d] px-4 py-2 font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : "Save measurement"}</button>
         <span role="status" className="text-sm">{message}</span>
       </div>
     </form>
