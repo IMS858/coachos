@@ -8,7 +8,7 @@ const migration = (name) => fs.readFileSync(path.join(__dirname, "..", "packages
 test("role helpers retain caller-scoped identity and exclude deleted staff", () => {
   const sql = migration("0020_fix_rls_recursion.sql");
   for (const helper of ["is_trainer", "is_owner"]) {
-    const match = sql.match(new RegExp("CREATE OR REPLACE FUNCTION " + helper + "\\(\\).*?\\$\\$([\\s\\S]*?)\\$\\$;", "i"));
+    const match = sql.match(new RegExp("CREATE OR REPLACE FUNCTION " + helper + "\\(\\)[\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;", "i"));
     assert.ok(match, helper + " must be defined in the RLS recursion fix");
     assert.match(match[0], /SECURITY DEFINER/i);
     assert.match(match[0], /SET search_path = public/i);
