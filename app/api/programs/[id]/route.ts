@@ -44,6 +44,28 @@ export async function PATCH(
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
+  // Generator plans must never be exposed by a generic status toggle.
+  // This guard protects the UI path; the staged database trigger enforces
+  // the same invariant against direct Supabase API updates.
+  const { data: existing, error: lookupError } = await supabase
+    .from("programs")
+    .select("status, data")
+    .eq("id", id)
+    .maybeSingle();
+  if (lookupError || !existing) {
+    return NextResponse.json({ error: "Program not found" }, { status: 404 });
+  }
+  if ((existing.data as any)?.source === "ims_generator") {
+    if (body.data !== undefined
+        || (body.status !== undefined && !["draft", "archived"].includes(body.status))) {
+      return NextResponse.json(
+        { error: "coach_review_required",
+          detail: "IMS generator drafts cannot be published or edited through this endpoint. Review and render the final PDF first." },
+        { status: 409 }
+      );
+    }
+  }
+
   const svc = createServiceClient();
   const { error } = await svc.from("programs").update(update).eq("id", id);
   if (error) {
