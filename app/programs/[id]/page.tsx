@@ -9,7 +9,6 @@ import { ProgramExercises } from "@/components/programs/program-exercises";
 import { EditableProgram } from "@/components/programs/editable-program";
 import { GenerateProgramButton } from "@/components/programs/generate-program-button";
 import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
-import { PublishImsProgramButton } from "@/components/programs/publish-ims-program-button";
 
 const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
 
@@ -180,10 +179,7 @@ export default async function ProgramPage({
               <a href={`/api/programs/${id}/pdf`} className="text-sky-light underline underline-offset-2 text-sm">Download saved PDF</a>
             )}
             {isStaff && (program as any).status === "draft" && generated.structured_program && (
-              <ImsProgramStudio plan={generated.structured_program} programId={id} initialEdits={(program as any).coach_edits?.structured_program ?? null} />
-            )}
-            {isStaff && (program as any).status === "draft" && generated.review_status === "ready_to_publish" && !(program as any).coach_edits?.structured_program && (
-              <PublishImsProgramButton programId={id} />
+              <ImsProgramStudio plan={generated.structured_program} programId={id} initialEdits={(program as any).coach_edits?.structured_program ?? null} canPublish={generated.review_status === "ready_to_publish"} />
             )}
             {isStaff && (program as any).status !== "draft" && privateArtifact?.structured_program && (
               <div className="rounded-xl border border-divider bg-navy-soft p-5">
