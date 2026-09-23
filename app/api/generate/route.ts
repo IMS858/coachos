@@ -9,13 +9,12 @@ export const dynamic = "force-dynamic";
  * Translates Coach OS assessment data → IMS program-generator format,
  * calls the external Python generator, returns a PDF or stores program data.
  *
- * The generator at PROGRAM_GENERATOR_URL uses 838 real exercises,
- * the exact IMS methodology, FRA priority rotation, and Katch-McArdle nutrition.
- * It runs in seconds — no AI timeout risk.
+ * Generator exercises and prescription evidence are validated by the Python
+ * service. New results are always drafts pending explicit coach review.
  */
 
-const GENERATOR_URL =
-  process.env.PROGRAM_GENERATOR_URL || "https://program-generator-rho.vercel.app";
+const GENERATOR_URL = process.env.PROGRAM_GENERATOR_URL?.trim();
+const GENERATOR_SECRET = process.env.PROGRAM_GENERATOR_SECRET?.trim();
 
 /** Map Coach OS joint rating to constraint/concern flags. */
 function mapConstraints(data: any): { constraints: string[]; concerns: string[]; concernNotes: string } {
@@ -171,6 +170,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
 
+  // Fail closed: do not send sensitive assessments to an implicit public URL.
+  if (!GENERATOR_URL || !GENERATOR_SECRET) {
+    return NextResponse.json(
+      { error: "generator_not_configured", detail: "IMS generator connection is not configured." },
+      { status: 503 }
+    );
+  }
+  let endpoint: string;
+  try {
+    const url = new URL(GENERATOR_URL);
+    const localDev = process.env.NODE_ENV !== "production"
+      && ["localhost", "127.0.0.1"].includes(url.hostname);
+    if (url.protocol !== "https:" && !(localDev && url.protocol === "http:")) {
+      throw new Error("HTTPS required");
+    }
+    endpoint = new URL("/api/generate", url).toString();
+  } catch {
+    return NextResponse.json(
+      { error: "generator_not_configured", detail: "IMS generator URL is invalid." },
+      { status: 503 }
+    );
+  }
+
   const body = await request.json().catch(() => ({}));
   const assessmentId = body.assessment_id;
   if (!assessmentId) {
@@ -180,11 +202,17 @@ export async function POST(request: NextRequest) {
   const svc = createServiceClient();
   const { data: assessment } = await svc
     .from("assessments")
-    .select("id, client_id, data")
+    .select("id, client_id, data, status")
     .eq("id", assessmentId)
     .maybeSingle();
   if (!assessment) {
     return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+  }
+  if (assessment.status !== "complete") {
+    return NextResponse.json(
+      { error: "assessment_incomplete", detail: "Complete the assessment before generating a program." },
+      { status: 409 }
+    );
   }
 
   const { data: clientProfile } = await svc
@@ -323,55 +351,92 @@ export async function POST(request: NextRequest) {
 
   const started = Date.now();
   try {
-    console.log("[generate] payload:", JSON.stringify({
-      fra_priorities: generatorPayload.fra_priorities,
-      mobility_map_count: generatorPayload.mobility_map.length,
-      strength_markers: generatorPayload.strength_markers,
-      constraints: generatorPayload.constraints,
-      concerns: generatorPayload.concerns,
-      strength_days: generatorPayload.strength_days,
-      cardio_days: generatorPayload.cardio_days,
-    }));
-    console.log("[generate] calling IMS generator at", GENERATOR_URL);
-    const res = await fetch(`${GENERATOR_URL}/api/generate`, {
+    const requestBody = JSON.stringify(generatorPayload);
+    if (Buffer.byteLength(requestBody, "utf8") > 262144) {
+      return NextResponse.json(
+        { error: "assessment_too_large", detail: "Assessment exceeds the generator size limit." },
+        { status: 413 }
+      );
+    }
+
+    // Structured program and its PDF are generated together on the same
+    // request. Never save a PDF-only shell as an already-published plan.
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/pdf",
+        "Accept": "application/json",
+        "Authorization": "Bearer " + GENERATOR_SECRET,
       },
-      body: JSON.stringify(generatorPayload),
+      body: requestBody,
+      cache: "no-store",
       signal: AbortSignal.timeout(55000),
     });
 
-    console.log("[generate] generator responded", res.status, "in", Date.now() - started, "ms");
-
     if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[generate] generator error", res.status, errText.slice(0, 500));
+      // A restriction hold is not a connectivity error and must reach the coach.
+      const remote = await res.json().catch(() => null);
+      if (res.status === 422 && remote?.error === "coach_review_required") {
+        return NextResponse.json(
+          { error: "coach_review_required",
+            detail: "No verified exercise option is available for these restrictions. Review the assessment before retrying." },
+          { status: 422 }
+        );
+      }
+      console.error("[generate] IMS generator returned", res.status);
       return NextResponse.json(
-        { error: `Generator returned ${res.status}`, detail: errText.slice(0, 300) },
+        { error: "generator_failed",
+          detail: res.status === 401
+            ? "IMS generator service authentication needs attention."
+            : "IMS generator could not complete the plan. Contact an IMS administrator." },
         { status: 502 }
       );
     }
 
-    // The generator returns a PDF
-    const pdfBuffer = await res.arrayBuffer();
+    const generated = await res.json().catch(() => null);
+    const structured = generated?.program;
+    const encodedPdf = generated?.pdf_base64;
+    if (!structured || !Array.isArray(structured.weeks)
+        || structured.weeks.length !== 4
+        || !structured.weeks.every((week: any) =>
+          week && Number.isInteger(week.week_number)
+          && Array.isArray(week.sessions) && week.sessions.length >= 1)
+        || typeof encodedPdf !== "string" || encodedPdf.length > 16 * 1024 * 1024
+        || !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedPdf)) {
+      console.error("[generate] invalid generator response contract");
+      return NextResponse.json(
+        { error: "generator_contract_invalid", detail: "The generated plan failed contract validation." },
+        { status: 502 }
+      );
+    }
+    const pdfBuffer = Buffer.from(encodedPdf, "base64");
+    if (pdfBuffer.length < 5 || pdfBuffer.subarray(0, 5).toString() !== "%PDF-") {
+      return NextResponse.json(
+        { error: "generator_contract_invalid", detail: "Generator did not return a valid PDF." },
+        { status: 502 }
+      );
+    }
 
-    // Store a record in programs table
-    const { data: program } = await svc
+    // Drafts are hidden from clients by programs_self_read RLS. A separate
+    // reviewed-PDF workflow must verify and explicitly publish the final plan.
+    const { data: program, error: saveError } = await svc
       .from("programs")
       .insert({
         client_id: assessment.client_id,
         assessment_id: assessment.id,
         trainer_id: user.id,
-        name: `${clientProfile?.full_name ?? "Client"} — IMS Plan`,
-        weeks: 4,
-        status: "published",
-        published_at: new Date().toISOString(),
+        name: (clientProfile?.full_name ?? "Client") + " — IMS Plan",
+        weeks: structured.weeks.length,
+        status: "draft",
         data: {
           source: "ims_generator",
+          review_status: "pending_coach_review",
           generated_at: new Date().toISOString(),
+          generator_version: generated.generator_version ?? null,
+          contract_version: generated.contract_version ?? null,
+          warnings: Array.isArray(generated.warnings) ? generated.warnings : [],
           pdf_mode: body.pdf_mode || "client",
+          program: structured,
           assessment_summary: {
             goal: goals.primary,
             fra_priorities: fraPriorities,
@@ -382,23 +447,33 @@ export async function POST(request: NextRequest) {
       })
       .select("id")
       .single();
+    if (saveError || !program) {
+      console.error("[generate] unable to save draft", saveError?.code ?? "missing draft");
+      return NextResponse.json(
+        { error: "draft_save_failed", detail: "The generated plan could not be saved for coach review." },
+        { status: 503 }
+      );
+    }
 
-    // Return the PDF directly for download
-    const safeName = (clientProfile?.full_name ?? "client").toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-    return new NextResponse(pdfBuffer, {
+    const safeName = (clientProfile?.full_name ?? "client").toLowerCase()
+      .replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    const pdfBytes = Uint8Array.from(pdfBuffer);
+    return new NextResponse(pdfBytes.buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${safeName}_ims_plan.pdf"`,
+        "Content-Disposition": 'attachment; filename="' + safeName + '_ims_plan.pdf"',
+        "Cache-Control": "private, no-store",
+        "X-IMS-Program-Draft-Id": program.id,
       },
     });
   } catch (err: any) {
-    console.error("[generate] error after", Date.now() - started, "ms:", err?.name, err?.message);
+    console.error("[generate] request failed after", Date.now() - started, "ms", err?.name);
     return NextResponse.json(
       {
-        error: "Generator error",
+        error: "generator_unavailable",
         detail: err?.name === "TimeoutError"
-          ? "The generator took too long. Try again."
-          : String(err?.message ?? err).slice(0, 300),
+          ? "The generator timed out. The plan was not saved."
+          : "The generator connection failed. The plan was not saved.",
       },
       { status: 502 }
     );
