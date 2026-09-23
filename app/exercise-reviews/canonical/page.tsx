@@ -17,6 +17,6 @@ export default async function CanonicalMappingPage(){
  return <AppShell><main className="mx-auto max-w-6xl space-y-6 pb-16">
  <Link href="/exercise-reviews" className="text-sm text-sky underline">← Back to Coach Review Center</Link>
  <header className="rounded-2xl border border-divider bg-navy-soft p-6"><p className="text-xs uppercase tracking-widest text-sky">IMS / Canonical source audit</p><h1 className="mt-2 text-3xl font-semibold text-cream">423-exercise mapping queue</h1><p className="mt-3 text-sm leading-6 text-cream-dim">Confirm which Coach OS exercise corresponds to each canonical source entry. The source workbook establishes names and grouping, not verified contraindications or clinical safety.</p></header>
- {rowError||exerciseError?<p role="alert" className="rounded-xl border border-divider p-5 text-sm text-status-limited">Could not load mapping queue. No changes can be saved.</p>:<CanonicalMappingWorkspace rows={rows??[]} exercises={exercises??[]}/>}
+ {rowError||exerciseError?<p role="alert" className="rounded-xl border border-divider p-5 text-sm text-status-limited">Could not load mapping queue. No changes can be saved.</p>:<CanonicalMappingWorkspace rows={rows??[]} exercises={exercises??[]} isOwner={profile.role==="owner"}/>}
  </main></AppShell>;
 }
