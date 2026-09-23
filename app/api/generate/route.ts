@@ -198,7 +198,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   const a = (assessment.data as any) ?? {};
-  const deviceEvidence = approvedDeviceEvidence(a);
+  const { data: privateEvidence, error: privateEvidenceError } = await supabase
+    .from("assessment_device_evidence").select("device_measurements,voltra_sessions")
+    .eq("assessment_id", assessment.id).maybeSingle();
+  if (privateEvidenceError) return NextResponse.json({ error: "Unable to load private objective evidence" }, { status: 503 });
+  const deviceEvidence = approvedDeviceEvidence(privateEvidence ?? {});
   const goals = a.goals ?? {};
   const health = a.health ?? {};
   const screen = a.movement_screen ?? {};
