@@ -32,7 +32,8 @@ interface NavItem {
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   owner: [
-    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Today", icon: LayoutDashboard },
+    { href: "/dashboard?view=owner", label: "Business Overview", icon: BarChart3 },
     { href: "/clients", label: "Clients", icon: Users },
     { href: "/leads", label: "Leads", icon: Target },
     { href: "/programs", label: "Programs", icon: Dumbbell },
@@ -105,9 +106,10 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-0.5">
           {items.map((item) => {
-            const active =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const active = item.href === "/dashboard?view=owner"
+              ? typeof window !== "undefined" && window.location.search.includes("view=owner")
+              : pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
               <li key={item.href}>
