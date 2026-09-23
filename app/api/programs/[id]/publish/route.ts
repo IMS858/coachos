@@ -29,6 +29,22 @@ export async function POST(
       || !record.data.structured_program || (record.coach_edits && Object.keys(record.coach_edits).length)) {
     return NextResponse.json({ error: "Regenerate a reviewed client PDF and resolve all edits before publishing" }, { status: 409 });
   }
+  // A successful development build does not authorize client release.
+  // This flag must be enabled only after the quarantined PDF suites, canonical
+  // crosswalk, safety reviews and signed release checklist are complete.
+  if (process.env.IMS_GENERATOR_CLIENT_RELEASE_APPROVED !== "true") {
+    return NextResponse.json({ error: "IMS generator client release is awaiting safety and regression sign-off" }, { status: 409 });
+  }
+  const [{ data: mappings, error: mappingError }, { data: reviews, error: reviewError }] = await Promise.all([
+    supabase.from("canonical_exercise_queue").select("canonical_id,matched_exercise_id,mapping_status").limit(1000),
+    supabase.from("exercise_reviews").select("exercise_id,safety_status").limit(1000),
+  ]);
+  const approvedIds = new Set((reviews ?? []).filter(r => r.safety_status === "approved").map(r => r.exercise_id));
+  if (mappingError || reviewError || !mappings || mappings.length !== 423 ||
+    mappings.some(m => m.mapping_status !== "coach_confirmed" || !m.matched_exercise_id ||
+      !approvedIds.has(m.matched_exercise_id))) {
+    return NextResponse.json({ error: "Canonical exercise mapping and safety review are incomplete" }, { status: 409 });
+  }
   const structureIssues = fourWeekStructureIssues(record.data.structured_program);
   if (structureIssues.length) {
     return NextResponse.json({ error: "Four-week program is incomplete; regenerate and review before publishing", issues: structureIssues.slice(0, 10) }, { status: 422 });
