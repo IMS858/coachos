@@ -9,6 +9,7 @@ import { ProgramExercises } from "@/components/programs/program-exercises";
 import { EditableProgram } from "@/components/programs/editable-program";
 import { GenerateProgramButton } from "@/components/programs/generate-program-button";
 import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
+import { PublishImsProgramButton } from "@/components/programs/publish-ims-program-button";
 
 const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
 
