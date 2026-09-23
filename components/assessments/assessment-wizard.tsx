@@ -484,7 +484,7 @@ export function AssessmentWizard({
             <div className="text-sm text-cream font-medium mb-1">Heart-rate recovery</div>
             <p className="text-xs text-cream-faint mb-2">
               After a hard effort, take HR immediately and again at one minute.
-              The drop is the best single field marker of conditioning.
+              Record this only after a consistent supervised test. Heart-rate recovery is one data point, not clearance for intervals.
             </p>
             <div className="grid grid-cols-3 gap-2">
               <div>
@@ -510,7 +510,7 @@ export function AssessmentWizard({
               </div>
             </div>
             <p className="text-xs text-cream-faint mt-1.5">
-              30+ bpm is well conditioned · 20-29 average · under 20 deconditioned
+              Interpret against the same test protocol and individual baseline; do not classify fitness from one reading.
             </p>
           </div>
 
@@ -520,7 +520,10 @@ export function AssessmentWizard({
             <h4 className="text-sm font-medium text-cream mb-2">Machine Tolerance</h4>
             <div className="mb-2">
               <label className={labelCls}>Primary tolerated machine</label>
-              <select className={selectCls} value={data.cardio_tolerance.primary_machine} onChange={(e) => upd((d) => (d.cardio_tolerance.primary_machine = e.target.value))}>
+              <select className={selectCls} value={data.cardio_tolerance.primary_machine} onChange={(e) => upd((d) => {
+                d.cardio_tolerance.primary_machine = e.target.value;
+                d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((m: string) => m !== e.target.value);
+              })}>
                 <option value="">—</option>
                 {CARDIO_MACHINES.map((m) => <option key={m} value={m}>{CARDIO_MACHINE_LABELS[m]}</option>)}
               </select>
@@ -531,8 +534,10 @@ export function AssessmentWizard({
                 {CARDIO_MACHINES.map((m) => (
                   <label key={m} className="flex items-center gap-1.5 text-xs text-cream-dim">
                     <input type="checkbox" checked={data.cardio_tolerance.tolerated_machines.includes(m)} onChange={(e) => upd((d) => {
-                      if (e.target.checked) d.cardio_tolerance.tolerated_machines.push(m);
-                      else d.cardio_tolerance.tolerated_machines = d.cardio_tolerance.tolerated_machines.filter((x: string) => x !== m);
+                      if (e.target.checked) {
+                        d.cardio_tolerance.tolerated_machines.push(m);
+                        d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((x: string) => x !== m);
+                      } else d.cardio_tolerance.tolerated_machines = d.cardio_tolerance.tolerated_machines.filter((x: string) => x !== m);
                     })} />
                     {CARDIO_MACHINE_LABELS[m]}
                   </label>
@@ -545,8 +550,11 @@ export function AssessmentWizard({
                 {CARDIO_MACHINES.map((m) => (
                   <label key={m} className="flex items-center gap-1.5 text-xs text-cream-dim">
                     <input type="checkbox" checked={data.cardio_tolerance.avoid_machines.includes(m)} onChange={(e) => upd((d) => {
-                      if (e.target.checked) d.cardio_tolerance.avoid_machines.push(m);
-                      else d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((x: string) => x !== m);
+                      if (e.target.checked) {
+                        d.cardio_tolerance.avoid_machines.push(m);
+                        d.cardio_tolerance.tolerated_machines = d.cardio_tolerance.tolerated_machines.filter((x: string) => x !== m);
+                        if (d.cardio_tolerance.primary_machine === m) d.cardio_tolerance.primary_machine = "";
+                      } else d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((x: string) => x !== m);
                     })} />
                     {CARDIO_MACHINE_LABELS[m]}
                   </label>
@@ -556,8 +564,8 @@ export function AssessmentWizard({
             <div>
               <label className={labelCls}>Interval clearance</label>
               <select className={selectCls} value={data.cardio_tolerance.interval_clearance} onChange={(e) => upd((d) => (d.cardio_tolerance.interval_clearance = e.target.value))}>
-                <option value="">Not assessed</option>
-                <option value="cleared">Cleared for intervals</option>
+                <option value="">Not assessed — Zone 2 only</option>
+                <option value="cleared">Coach-confirmed: cleared for intervals</option>
                 <option value="not_cleared">Not cleared for intervals</option>
               </select>
             </div>
