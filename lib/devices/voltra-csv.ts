@@ -53,7 +53,7 @@ export function summarizeVoltraCSV(csv: string) {
     for (const column of VOLTRA_COLUMNS.slice(2, 11)) numeric(row[column], column);
     for (const column of VOLTRA_COLUMNS.slice(11)) {
       const trace = row[column].trim();
-      if (!trace) throw new Error("Missing trace " + column);
+      if (!trace) continue;
       const samples = trace.split(";");
       if (samples.length > 10000) throw new Error("Trace too long");
       samples.forEach(s => numeric(s, column, true));
@@ -75,6 +75,6 @@ export function summarizeVoltraCSV(csv: string) {
       total_duration_s: Number(vals("Duration (S)").reduce((a, b) => a + b, 0).toFixed(2)) };
   });
   return { source: "voltra_beyond_plus_csv", sets, total_repetitions: seen.size,
-    units: { load: "lb", rom: "m", duration: "s", velocity: "m/s", power: "W" },
+    units: { load: "lb", force: "lb", rom: "m", duration: "s", velocity: "m/s", power: "W" },
     review_status: "requires_coach_review" };
 }
