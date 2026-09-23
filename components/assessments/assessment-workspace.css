@@ -132,3 +132,57 @@
 @media (prefers-reduced-motion: reduce) {
   .assessment-progress-track > div { transition: none; }
 }
+
+/* Unified objective-testing workspace */
+.assessment-page { color: #232724; }
+.assessment-device-zone {
+  margin-top: 12px;
+  display: grid;
+  gap: 18px;
+}
+.assessment-device-heading {
+  border-top: 1px solid #dfe3da;
+  padding-top: 26px;
+}
+.assessment-device-heading h2 {
+  font: 600 clamp(28px, 4vw, 40px)/1 "Barlow Condensed", sans-serif;
+  margin: 8px 0;
+  color: #232724;
+}
+.assessment-device-heading p { color: #646a63; font-size: 14px; }
+.assessment-device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.assessment-device-card {
+  background: #fff;
+  border: 1px solid #e1e5dc;
+  color: #232724;
+  box-shadow: 0 8px 26px rgb(34 45 37 / .035);
+}
+.assessment-device-card h2 { font-size: 25px; color: #232724; }
+.assessment-device-card h3 { color: #354f3d; font-size: 20px; }
+.assessment-device-field,
+.assessment-device-card input[type="file"] {
+  background: #fafbf8;
+  border-color: #dfe4dc;
+  color: #232724;
+  min-width: 0;
+  width: 100%;
+}
+.assessment-device-field:focus-visible { outline: 2px solid #54715f; }
+.assessment-device-card select option { background: #fff; color: #232724; }
+.assessment-device-card button:focus-visible { outline-color: #54715f; }
+.assessment-save-status {
+  font-size: 12px;
+  color: #54715f;
+  padding: 0 5px;
+}
+.assessment-device-card table { border-collapse: collapse; }
+.assessment-device-card th,
+.assessment-device-card td { padding: 9px 12px 9px 0; }
+@media (max-width: 850px) {
+  .assessment-device-grid { grid-template-columns: minmax(0, 1fr); }
+}
