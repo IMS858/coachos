@@ -24,14 +24,14 @@ export function VoltraImport({ assessmentId }: { assessmentId: string }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Import failed");
       setSummary(result.session);
-      setMessage("Workout saved for coach review. Reload before editing other assessment sections.");
+      setMessage("Workout saved for coach review. New results will appear in the review panel after refresh.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Import failed"); }
     finally { setBusy(false); }
   }
-  const field = "rounded-lg border border-white/20 bg-transparent p-2 text-inherit";
-  return <section className="rounded-2xl border border-white/15 p-5">
+  const field = "assessment-device-field rounded-lg border p-2";
+  return <section className="assessment-device-card rounded-2xl border p-5">
     <h2 className="text-lg font-semibold">VOLTRA · Import Beyond+ CSV</h2>
-    <p className="mt-1 text-sm opacity-75">Import a completed workout. The export has no client, exercise or date information; confirm the context before saving.</p>
+    <p className="mt-1 text-sm text-stone-600">Import a completed workout. The export has no client, exercise or date information; confirm the context before saving.</p>
     <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-sm sm:col-span-2">Beyond+ CSV
         <input type="file" accept=".csv,text/csv" required onChange={e => { setFile(e.target.files?.[0] ?? null); setSummary(null); }} />
@@ -52,14 +52,14 @@ export function VoltraImport({ assessmentId }: { assessmentId: string }) {
         <input className={field} required maxLength={150} value={mode} onChange={e => setMode(e.target.value)} placeholder="Weight training" />
       </label>
       <div className="sm:col-span-2 flex items-center gap-3">
-        <button type="submit" disabled={!file || busy} className="rounded-lg bg-emerald-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50">{busy ? "Importing…" : "Import workout"}</button>
+        <button type="submit" disabled={!file || busy} className="rounded-lg bg-[#354f3d] px-4 py-2 font-semibold text-white disabled:opacity-50">{busy ? "Importing…" : "Import workout"}</button>
         <span role="status" className="text-sm">{message}</span>
       </div>
     </form>
     {summary && <div className="mt-4 overflow-x-auto">
       <p className="mb-2 text-sm font-medium">{summary.total_repetitions} reps imported · Coach review required</p>
       <table className="w-full text-left text-sm"><thead><tr><th>Set</th><th>Reps</th><th>Load (lb)</th><th>Mean velocity (m/s)</th><th>Peak power (W)</th></tr></thead>
-        <tbody>{summary.sets.map(s => <tr key={s.set_index} className="border-t border-white/10">
+        <tbody>{summary.sets.map(s => <tr key={s.set_index} className="border-t border-stone-200">
           <td>{s.set_index}</td><td>{s.repetitions}</td><td>{s.base_load_lb_min === s.base_load_lb_max ? s.base_load_lb_min : `${s.base_load_lb_min}–${s.base_load_lb_max}`}</td>
           <td>{s.mean_velocity_m_s}</td><td>{s.peak_power_w}</td>
         </tr>)}</tbody></table>
