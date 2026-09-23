@@ -71,6 +71,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
     }
     if (["published", "active"].includes(body.status) && existing.data?.source === "ims_generator") {
+      // Published program rows are client-readable via RLS. Do not expose the
+      // embedded assessment and coach rationale until private artifact storage
+      // separates the coach record from the client-facing projection.
+      return NextResponse.json({ error: "Publishing generated plans requires private coach artifact storage. Download the reviewed client PDF instead." }, { status: 409 });
+    }
+    if (false && ["published", "active"].includes(body.status) && existing.data?.source === "ims_generator") {
       if (body.coach_edits !== undefined) return NextResponse.json({ error: "Save and regenerate reviewed edits before publishing" }, { status: 409 });
       if (existing.data?.pdf_mode === "coach") {
         return NextResponse.json({ error: "Coach-only PDF cannot be published to clients" }, { status: 400 });
