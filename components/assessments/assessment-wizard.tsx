@@ -93,8 +93,12 @@ export function AssessmentWizard({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   function upd(fn: (d: AssessmentData) => void) {
+    setDirty(true);
+    setSavedAt(null);
     setData((prev) => {
       const copy: AssessmentData = JSON.parse(JSON.stringify(prev));
       fn(copy);
@@ -111,6 +115,7 @@ export function AssessmentWizard({
     if (!id && selectedClient) body.client_id = selectedClient;
 
     const url = id ? `/api/assessments/${id}` : "/api/assessments";
+    try {
     const res = await fetch(url, {
       method: id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -119,9 +124,20 @@ export function AssessmentWizard({
     const json = await res.json().catch(() => ({}));
     setSaving(false);
     if (!res.ok) { setError(json.error || "Save failed."); return false; }
-    if (!id && json.id) setId(json.id);
+    if (!id && json.id) {
+      setId(json.id);
+      // A newly created assessment must open its canonical URL before the
+      // coach can navigate away or attach device results.
+      router.replace(`/assessments/${json.id}`);
+    }
+    setDirty(false);
+    setSavedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
     setSections((p) => ({ ...p, [sectionKey]: "complete" }));
     return true;
+    } catch {
+      setError("Could not reach the server. Your changes remain here; retry saving.");
+      return false;
+    } finally { setSaving(false); }
   }
 
   async function next() {
@@ -170,7 +186,7 @@ export function AssessmentWizard({
               key={label}
               type="button"
               aria-current={active ? "step" : undefined}
-              onClick={() => (id ? setStep(i) : undefined)}
+              onClick={() => { if (id && !saving && (!dirty || window.confirm("You have unsaved changes. Leave this section?"))) { setStep(i); setDirty(false); } }}
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
                 active ? "bg-sky text-white" : done ? "bg-status-optimal/20 text-status-optimal" : "bg-navy-soft text-cream-faint border border-divider"
               }`}
@@ -607,6 +623,7 @@ export function AssessmentWizard({
       )}
 
       </main>
+      <div className="assessment-save-status" role="status" aria-live="polite">{saving ? "Saving assessment…" : dirty ? "Unsaved changes — save before leaving" : savedAt ? `Saved at ${savedAt}` : "Complete each section to save your assessment"}</div>
       {/* Navigation */}
       <div className="assessment-footer flex items-center justify-between pt-2 border-t border-divider">
         <Button variant="secondary" size="sm" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
