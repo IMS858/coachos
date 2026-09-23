@@ -71,10 +71,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
     }
     if (["published", "active"].includes(body.status) && existing.data?.source === "ims_generator") {
-      // Published program rows are client-readable via RLS. Do not expose the
-      // embedded assessment and coach rationale until private artifact storage
-      // separates the coach record from the client-facing projection.
-      return NextResponse.json({ error: "Publishing generated plans requires private coach artifact storage. Download the reviewed client PDF instead." }, { status: 409 });
+      return NextResponse.json({ error: "Client-safe program projection must be implemented before publishing generated plans" }, { status: 409 });
     }
     update.status = body.status;
     if (body.status === "published") update.published_at = new Date().toISOString();
