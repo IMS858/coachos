@@ -58,12 +58,12 @@ export function approvedDeviceEvidence(data: RecordValue) {
       rom.push({ joint: test.joint, motion: test.motion, side: test.side,
         degrees: value, mode: "unspecified", source: "activforce_2_manual",
         measured_on: date });
-    } else if (kind === "force" && ["lb", "N"].includes(text(reading.unit)) &&
+    } else if (kind === "force" && reading.protocol === "peak_isometric" && ["lb", "N"].includes(text(reading.unit)) &&
                value > 0 && dynamoTests.has(test.joint + "_" + test.motion)) {
       dynamo.push({ test: test.joint + "_" + test.motion, side: test.side,
         value, unit: reading.unit, source: "activforce_2_manual",
         measured_on: date });
-    } else skipped.push("Unsupported ActivForce test or units");
+    } else skipped.push("Unsupported ActivForce test, units or unverified force protocol");
   }
   // The Python engine accepts a single measurement date per set. Restrict
   // structured input to the newest approved date rather than mixing sessions.
