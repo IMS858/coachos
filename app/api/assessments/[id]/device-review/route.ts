@@ -15,13 +15,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       !["approved", "rejected"].includes(body.decision) ||
       typeof body.expected_recorded_at !== "string")
     return NextResponse.json({ error: "Invalid review request" }, { status: 400 });
-  const { data: assessment, error: readError } = await supabase.from("assessments")
-    .select("data, updated_at").eq("id", id).maybeSingle();
+  const { data: assessment, error: readError } = await supabase.from("assessment_device_evidence")
+    .select("device_measurements,voltra_sessions,updated_at").eq("assessment_id", id).maybeSingle();
   if (readError || !assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
-  const data = assessment.data && typeof assessment.data === "object" && !Array.isArray(assessment.data)
-    ? assessment.data as Record<string, unknown> : {};
   const key = body.device === "activforce" ? "device_measurements" : "voltra_sessions";
-  const items = data[key];
+  const items = assessment[key];
   if (!Array.isArray(items) || !items[body.index] ||
       items[body.index].recorded_at !== body.expected_recorded_at)
     return NextResponse.json({ error: "Reading changed. Reload before reviewing." }, { status: 409 });
@@ -29,9 +27,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     ...item, review_status: body.decision as Decision, reviewed_by: user.id,
     reviewed_at: new Date().toISOString(),
   } : item);
-  const { data: saved, error } = await supabase.from("assessments")
-    .update({ data: { ...data, [key]: next }, updated_at: new Date().toISOString() })
-    .eq("id", id).eq("updated_at", assessment.updated_at).select("id").maybeSingle();
+  const { data: saved, error } = await supabase.from("assessment_device_evidence")
+    .update({ [key]: next, updated_at: new Date().toISOString() })
+    .eq("assessment_id", id).eq("updated_at", assessment.updated_at).select("id").maybeSingle();
   if (error) return NextResponse.json({ error: "Could not save review" }, { status: 500 });
   if (!saved) return NextResponse.json({ error: "Assessment changed. Reload and retry." }, { status: 409 });
   return NextResponse.json({ saved: true, decision: body.decision });
