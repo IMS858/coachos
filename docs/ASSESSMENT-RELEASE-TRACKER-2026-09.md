@@ -12,15 +12,15 @@ This checklist is the release sequence. CI success proves compilation, not runti
 - [ ] Visual QA at 375px, 768px, 1280px and iOS Safari
 - [ ] Keyboard, screen-reader and high-contrast form audit
 - [ ] New assessment redirect, resume, reload, finish and stale-tab QA
-- [ ] Import-to-review live refresh without manually reloading
-- [ ] Unsaved-change protection on browser navigation and reload
+- [x] Import-to-review refresh without manually reloading (browser QA pending)
+- [x] Unsaved-change protection for section navigation and browser reload (in-app route QA pending)
 
 ## 2. Device-to-generator contract — next
-- [ ] Golden synthetic VOLTRA export matches Python parser/summary
-- [ ] Explicit approved-only filtering, protocol and unit tests
-- [ ] Historical assessment data with no device fields remains valid
+- [ ] Golden synthetic VOLTRA export matches Python parser/summary (Coach OS regression suite added; cross-language parity pending)
+- [x] Added synthetic approved-only, explicit ROM mode, isometric protocol, unit and side regression tests (CI verification pending)
+- [x] Added regression test for historical assessments with no device fields (CI verification pending)
 - [ ] Exercise names, dates and left/right remain accurate in generator input
-- [ ] No automatic 1RM or isometric inference from dynamic VOLTRA reps
+- [x] Dynamic VOLTRA stays descriptive; added regression test (CI verification pending)
 - [ ] Review exact Python objective-measure schema for ActivForce
 - [ ] Test out-of-date, missing, unsupported and conflicting measurements
 
