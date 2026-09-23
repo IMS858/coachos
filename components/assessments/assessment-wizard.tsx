@@ -119,6 +119,7 @@ export function AssessmentWizard({
     const sectionKey = SECTION_KEYS[step];
     const body: Record<string, unknown> = { data, section_status: { ...sections, [sectionKey]: "complete" } };
     if (finish) body.status = "complete";
+    if (!id && !selectedClient) { setError("Select a client before saving."); setSaving(false); return null; }
     if (!id && selectedClient) body.client_id = selectedClient;
 
     const url = id ? `/api/assessments/${id}` : "/api/assessments";
@@ -130,7 +131,7 @@ export function AssessmentWizard({
     });
     const json = await res.json().catch(() => ({}));
     setSaving(false);
-    if (!res.ok) { setError(json.error || "Save failed."); return false; }
+    if (!res.ok) { setError(json.error || "Save failed."); return null; }
     if (!id && json.id) {
       setId(json.id);
       // A newly created assessment must open its canonical URL before the
@@ -140,22 +141,22 @@ export function AssessmentWizard({
     setDirty(false);
     setSavedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
     setSections((p) => ({ ...p, [sectionKey]: "complete" }));
-    return true;
+    return id ?? json.id ?? null;
     } catch {
       setError("Could not reach the server. Your changes remain here; retry saving.");
-      return false;
+      return null;
     } finally { setSaving(false); }
   }
 
   async function next() {
-    const ok = await save(false);
-    if (ok && step < STEPS.length - 1) setStep(step + 1);
+    const savedId = await save(false);
+    if (savedId && step < STEPS.length - 1) setStep(step + 1);
   }
 
   async function finish() {
-    const ok = await save(true);
-    if (ok) {
-      router.push(id ? `/assessments/${id}` : "/assessments");
+    const savedId = await save(true);
+    if (savedId) {
+      router.push(`/assessments/${savedId}`);
       router.refresh();
     }
   }
