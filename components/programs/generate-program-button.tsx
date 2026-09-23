@@ -103,8 +103,8 @@ export function GenerateProgramButton({
           {needsReview && <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-cream"><ShieldAlert className="h-4 w-4" /> Coach review required</p>}
           <p className="text-sm text-status-limited">{error}</p>
           {needsReview && (
-            <Link href="/programs?view=draft" className="mt-3 inline-flex min-h-10 items-center text-sm font-semibold text-sky underline underline-offset-4">
-              Open program review queue
+            <Link href="/assessments" className="mt-3 inline-flex min-h-10 items-center text-sm font-semibold text-sky underline underline-offset-4">
+              Return to assessments for coach review
             </Link>
           )}
         </div>
