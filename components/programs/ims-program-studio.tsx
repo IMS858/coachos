@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PublishImsProgramButton } from "@/components/programs/publish-ims-program-button";
 import { Activity, ArrowUpRight, ClipboardCheck, Dumbbell, ShieldCheck } from "lucide-react";
 
 type Exercise = {
@@ -13,13 +14,14 @@ type Session = { day_number?: number; day_type?: string; focus?: string; blocks?
 type Week = { week_number?: number; intent?: string; progression_notes?: string[]; sessions?: Session[] };
 type Plan = { weeks?: Week[]; progression?: Record<string, unknown>; assessment?: {primary_goal?: string; fra_priorities?: Array<{description?: string}>; constraints?: string[]; concerns?: string[]} };
 
-export function ImsProgramStudio({ plan, programId, initialEdits }: { plan: Plan; programId: string; initialEdits?: Plan | null }) {
+export function ImsProgramStudio({ plan, programId, initialEdits, canPublish = false }: { plan: Plan; programId: string; initialEdits?: Plan | null; canPublish?: boolean }) {
   const router = useRouter();
   const [working, setWorking] = useState<Plan>(() => structuredClone(initialEdits ?? plan));
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [savedEdits, setSavedEdits] = useState(Boolean(initialEdits));
+  const [pdfReady, setPdfReady] = useState(canPublish && !initialEdits);
   function editExercise(bi: number, ei: number, field: "name" | "dose" | "tempo" | "rationale" | "progression_note", value: string) {
     setWorking(previous => {
       const next = structuredClone(previous);
@@ -28,6 +30,7 @@ export function ImsProgramStudio({ plan, programId, initialEdits }: { plan: Plan
       return next;
     });
     setDirty(true);
+    setPdfReady(false);
     setNotice("");
   }
   async function save() {
@@ -36,7 +39,7 @@ export function ImsProgramStudio({ plan, programId, initialEdits }: { plan: Plan
       const response = await fetch(`/api/programs/${programId}`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({coach_edits:{structured_program:working}})});
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error ?? "Could not save draft");
-      setDirty(false); setSavedEdits(true); setNotice("Coach edits saved. Regenerate the PDF before publishing.");
+      setDirty(false); setSavedEdits(true); setPdfReady(false); setNotice("Coach edits saved. Regenerate the PDF before publishing.");
       router.refresh();
     } catch (error) {setNotice(error instanceof Error ? error.message : "Save failed");}
     finally {setBusy(false);}
@@ -47,7 +50,7 @@ export function ImsProgramStudio({ plan, programId, initialEdits }: { plan: Plan
       const response = await fetch(`/api/programs/${programId}/regenerate`, {method:"POST"});
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error ?? "Could not regenerate PDF");
-      setSavedEdits(false); setNotice("Reviewed client PDF regenerated. Ready for final coach approval.");
+      setSavedEdits(false); setPdfReady(true); setNotice("Reviewed client PDF regenerated. Ready for final coach approval.");
       router.refresh();
     } catch (error) {setNotice(error instanceof Error ? error.message : "Regeneration failed");}
     finally {setBusy(false);}
@@ -65,9 +68,11 @@ export function ImsProgramStudio({ plan, programId, initialEdits }: { plan: Plan
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-divider bg-navy-soft p-4">
         <div><p className="eyebrow">Coach review</p><p className="text-sm text-cream-dim">Edit the prescription, save your changes, then regenerate the client PDF.</p></div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={busy || !dirty} onClick={save} className="rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">Save draft</button>
+          <button type="button" disabled={busy || (!dirty && savedEdits)} onClick={save} className="rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">{dirty ? "Save draft" : "Approve unchanged plan"}</button>
           <button type="button" disabled={busy || dirty || !savedEdits} onClick={regenerate} className="rounded-lg bg-[#237d61] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Regenerate PDF</button>
         </div>
+        {pdfReady && !dirty && !busy && <PublishImsProgramButton programId={programId} />}
+        {!dirty && !savedEdits && !pdfReady && <p className="w-full text-xs text-cream-dim">Review the unchanged plan or edit exercises, then save and regenerate the client PDF.</p>}
         {notice && <p role="status" className="w-full text-sm text-sky">{notice}</p>}
         {dirty && <p className="w-full text-xs text-status-moderate">Unsaved changes — publishing is blocked until the reviewed PDF is regenerated.</p>}
       </div>
