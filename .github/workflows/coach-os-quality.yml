@@ -13,6 +13,8 @@ jobs:
         with:
           node-version: '20'
       - run: npm install --no-audit --no-fund
+      - name: Device contract regression tests
+        run: node --test tests/device-contract.test.cjs
       - name: TypeScript with inline error annotations
         shell: bash
         run: |
