@@ -45,7 +45,7 @@ export async function PATCH(
     }
     const previous = existing.data && typeof existing.data === "object" && !Array.isArray(existing.data)
       ? existing.data as Record<string, unknown> : {};
-    update.data = { ...body.data, device_measurements: previous.device_measurements ?? [] };
+    update.data = { ...body.data, device_measurements: previous.device_measurements ?? [], voltra_sessions: previous.voltra_sessions ?? [] };
     expectedUpdatedAt = existing.updated_at;
   }
   if ("section_status" in body) update.section_status = body.section_status;
