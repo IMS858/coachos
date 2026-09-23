@@ -13,16 +13,15 @@ export async function GET(
     .select("data,status,pdf_client_url,pdf_coach_url,client_id").eq("id", id).maybeSingle();
   if (!program) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (program.data?.pdf_mode === "coach" && !["owner", "trainer"].includes(profile?.role ?? "")) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
   const isStaff = ["owner", "trainer"].includes(profile?.role ?? "");
   if (!isStaff && (program.client_id !== user.id || !["published", "active", "completed"].includes(program.status))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const pdfPath = isStaff && program.data?.pdf_mode === "coach"
     ? program.pdf_coach_url : program.pdf_client_url;
-  if (!isStaff && (!program.pdf_client_url || program.data?.pdf_mode === "coach")) {
+  // A coach draft may have pdf_mode=coach; clients must still receive the
+  // separately published, sanitized client PDF, never the coach artifact.
+  if (!isStaff && !program.pdf_client_url) {
     return NextResponse.json({ error: "No published client PDF" }, { status: 404 });
   }
   if (typeof pdfPath === "string" && pdfPath.length > 0) {
