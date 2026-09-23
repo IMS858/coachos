@@ -10,7 +10,12 @@ export async function GET(
 ) {
   const {id} = await params;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    return NextResponse.json({error: "Invalid program ID"}, {status: 400});
+    const releaseChecks = generated ? [
+    {key:"review_signoff",label:"Coach marked the plan ready to publish",ok:program.data?.review_status === "ready_to_publish"},
+    {key:"catalog_safety",label:"All canonical identities mapped to safety-approved exercises",ok:catalogVerified},
+    {key:"release_gate",label:"Formal generator client-release sign-off enabled",ok:process.env.IMS_GENERATOR_CLIENT_RELEASE_APPROVED === "true"},
+  ] : [];
+  return NextResponse.json({error: "Invalid program ID"}, {status: 400});
   }
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
@@ -28,6 +33,15 @@ export async function GET(
   if (!program) return NextResponse.json({error: "Program not found"}, {status: 404});
 
   const generated = program.data?.source === "ims_generator";
+  const [mappingResult, reviewResult] = generated ? await Promise.all([
+    supabase.from("canonical_exercise_queue").select("canonical_id,matched_exercise_id,mapping_status").limit(1000),
+    supabase.from("exercise_reviews").select("exercise_id,safety_status").limit(1000),
+  ]) : [{data:[],error:null},{data:[],error:null}];
+  const approved = new Set((reviewResult.data ?? []).filter(r => r.safety_status === "approved").map(r => r.exercise_id));
+  const catalogVerified = !mappingResult.error && !reviewResult.error
+    && !!mappingResult.data && mappingResult.data.length === 423
+    && mappingResult.data.every(row => row.mapping_status === "coach_confirmed"
+      && !!row.matched_exercise_id && approved.has(row.matched_exercise_id));
   const checks = [
     {key:"draft_status",label:"Program is still a draft",ok:program.status === "draft"},
     {key:"client_assigned",label:"Client is assigned",ok:!!program.client_id},
@@ -44,6 +58,8 @@ export async function GET(
     source:generated?"ims_generator":"manual",
     ready_for_coach_review:blockers.length===0,
     ready_for_client_release:false,
+    release_checks:releaseChecks,
+    release_blockers:releaseChecks.filter(check => !check.ok).map(({key,label}) => ({key,label})),
     checks,
     blockers,
     note:"Passing this preflight does not approve exercise safety or publish a plan. Use the separate coach review and release workflow.",
