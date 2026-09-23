@@ -345,10 +345,12 @@ export async function POST(request: NextRequest) {
     console.log("[generate] generator responded", res.status, "in", Date.now() - started, "ms");
 
     if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[generate] generator error", res.status, errText.slice(0, 500));
+      // Upstream errors may echo assessment notes or injury history. Never log or return their bodies.
+      console.error("[generate] upstream generator failed", { status: res.status, elapsedMs: Date.now() - started });
       return NextResponse.json(
-        { error: `Generator returned ${res.status}`, detail: res.status === 400 || res.status === 422 ? errText.slice(0, 300) : "The generator is temporarily unavailable." },
+        { error: res.status === 400 || res.status === 422
+            ? "The assessment could not be converted into a program. Review its required fields and retry."
+            : "The generator is temporarily unavailable." },
         { status: 502 }
       );
     }
