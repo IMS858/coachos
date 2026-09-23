@@ -18,6 +18,7 @@ function loadTS(file) {
 }
 const { approvedDeviceEvidence } = loadTS("lib/devices/approved-evidence.ts");
 const { summarizeVoltraCSV, VOLTRA_COLUMNS } = loadTS("lib/devices/voltra-csv.ts");
+const { sanitizePublicAssessmentData } = loadTS("lib/assessments/sanitize-public-data.ts");
 const reading = (extra = {}) => ({
   review_status: "approved", kind: "rom", joint: "Shoulder",
   motion: "External rotation", side: "left", value: 52, unit: "degrees",
@@ -58,6 +59,18 @@ test("no device fields in historical assessments", () => {
   const out = approvedDeviceEvidence({});
   assert.equal(out.objective_measures, null);
   assert.equal(out.approved_voltra_count, 0);
+});
+test("public assessment sanitizer strips staff-only evidence without mutating source", () => {
+  const input = { goals: "move better", device_measurements: [reading()], voltra_sessions: [{ exercise: "Cable row" }] };
+  const out = sanitizePublicAssessmentData(input);
+  assert.deepEqual(out, { goals: "move better" });
+  assert.equal(input.device_measurements.length, 1);
+  assert.equal(input.voltra_sessions.length, 1);
+});
+test("public assessment sanitizer fails closed for non-object payloads", () => {
+  for (const value of [null, undefined, [], "assessment", 7, true]) {
+    assert.equal(sanitizePublicAssessmentData(value), null);
+  }
 });
 test("VOLTRA dynamic workouts remain descriptive, not isometric", () => {
   const out = approvedDeviceEvidence({ voltra_sessions: [{
