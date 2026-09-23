@@ -33,21 +33,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json().catch(() => null);
   if (!body || !valid(body.measurement)) return NextResponse.json({ error: "Invalid measurement" }, { status: 400 });
   const { data: assessment, error: readError } = await supabase.from("assessments")
-    .select("id, data, updated_at").eq("id", id).maybeSingle();
+    .select("id").eq("id", id).maybeSingle();
   if (readError || !assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
-  const data = assessment.data && typeof assessment.data === "object" && !Array.isArray(assessment.data)
-    ? assessment.data as Record<string, unknown> : {};
-  const existing = Array.isArray(data.device_measurements) ? data.device_measurements : [];
+  const { data: evidence, error: evidenceError } = await supabase.from("assessment_device_evidence")
+    .select("device_measurements,updated_at").eq("assessment_id",id).maybeSingle();
+  if (evidenceError) return NextResponse.json({ error: "Could not load private measurements" }, { status: 500 });
+  const existing = Array.isArray(evidence?.device_measurements) ? evidence.device_measurements : [];
   if (existing.length >= MAX_MEASUREMENTS) return NextResponse.json({ error: "Measurement limit reached" }, { status: 400 });
-  const next = { ...data, device_measurements: [...existing, {
-    ...body.measurement, recorded_by: user.id, recorded_at: new Date().toISOString(),
-    review_status: "requires_coach_review",
-  }] };
-  // Compare-and-swap prevents silently overwriting concurrent wizard saves.
-  const { data: saved, error } = await supabase.from("assessments")
-    .update({ data: next, updated_at: new Date().toISOString() })
-    .eq("id", id).eq("updated_at", assessment.updated_at).select("id").maybeSingle();
-  if (error) return NextResponse.json({ error: "Could not save measurement" }, { status: 500 });
-  if (!saved) return NextResponse.json({ error: "Assessment changed. Reload and retry." }, { status: 409 });
+  const next = [...existing, { ...body.measurement, recorded_by: user.id,
+    recorded_at: new Date().toISOString(), review_status: "requires_coach_review" }];
+  const now = new Date().toISOString();
+  const query = evidence ? supabase.from("assessment_device_evidence")
+    .update({ device_measurements: next, updated_at: now })
+    .eq("assessment_id",id).eq("updated_at",evidence.updated_at)
+    : supabase.from("assessment_device_evidence").insert({ assessment_id:id, device_measurements:next });
+  const { data: saved, error } = await query.select("assessment_id").maybeSingle();
+  if (error || !saved) return NextResponse.json({ error: error ? "Could not save measurement" : "Measurements changed; reload and retry" }, { status: error ? 500 : 409 });
   return NextResponse.json({ saved: true, measurement_count: existing.length + 1 });
 }
