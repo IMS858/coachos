@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizePublicAssessmentData } from "@/lib/assessments/sanitize-public-data";
 
 /**
  * POST /api/assessments — create a draft assessment (staff only).
@@ -29,12 +30,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "client_id required" }, { status: 400 });
   }
 
+  const publicData = sanitizePublicAssessmentData(data);
+  if (!publicData) {
+    return NextResponse.json({ error: "Invalid assessment data" }, { status: 400 });
+  }
+
   const { data: row, error } = await supabase
     .from("assessments")
     .insert({
       client_id,
       trainer_id: user.id,
-      data,
+      data: publicData,
       section_status,
       status: "draft",
     })
