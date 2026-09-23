@@ -27,8 +27,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     ...item, review_status: body.decision as Decision, reviewed_by: user.id,
     reviewed_at: new Date().toISOString(),
   } : item);
+  const update = body.device === "activforce"
+    ? { device_measurements: next, updated_at: new Date().toISOString() }
+    : { voltra_sessions: next, updated_at: new Date().toISOString() };
   const { data: saved, error } = await supabase.from("assessment_device_evidence")
-    .update({ [key]: next, updated_at: new Date().toISOString() })
+    .update(update)
     .eq("assessment_id", id).eq("updated_at", assessment.updated_at).select("id").maybeSingle();
   if (error) return NextResponse.json({ error: "Could not save review" }, { status: 500 });
   if (!saved) return NextResponse.json({ error: "Assessment changed. Reload and retry." }, { status: 409 });
