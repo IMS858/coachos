@@ -1,5 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export function VoltraImport({ assessmentId }: { assessmentId: string }) {
   const [file, setFile] = useState<File | null>(null);
@@ -7,6 +8,7 @@ export function VoltraImport({ assessmentId }: { assessmentId: string }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [side, setSide] = useState("bilateral");
   const [mode, setMode] = useState("");
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<{ total_repetitions: number; sets: Array<{
@@ -24,7 +26,8 @@ export function VoltraImport({ assessmentId }: { assessmentId: string }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Import failed");
       setSummary(result.session);
-      setMessage("Workout saved for coach review. New results will appear in the review panel after refresh.");
+      setMessage("Workout saved for coach review.");
+      router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Import failed"); }
     finally { setBusy(false); }
   }
