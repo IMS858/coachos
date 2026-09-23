@@ -1,10 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Reading = Record<string, unknown>;
 type Props = { assessmentId: string; measurements: Reading[]; workouts: Reading[] };
 export function DeviceReview({ assessmentId, measurements, workouts }: Props) {
+  const router = useRouter();
   const [entries, setEntries] = useState({ activforce: measurements, voltra: workouts });
+  useEffect(() => { setEntries({ activforce: measurements, voltra: workouts }); }, [measurements, workouts]);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   async function review(device: "activforce" | "voltra", index: number, decision: "approved" | "rejected") {
@@ -20,6 +23,7 @@ export function DeviceReview({ assessmentId, measurements, workouts }: Props) {
       setEntries(current => ({ ...current, [device]: current[device].map((item, i) =>
         i === index ? { ...item, review_status: decision } : item) }));
       setMessage("Review saved.");
+      router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Review failed"); }
     finally { setBusy(""); }
   }
