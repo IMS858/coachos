@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2, Download } from "lucide-react";
+import { Sparkles, Loader2, Download, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export function GenerateProgramButton({
@@ -14,10 +15,12 @@ export function GenerateProgramButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [needsReview, setNeedsReview] = useState(false);
 
   async function generate(pdfMode: string = "client") {
     setBusy(true);
     setError(null);
+    setNeedsReview(false);
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -28,7 +31,10 @@ export function GenerateProgramButton({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (res.status === 503) {
+        if (res.status === 422 && data.error === "coach_review_required") {
+          setNeedsReview(true);
+          setError(data.detail || "A coach must review the current restrictions before generating this plan.");
+        } else if (res.status === 503) {
           setError("Generator not configured. Set PROGRAM_GENERATOR_URL in Vercel.");
         } else {
           setError(data.detail || data.error || `Generator returned ${res.status}`);
@@ -93,7 +99,15 @@ export function GenerateProgramButton({
         </Button>
       </div>
       {error && (
-        <p className="text-sm text-status-limited">{error}</p>
+        <div role="alert" className={needsReview ? "rounded-xl border border-status-limited/40 bg-navy-soft p-4" : ""}>
+          {needsReview && <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-cream"><ShieldAlert className="h-4 w-4" /> Coach review required</p>}
+          <p className="text-sm text-status-limited">{error}</p>
+          {needsReview && (
+            <Link href="/programs?view=draft" className="mt-3 inline-flex min-h-10 items-center text-sm font-semibold text-sky underline underline-offset-4">
+              Open program review queue
+            </Link>
+          )}
+        </div>
       )}
       {done && !error && (
         <p className="text-xs text-status-optimal">Plan generated and downloading. Check your Downloads folder.</p>
