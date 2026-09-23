@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { fourWeekStructureIssues } from "@/lib/programs/four-week-integrity";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,10 @@ export async function POST(
       || !record.pdf_client_url?.startsWith(`${record.client_id}/${id}/`)
       || !record.data.structured_program || (record.coach_edits && Object.keys(record.coach_edits).length)) {
     return NextResponse.json({ error: "Regenerate a reviewed client PDF and resolve all edits before publishing" }, { status: 409 });
+  }
+  const structureIssues = fourWeekStructureIssues(record.data.structured_program);
+  if (structureIssues.length) {
+    return NextResponse.json({ error: "Four-week program is incomplete; regenerate and review before publishing", issues: structureIssues.slice(0, 10) }, { status: 422 });
   }
   const svc = createServiceClient();
   // Confirm the private artifact exists before exposing the published download.
