@@ -1,0 +1,134 @@
+/* Assessment-only visual language: warm editorial surfaces, charcoal ink,
+   restrained sage accent. The rest of Coach OS retains its existing theme. */
+.assessment-workspace {
+  --assessment-ink: #232724;
+  --assessment-muted: #646a63;
+  --assessment-line: #e4e5de;
+  --assessment-accent: #54715f;
+  color: var(--assessment-ink);
+  padding: 0 0 2rem;
+}
+.assessment-hero {
+  background: #f3f1e9;
+  border: 1px solid #e7e5dc;
+  border-radius: 22px;
+  padding: clamp(20px, 4vw, 36px);
+}
+.assessment-eyebrow {
+  font: 700 10px/1.4 "Barlow", sans-serif;
+  letter-spacing: .22em;
+  color: var(--assessment-accent);
+}
+.assessment-hero-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 15px 0 25px;
+}
+.assessment-hero h2 {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(36px, 6vw, 56px);
+  letter-spacing: -.025em;
+  line-height: .98;
+  color: #232724;
+}
+.assessment-hero p {
+  color: #646a63;
+  font-size: 14px;
+  margin-top: 11px;
+  max-width: 480px;
+}
+.assessment-step-counter {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+  gap: 7px;
+  color: #646a63;
+}
+.assessment-step-counter strong {
+  font: 600 42px/1 "Barlow Condensed", sans-serif;
+  color: #54715f;
+}
+.assessment-step-counter span { font-size: 12px; }
+.assessment-progress-track {
+  background: #dcdfd6;
+  border-radius: 99px;
+  height: 5px;
+  overflow: hidden;
+}
+.assessment-progress-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: #54715f;
+  transition: width .2s ease;
+}
+.assessment-step-nav { gap: 7px; }
+.assessment-step-nav button {
+  background: #fff !important;
+  color: #5d635c !important;
+  border: 1px solid #e2e5df !important;
+  padding: 9px 13px;
+  font-size: 12px;
+  border-radius: 99px;
+}
+.assessment-step-nav button:has(.lucide-check-circle-2) {
+  border-color: #adc4b0 !important;
+  color: #3d6950 !important;
+}
+.assessment-step-nav button:focus-visible { outline-color: #54715f; }
+.assessment-step-nav button[aria-current="step"] {
+  background: #293a30 !important;
+  color: #fff !important;
+  border-color: #293a30 !important;
+}
+.assessment-form-panel {
+  background: #fff;
+  border: 1px solid #e4e5de;
+  border-radius: 22px;
+  padding: clamp(18px, 4vw, 32px);
+  box-shadow: 0 12px 38px rgb(34 45 37 / .035);
+}
+.assessment-form-panel h3 {
+  font-size: 25px;
+  color: #232724;
+  margin-bottom: 19px;
+}
+.assessment-form-panel label { color: #4e554e; }
+.assessment-form-panel input,
+.assessment-form-panel textarea,
+.assessment-form-panel select {
+  background: #fafbf8;
+  border-color: #dfe4dc;
+  color: #232724;
+  min-height: 42px;
+}
+.assessment-form-panel input:focus,
+.assessment-form-panel textarea:focus,
+.assessment-form-panel select:focus {
+  outline: 2px solid #98b6a0;
+  outline-offset: 1px;
+  border-color: #54715f;
+}
+.assessment-form-panel input::placeholder,
+.assessment-form-panel textarea::placeholder { color: #8c9289; }
+.assessment-footer {
+  border-color: #e4e5de;
+  background: #f8f8f3;
+  border-radius: 16px;
+  padding: 15px;
+}
+.assessment-footer button:last-child {
+  background: #293a30;
+  color: #fff;
+}
+@media (max-width: 620px) {
+  .assessment-hero-row { align-items: start; flex-direction: column; }
+  .assessment-step-counter strong { font-size: 32px; }
+  .assessment-step-nav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; }
+  .assessment-step-nav button { flex: 0 0 auto; }
+  .assessment-form-panel .grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assessment-progress-track > div { transition: none; }
+}
