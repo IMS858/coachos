@@ -46,7 +46,7 @@ export function DeviceReview({ assessmentId, measurements, workouts }: Props) {
             {(reading.sets as Array<Record<string, unknown>>).map((set, i) =>
               <p key={i}>Set {str(set.set_index)}: {str(set.repetitions)} reps · {str(set.base_load_lb_min)}–{str(set.base_load_lb_max)} lb · {str(set.mean_velocity_m_s)} m/s · {str(set.peak_power_w)} W peak</p>)}
           </div>}
-          {device === "activforce" && reading.notes && <p className="mt-2 text-sm opacity-70">{str(reading.notes)}</p>}
+          {device === "activforce" && Boolean(reading.notes) && <p className="mt-2 text-sm opacity-70">{str(reading.notes)}</p>}
           <div className="mt-3 flex gap-2">
             <button disabled={!!busy || reading.review_status === "approved"} onClick={() => review(device, index, "approved")} className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-medium text-slate-950 disabled:opacity-40">Approve</button>
             <button disabled={!!busy || reading.review_status === "rejected"} onClick={() => review(device, index, "rejected")} className="rounded-lg border border-white/30 px-3 py-1.5 text-sm disabled:opacity-40">Reject</button>
