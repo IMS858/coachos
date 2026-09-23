@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, ChevronRight, ClipboardCheck, FileText, Plus, ShieldAlert } from "lucide-react";
+import { ArrowUpRight, ChevronRight, ClipboardCheck, FileText, Plus, ShieldAlert, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +70,7 @@ export default async function ProgramsPage({
                 From assessment to coach-reviewed programming. Drafts stay private until published.
               </p>
             </div>
+            <Link href="/exercise-reviews" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-sky/40 px-5 py-3 text-sm font-semibold text-sky hover:bg-sky/10"><ShieldCheck className="h-4 w-4"/> Coach Review Center</Link>
             <Link href="/assessments" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky px-5 py-3 text-sm font-semibold text-navy transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky">
               <Plus className="h-4 w-4" /> New from assessment
             </Link>
