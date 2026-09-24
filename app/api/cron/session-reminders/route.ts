@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/cron/session-reminders
- * Runs daily (see vercel.json). Emails every client with a session in the
- * next 30 hours a reminder. Daily windows overlap to cover the full day.
+ * Scheduled daily on the current Vercel plan, but safe to invoke more often
+ * from an external scheduler. Sends a 24h reminder and a short-notice reminder
+ * when a booking is created too late for the daily pass.
  *
  * Protected by CRON_SECRET (fail closed).
  */
@@ -27,9 +28,11 @@ export async function GET(request: NextRequest) {
 
   const svc = createServiceClient();
 
-  // Full daily coverage; stored dedupe keys handle the overlapping six hours.
-  const from = new Date(Date.now()).toISOString();
-  const to = new Date(Date.now() + 30 * 60 * 60 * 1000).toISOString();
+  const now = new Date();
+  const from = now.toISOString();
+  const toDate = new Date(now);
+  toDate.setHours(toDate.getHours() + 30);
+  const to = toDate.toISOString();
 
   const { data: sessions, error: sessionError } = await svc
     .from("sessions")
@@ -72,10 +75,14 @@ export async function GET(request: NextRequest) {
     });
     const firstName = (client.full_name ?? "").split(" ")[0] || "there";
 
-    const dedupeKey = `session-reminder-24h:${s.id}:${s.scheduled_at}`;
+    const hoursUntil = (new Date(s.scheduled_at).getTime() - now.getTime()) / 3600000;
+    // Daily execution normally catches the 24h window. A more frequent external
+    // scheduler can also catch bookings made inside 12h without duplicating mail.
+    const reminderWindow = hoursUntil <= 12 ? "short-notice" : "24h";
+    const dedupeKey = `session-reminder-${reminderWindow}:${s.id}:${s.scheduled_at}`;
     const payload = {
       to: client.email,
-      subject: `Reminder — your IMS session ${whenStr}`,
+      subject: `${reminderWindow === "short-notice" ? "Coming up" : "Reminder"} — your IMS session ${whenStr}`,
       html: emailShell({
         heading: "Your upcoming IMS session",
         bodyHtml: `
