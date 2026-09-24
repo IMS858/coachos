@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Dumbbell, Plus, ClipboardCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { allCatalogPages, exerciseSetIds, isExerciseSet } from "@/lib/exercises/catalog";
+import { ConvertExerciseSetButton } from "@/components/clients/convert-exercise-set-button";
 
 export async function ClientExerciseSets({ clientId }: { clientId: string }) {
   const db = await createClient();
@@ -23,7 +24,7 @@ export async function ClientExerciseSets({ clientId }: { clientId: string }) {
       const data = isExerciseSet(set.data) ? set.data : {};
       const exercises = Array.isArray(data.exercises) ? data.exercises : [];
       const names = exercises.flatMap(item => item && typeof item === "object" && typeof item.name === "string" ? [item.name] : []);
-      return <article key={set.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold text-cream">{set.name}</h3><p className="mt-1 text-xs text-cream-faint">{ids.length} exercises · Coach-only selection</p></div><Link href={`/library?collection_id=${set.id}`} className="inline-flex min-h-11 items-center rounded-xl border border-divider px-4 text-sm font-semibold text-sky">Open & edit</Link></div><p className="mt-3 text-sm leading-6 text-cream-dim">{names.slice(0, 6).join(" · ")}{names.length > 6 ? ` · +${names.length - 6} more` : ""}</p>{typeof data.note === "string" && data.note && <p className="mt-2 whitespace-pre-wrap text-sm text-cream-dim">{data.note}</p>}</article>;
+      return <article key={set.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold text-cream">{set.name}</h3><p className="mt-1 text-xs text-cream-faint">{ids.length} exercises · Coach-only selection</p></div><div className="flex flex-wrap gap-2"><Link href={`/library?collection_id=${set.id}`} className="inline-flex min-h-11 items-center rounded-xl border border-divider px-4 text-sm font-semibold text-sky">Open & edit</Link><ConvertExerciseSetButton setId={set.id} setName={set.name}/></div></div><p className="mt-3 text-sm leading-6 text-cream-dim">{names.slice(0, 6).join(" · ")}{names.length > 6 ? ` · +${names.length - 6} more` : ""}</p>{typeof data.note === "string" && data.note && <p className="mt-2 whitespace-pre-wrap text-sm text-cream-dim">{data.note}</p>}</article>;
     })}</div>}
   </section>;
 }
