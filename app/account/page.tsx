@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { User, CreditCard, FileCheck, LogOut, Smartphone } from "lucide-react";
+import { User, CreditCard, FileCheck, LogOut, Smartphone, CalendarPlus, MessageCircle, AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +34,7 @@ export default async function AccountPage() {
 
   const { data: plans } = await supabase
     .from("plans")
-    .select("kind, tier, custom_label, status, current_session_number, total_sessions")
+    .select("kind, tier, custom_label, status, current_session_number, total_sessions, expires_at, service_type")
     .eq("client_id", user.id)
     .eq("status", "active");
 
@@ -58,6 +58,11 @@ export default async function AccountPage() {
           <h1 className="text-3xl font-bold text-cream">
             {profile?.full_name?.split(" ")[0] ?? "Your account"}
           </h1>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <a href="/book" className="flex min-h-20 items-center gap-3 rounded-2xl border border-sky/20 bg-sky/5 p-4 text-cream transition hover:border-sky/50"><CalendarPlus className="h-5 w-5 text-sky" /><span className="text-sm font-semibold">Book a session</span></a>
+          <a href="/messages" className="flex min-h-20 items-center gap-3 rounded-2xl border border-divider bg-white p-4 text-cream transition hover:border-sky/50"><MessageCircle className="h-5 w-5 text-sky" /><span className="text-sm font-semibold">Message coach</span></a>
         </div>
 
         {/* Details — editable */}
@@ -102,9 +107,9 @@ export default async function AccountPage() {
                       <div className="text-cream font-medium">{planLabel(p)}</div>
                       {total !== null ? (
                         <>
-                          <div className="tabular text-sm text-cream-dim mt-0.5">
-                            {left} of {total} sessions left
-                          </div>
+                          <div className="tabular text-sm text-cream-dim mt-0.5">{left} of {total} sessions left</div>
+                          {left !== null && left <= 2 && <div className="mt-2 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800"><AlertTriangle className="h-4 w-4" />{left === 0 ? "Package depleted — message your coach to renew." : "Package running low — plan your renewal."}</div>}
+                          {p.expires_at && <div className="mt-2 text-xs text-cream-faint">Expires {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(p.expires_at))}</div>}
                           <div className="h-2 rounded-full bg-navy-elev mt-2 overflow-hidden">
                             <div
                               className="h-full rounded-full bg-sky"
