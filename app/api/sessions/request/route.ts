@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   const scheduledAt = String(body.scheduled_at ?? "");
   const sessionType = String(body.session_type ?? "training");
   const note = String(body.note ?? "").slice(0, 500);
+  if (!["training", "mobility", "pilates", "massage", "recovery"].includes(sessionType)) return NextResponse.json({ error: "Invalid session type." }, { status: 400 });
 
   const when = new Date(scheduledAt);
   if (!scheduledAt || isNaN(when.getTime())) {
@@ -33,6 +34,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const local = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(when);
+  const part = (type: string) => local.find((p) => p.type === type)?.value ?? "";
+  const day = part("weekday");
+  const minute = Number(part("minute"));
+  const minutes = Number(part("hour")) * 60 + minute;
+  if (day === "Sun" || minutes < (day === "Sat" ? 480 : 360) || minutes > (day === "Sat" ? 720 : 1080) || ![0, 30].includes(minute)) {
+    return NextResponse.json({ error: "Choose a valid IMS studio time. Sundays are by appointment." }, { status: 400 });
+  }
   const svc = createServiceClient();
 
   // Must be an actual client (staff should use the schedule directly)
@@ -79,7 +88,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Notify the owner (best effort)
+  // A request is not a confirmed booking; staff must check the authoritative calendar.\n  // Notify the owner (best effort)
   try {
     const { data: me } = await svc
       .from("profiles")
