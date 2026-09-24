@@ -68,22 +68,22 @@ function LoginForm() {
   }
 
   return (
-    <Card className="overflow-hidden rounded-3xl border border-[#e7ebf0] bg-white shadow-[0_20px_65px_rgba(20,36,50,0.09)]">
+    <Card className="overflow-hidden rounded-[28px] border border-[#e3e8ee] bg-white shadow-[0_24px_70px_rgba(18,35,49,0.10)] sm:rounded-3xl">
       <div className="h-1.5 bg-sky" />
-      <CardHeader className="pt-7">
+      <CardHeader className="px-5 pt-6 sm:px-7 sm:pt-7">
         <div className="flex items-center justify-center mb-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[230px] object-contain" />
+          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[190px] object-contain sm:max-w-[220px]" />
         </div>
         <CardTitle className="text-center text-3xl font-bold">
-          Welcome back
+          Welcome to IMS
         </CardTitle>
         <CardDescription className="text-center">
-          Your training, programs and progress.
+          Everything you need to train, track progress and stay connected with your coach.
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="px-5 pb-5 sm:px-7 sm:pb-7">
         <form
           noValidate
           onSubmit={(e) => void handlePassword(e)}
@@ -97,11 +97,13 @@ function LoginForm() {
               id="email"
               type="email"
               required
-              autoComplete="email"
+              name="email"
+              autoComplete="username"
+              inputMode="email"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-12 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] placeholder:text-[#8492a3] focus-visible:ring-[#1876b4]"
+              className="h-13 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] placeholder:text-[#8492a3] focus-visible:ring-[#1876b4]"
             />
           </div>
 
@@ -115,7 +117,7 @@ function LoginForm() {
               autoComplete="current-password"
               value={password}
               onChange={setPassword}
-              inputClassName="h-12 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] focus-visible:ring-[#1876b4]"
+              inputClassName="h-13 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] focus-visible:ring-[#1876b4]"
             />
           </div>
 
@@ -139,7 +141,7 @@ function LoginForm() {
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="mt-2 min-h-12 rounded-xl bg-[#1876b4] text-base font-semibold text-white hover:bg-[#125f95]">
+          <Button type="submit" disabled={loading} className="mt-2 min-h-13 rounded-xl bg-[#1876b4] text-base font-semibold text-white hover:bg-[#125f95]">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
           </Button>
 
@@ -154,7 +156,7 @@ function LoginForm() {
           <div className="mt-6 space-y-3 border-t border-divider pt-5">
             <p className="text-center text-xs uppercase tracking-widest text-[#738094]">Or continue with</p>
             {process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" && (
-              <Button type="button" variant="outline" className="min-h-12 w-full rounded-xl border-[#d6dfe8] bg-white text-base text-[#17191c] hover:bg-[#f5f8fa]" onClick={() => void handleSocial("google")} disabled={Boolean(socialLoading) || loading}>
+              <Button type="button" variant="outline" className="min-h-13 w-full rounded-xl border-[#d6dfe8] bg-white text-base text-[#17191c] hover:bg-[#f5f8fa]" onClick={() => void handleSocial("google")} disabled={Boolean(socialLoading) || loading}>
                 {socialLoading === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continue with Google
               </Button>
             )}
