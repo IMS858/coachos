@@ -1,7 +1,7 @@
 {
-  "name": "IMS Coach OS",
-  "short_name": "IMS",
-  "description": "Innovative Movement Solutions \u2014 premium movement coaching platform",
+  "name": "IMS Fitness",
+  "short_name": "IMS Fitness",
+  "description": "Training, programs, progress, booking and coach communication from Innovative Movement Solutions.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -23,7 +23,6 @@
   ],
   "categories": [
     "health",
-    "fitness",
-    "business"
+    "fitness"
   ]
 }
