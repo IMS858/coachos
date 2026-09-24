@@ -34,9 +34,8 @@ export default async function LeadsPage() {
     .order("full_name", { ascending: true });
 
   const rows = leads ?? [];
-  const now = Date.now();
   const open = rows.filter((l) => !["not_interested", "converted"].includes(l.stage));
-  const stale = open.filter((l) => !l.last_contacted_at || now - new Date(l.last_contacted_at).getTime() > 7 * 86400000).length;
+  const untouched = open.filter((l) => !l.last_contacted_at).length;
   const booked = rows.filter((l) => l.stage === "booked").length;
   const newCount = rows.filter((l) => l.stage === "new").length;
 
@@ -52,7 +51,7 @@ export default async function LeadsPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">New</p><p className="mt-1 text-3xl font-bold text-cream">{newCount}</p><p className="text-xs text-cream-dim">need first touch</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Open</p><p className="mt-1 text-3xl font-bold text-cream">{open.length}</p><p className="text-xs text-cream-dim">active pipeline</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Booked</p><p className="mt-1 text-3xl font-bold text-cream">{booked}</p><p className="text-xs text-cream-dim">ready to convert</p></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs uppercase tracking-wider text-amber-700">Follow-up</p><p className="mt-1 text-3xl font-bold text-amber-900">{stale}</p><p className="text-xs text-amber-700">untouched 7+ days</p></div></div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">New</p><p className="mt-1 text-3xl font-bold text-cream">{newCount}</p><p className="text-xs text-cream-dim">need first touch</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Open</p><p className="mt-1 text-3xl font-bold text-cream">{open.length}</p><p className="text-xs text-cream-dim">active pipeline</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Booked</p><p className="mt-1 text-3xl font-bold text-cream">{booked}</p><p className="text-xs text-cream-dim">ready to convert</p></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs uppercase tracking-wider text-amber-700">Follow-up</p><p className="mt-1 text-3xl font-bold text-amber-900">{untouched}</p><p className="text-xs text-amber-700">never contacted</p></div></div>
 
         <LeadsView leads={rows} />
       </div>
