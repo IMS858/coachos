@@ -16,11 +16,10 @@ export default async function LeadPipelineReport() {
     .order("created_at", { ascending: false });
   if (error) throw new Error("Lead reporting source unavailable");
   const leads = data ?? [];
-  const now = Date.now();
   const open = leads.filter((l:any) => !["converted","not_interested"].includes(l.stage));
   const converted = leads.filter((l:any) => l.stage === "converted");
   const booked = leads.filter((l:any) => l.stage === "booked");
-  const stale = open.filter((l:any) => !l.last_contacted_at || now - new Date(l.last_contacted_at).getTime() > 7*86400000);
+  const untouched = open.filter((l:any) => !l.last_contacted_at);
   const rate = leads.length ? Math.round(converted.length / leads.length * 100) : 0;
   const sources = new Map<string,{total:number,converted:number}>();
   for (const l of leads as any[]) { const key=l.source || "unknown"; const row=sources.get(key) || {total:0,converted:0}; row.total++; if(l.stage==="converted") row.converted++; sources.set(key,row); }
@@ -30,10 +29,10 @@ export default async function LeadPipelineReport() {
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div className="rounded-2xl border border-divider bg-white p-4"><Users className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{open.length}</p><p className="text-xs text-cream-faint">Open leads</p></div>
       <div className="rounded-2xl border border-divider bg-white p-4"><CalendarCheck className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{booked.length}</p><p className="text-xs text-cream-faint">Booked</p></div>
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><Clock3 className="h-5 w-5 text-amber-700"/><p className="mt-3 text-3xl font-bold text-amber-900">{stale.length}</p><p className="text-xs text-amber-700">Need follow-up</p></div>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><Clock3 className="h-5 w-5 text-amber-700"/><p className="mt-3 text-3xl font-bold text-amber-900">{untouched.length}</p><p className="text-xs text-amber-700">Never contacted</p></div>
       <div className="rounded-2xl border border-divider bg-white p-4"><TrendingUp className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{rate}%</p><p className="text-xs text-cream-faint">All-time conversion</p></div>
     </div>
     <div className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border border-divider bg-white p-5"><h2 className="font-semibold text-cream">Source performance</h2><div className="mt-4 divide-y divide-divider">{[...sources.entries()].sort((a,b)=>b[1].total-a[1].total).map(([source,v])=><div key={source} className="flex items-center justify-between py-3"><div><p className="text-sm font-medium capitalize text-cream">{source.replaceAll("_"," ")}</p><p className="text-xs text-cream-faint">{v.total} leads</p></div><p className="text-sm font-semibold text-cream">{v.total ? Math.round(v.converted/v.total*100) : 0}% converted</p></div>)}</div></div>
-    <div className="rounded-2xl border border-divider bg-white p-5"><div className="flex items-center justify-between"><h2 className="font-semibold text-cream">Follow-up queue</h2><Link href="/leads" className="text-xs font-semibold text-sky">Open leads →</Link></div><div className="mt-4 divide-y divide-divider">{stale.slice(0,10).map((l:any)=><div key={l.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-medium text-cream">{l.full_name}</p><p className="text-xs capitalize text-cream-faint">{(l.interest||l.source||"lead").replaceAll("_"," ")}</p></div><p className="whitespace-nowrap text-xs text-amber-700">{l.last_contacted_at ? Math.floor((now-new Date(l.last_contacted_at).getTime())/86400000)+"d ago" : "Never touched"}</p></div>)}</div></div></div>
+    <div className="rounded-2xl border border-divider bg-white p-5"><div className="flex items-center justify-between"><h2 className="font-semibold text-cream">Follow-up queue</h2><Link href="/leads" className="text-xs font-semibold text-sky">Open leads →</Link></div><div className="mt-4 divide-y divide-divider">{untouched.slice(0,10).map((l:any)=><div key={l.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-medium text-cream">{l.full_name}</p><p className="text-xs capitalize text-cream-faint">{(l.interest||l.source||"lead").replaceAll("_"," ")}</p></div><p className="whitespace-nowrap text-xs text-amber-700">Never touched</p></div>)}</div></div></div>
   </div></AppShell>;
 }
