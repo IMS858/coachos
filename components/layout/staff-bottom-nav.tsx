@@ -55,7 +55,7 @@ export function StaffBottomNav() {
         <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className="band absolute bottom-0 left-0 right-0 border-t border-divider rounded-t-2xl p-4 pb-24"
+            className="band absolute bottom-0 left-0 right-0 border-t border-divider rounded-t-3xl p-5 pb-28 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -89,7 +89,7 @@ export function StaffBottomNav() {
       )}
 
       <nav className="band safe-bottom fixed bottom-0 left-0 right-0 z-40 border-t border-divider lg:hidden">
-        <ul className="grid grid-cols-5">
+        <ul className="mx-auto grid max-w-2xl grid-cols-5 px-2">
           {coreItems.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -99,8 +99,8 @@ export function StaffBottomNav() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex flex-col items-center gap-1 py-2.5 text-xs transition-colors",
-                    active ? "text-sky" : "text-cream-faint"
+                    "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] transition-all",
+                    active ? "bg-white/10 text-white" : "text-cream-faint hover:text-white"
                   )}
                 >
                   <Icon className={cn("h-5 w-5", active && "text-sky")} />
@@ -112,7 +112,7 @@ export function StaffBottomNav() {
           <li>
             <button
               onClick={() => setOpen(true)}
-              className="w-full flex flex-col items-center gap-1 py-2.5 text-xs text-cream-faint"
+              className="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] text-cream-faint hover:bg-white/5 hover:text-white"
             >
               <MoreHorizontal className="h-5 w-5" />
               <span>More</span>

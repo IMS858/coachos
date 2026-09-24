@@ -84,9 +84,9 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
   }
 
   return (
-    <aside className="band hidden lg:flex h-screen w-60 shrink-0 flex-col border-r border-divider">
+    <aside className="band sticky top-0 hidden lg:flex h-screen w-64 shrink-0 flex-col border-r border-divider shadow-xl">
       {/* Logo / brand */}
-      <div className="flex h-16 items-center px-5 border-b border-divider">
+      <div className="flex h-20 items-center px-5 border-b border-divider">
         <Link href="/dashboard" className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -120,10 +120,10 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    "group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all",
                     active
-                      ? "bg-white/10 text-cream"
-                      : "text-cream-dim hover:bg-navy-soft hover:text-cream"
+                      ? "bg-white/10 text-white shadow-sm ring-1 ring-white/10"
+                      : "text-cream-dim hover:bg-white/5 hover:text-white"
                   )}
                 >
                   <Icon
@@ -142,7 +142,7 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
 
       {/* User footer */}
       <div className="border-t border-divider p-3">
-        <div className="rounded-md bg-navy-soft p-3">
+        <div className="rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
           <div className="text-sm font-medium text-cream truncate">
             {fullName}
           </div>
