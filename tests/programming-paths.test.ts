@@ -22,3 +22,5 @@ test("conversion preserves source exercise set and never edits it",()=>{
  assert.match(route,/origin_exercise_set_id/);
  assert.doesNotMatch(route,/from\("programs"\)\.update/);
 });
+
+test("quick-program readiness makes assessment optional but prescription mandatory",()=>{\n const route=readFileSync("app/api/programs/[id]/readiness/route.ts","utf8");\n assert.match(route,/Assessment optional for quick programming/);\n assert.match(route,/prescription_complete/);\n assert.match(route,/client_safe_exercises/);\n});\n
