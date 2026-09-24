@@ -11,6 +11,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json().catch(() => ({}));
   const archived = body.archived !== false;
   const svc = createServiceClient();
+  const { data: client } = await svc.from("clients").select("id").eq("id", clientId).maybeSingle();
+  if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
   const { error } = await svc.from("message_thread_state").upsert({
     client_id: clientId,
     archived_at: archived ? new Date().toISOString() : null,
