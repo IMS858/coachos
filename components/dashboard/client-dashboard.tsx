@@ -8,6 +8,7 @@ import {
   Dumbbell,
   MessageCircle,
   History,
+  CreditCard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CancelSessionButton } from "@/components/sessions/cancel-session-button";
@@ -191,10 +192,11 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <Link href="/plan" className="flex min-h-24 flex-col justify-between rounded-2xl bg-sky p-4 text-white shadow-sm transition hover:bg-sky-deep"><Dumbbell className="h-6 w-6" /><span className="text-sm font-semibold">My plan →</span></Link>
         <Link href="/workouts" className="flex min-h-24 flex-col justify-between rounded-2xl border border-line bg-white p-4 text-ink shadow-sm transition hover:border-sky/50"><History className="h-6 w-6 text-sky" /><span className="text-sm font-semibold">History →</span></Link>
         <Link href="/messages" className="flex min-h-24 flex-col justify-between rounded-2xl border border-line bg-white p-4 text-ink shadow-sm transition hover:border-sky/50"><MessageCircle className="h-6 w-6 text-sky" /><span className="text-sm font-semibold">Coach →</span></Link>
+        <Link href="/account" className="flex min-h-24 flex-col justify-between rounded-2xl border border-line bg-white p-4 text-ink shadow-sm transition hover:border-sky/50"><CreditCard className="h-6 w-6 text-sky" /><span className="text-sm font-semibold">Account →</span></Link>
       </div>
 
       {/* Next session card */}
