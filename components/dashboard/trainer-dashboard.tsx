@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { loadStaffUnreadMessages } from "@/lib/messages/actionable";
 import {
   Card,
   CardContent,
@@ -67,18 +68,10 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(5),
-    supabase
-      .from("messages")
-      .select("id, client_id, body, created_at, profiles:sender_id!inner(full_name)")
-      .is("read_at", null)
-      .neq("sender_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20),
+    loadStaffUnreadMessages(supabase),
   ]);
 
-  const { data: threadStates } = await supabase.from("message_thread_state").select("client_id,archived_at");
-  const archivedClients = new Set((threadStates ?? []).filter((s:any)=>s.archived_at).map((s:any)=>s.client_id));
-  const actionableMessages = (unreadMessages ?? []).filter((m:any)=>m.sender_id !== user.id && !archivedClients.has(m.client_id)).slice(0,5);
+  const actionableMessages = (unreadMessages ?? []).slice(0,5);
 
   const sessions = todaySessions ?? [];
   const completed = sessions.filter((s: any) => s.status === "completed").length;
@@ -243,7 +236,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-cream truncate">
-                        {msg.profiles?.full_name ?? "—"}
+                        Client message
                       </div>
                       <div className="text-xs text-cream-faint truncate">
                         {msg.body}
