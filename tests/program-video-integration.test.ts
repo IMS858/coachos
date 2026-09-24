@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+test("client plan closes the asynchronous video coaching loop",()=>{const plan=readFileSync("app/plan/page.tsx","utf8");assert.match(plan,/HomeworkList/);assert.match(plan,/SendToCoach/);});
+test("program exercise demo verification cannot substitute another exercise video",()=>{const route=readFileSync("app/api/programs/assignments/[id]/video/route.ts","utf8");assert.match(route,/assignment\.data\.exercise_id!==exerciseId/);assert.match(route,/safety_status!==\"approved\"/);assert.match(route,/client_visible/);});
