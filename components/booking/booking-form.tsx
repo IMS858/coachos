@@ -52,11 +52,22 @@ export function BookingForm() {
   const router = useRouter();
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [available, setAvailable] = useState<string[] | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [type, setType] = useState("training");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function loadAvailability(nextDate: string) {
+    setDate(nextDate); setTime(""); setAvailable(null);
+    if (!nextDate) return;
+    setLoadingSlots(true); setError(null);
+    try { const res=await fetch(`/api/sessions/availability?date=${encodeURIComponent(nextDate)}`, { cache: "no-store" }); const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.error || "Availability unavailable"); setAvailable(Array.isArray(data.slots)?data.slots:[]); }
+    catch(err){ setAvailable(null); setError(err instanceof Error ? err.message : "Availability unavailable"); }
+    finally { setLoadingSlots(false); }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -118,7 +129,7 @@ export function BookingForm() {
                 required
                 min={new Date().toISOString().split("T")[0]}
                 value={date}
-                onChange={(e) => { setDate(e.target.value); setTime(""); }}
+                onChange={(e) => void loadAvailability(e.target.value)}
               />
             </div>
             <div>
@@ -130,11 +141,9 @@ export function BookingForm() {
                 onChange={(e) => setTime(e.target.value)}
               >
                 <option value="">
-                  {date && slotsForDate(date).length === 0
-                    ? "Sundays are by appointment — message Jason"
-                    : "Choose a time…"}
+                  {loadingSlots ? "Checking coach calendar…" : date && slotsForDate(date).length === 0 ? "Sundays are by appointment — message Jason" : available?.length === 0 ? "No open times — choose another day" : "Choose an available time…"}
                 </option>
-                {slotsForDate(date).map((slot) => (
+                {slotsForDate(date).filter((slot) => available === null || available.includes(slot.value)).map((slot) => (
                   <option key={slot.value} value={slot.value}>
                     {slot.label}
                   </option>
@@ -171,7 +180,7 @@ export function BookingForm() {
             </div>
           )}
 
-          <Button type="submit" disabled={busy || !date || !time} className="mt-1">
+          <Button type="submit" disabled={busy || loadingSlots || !date || !time} className="mt-1">
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : done ? (
@@ -183,7 +192,7 @@ export function BookingForm() {
             )}
           </Button>
           <p className="text-xs text-cream-faint">
-            We&apos;ll email you as soon as it&apos;s confirmed.
+            Times shown are open on your coach&apos;s Coach OS calendar. Your request still requires confirmation until IMS completes the Vagaro cutover.
           </p>
         </form>
       </CardContent>
