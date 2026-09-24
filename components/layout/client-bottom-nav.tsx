@@ -19,7 +19,6 @@ const items = [
   { href: "/workouts", label: "Log", icon: ClipboardList },
   { href: "/book", label: "Book", icon: CalendarPlus },
   { href: "/progress", label: "Progress", icon: TrendingUp },
-  { href: "/messages", label: "Inbox", icon: MessageCircle },
   { href: "/account", label: "Me", icon: UserRound },
 ];
 
@@ -27,7 +26,7 @@ export function ClientBottomNav() {
   const pathname = usePathname();
   return (
     <nav className="band safe-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-divider">
-      <ul className="mx-auto grid max-w-2xl grid-cols-7 px-2">
+      <ul className="mx-auto grid max-w-2xl grid-cols-6 px-2">
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
