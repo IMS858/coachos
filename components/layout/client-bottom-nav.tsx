@@ -8,8 +8,8 @@ import {
   CalendarPlus,
   TrendingUp,
   MessageCircle,
-  User,
   ClipboardList,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,14 +20,14 @@ const items = [
   { href: "/book", label: "Book", icon: CalendarPlus },
   { href: "/progress", label: "Progress", icon: TrendingUp },
   { href: "/messages", label: "Inbox", icon: MessageCircle },
-
+  { href: "/account", label: "Me", icon: UserRound },
 ];
 
 export function ClientBottomNav() {
   const pathname = usePathname();
   return (
     <nav className="band safe-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-divider">
-      <ul className="mx-auto grid max-w-2xl grid-cols-6 px-2">
+      <ul className="mx-auto grid max-w-2xl grid-cols-7 px-2">
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -36,7 +36,7 @@ export function ClientBottomNav() {
               <Link
                 href={item.href}
                 className={cn(
-                  "relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] transition-all",
+                  "relative flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[10px] transition-all",
                   active ? "bg-white/10 text-white" : "text-cream-dim hover:text-white"
                 )}
               >
