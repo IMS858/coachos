@@ -25,6 +25,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handlePassword(e: React.FormEvent) {
@@ -44,6 +45,25 @@ function LoginForm() {
     } else {
       router.push(next);
       router.refresh();
+    }
+  }
+
+  async function handleSocial(provider: "google" | "apple") {
+    setSocialLoading(provider);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const callback = new URL("/api/auth/callback", window.location.origin);
+      callback.searchParams.set("next", next);
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: callback.toString() },
+      });
+      if (oauthError) setError(oauthError.message);
+    } catch {
+      setError("Couldn't start sign-in. Please try again or use your password.");
+    } finally {
+      setSocialLoading(null);
     }
   }
 
@@ -130,6 +150,21 @@ function LoginForm() {
             Forgot your password?
           </a>
         </form>
+        {(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" || process.env.NEXT_PUBLIC_APPLE_AUTH_ENABLED === "true") && (
+          <div className="mt-6 space-y-3 border-t border-divider pt-5">
+            <p className="text-center text-xs uppercase tracking-widest text-[#738094]">Or continue with</p>
+            {process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" && (
+              <Button type="button" variant="outline" className="min-h-12 w-full rounded-xl border-[#d6dfe8] bg-white text-base text-[#17191c] hover:bg-[#f5f8fa]" onClick={() => void handleSocial("google")} disabled={Boolean(socialLoading) || loading}>
+                {socialLoading === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continue with Google
+              </Button>
+            )}
+            {process.env.NEXT_PUBLIC_APPLE_AUTH_ENABLED === "true" && (
+              <Button type="button" variant="outline" className="min-h-12 w-full rounded-xl border-[#d6dfe8] bg-white text-base text-[#17191c] hover:bg-[#f5f8fa]" onClick={() => void handleSocial("apple")} disabled={Boolean(socialLoading) || loading}>
+                {socialLoading === "apple" ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continue with Apple
+              </Button>
+            )}
+          </div>
+        )}
         <p className="mt-6 border-t border-divider pt-5 text-center text-xs text-cream-faint">Innovative Movement Solutions · Train smarter. Move better.</p>
       </CardContent>
     </Card>
