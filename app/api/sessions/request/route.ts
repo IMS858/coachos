@@ -19,9 +19,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const scheduledAt = String(body.scheduled_at ?? "");
-  const sessionType = String(body.session_type ?? "training");
+  let sessionType = String(body.session_type ?? "training");
+  const serviceId = typeof body.service_id === "string" ? body.service_id : null;
   const note = String(body.note ?? "").slice(0, 500);
-  const allowedSessionTypes = new Set(["training", "mobility", "pilates", "massage", "recovery"]);
+  const allowedSessionTypes = new Set(["training", "mobility", "pilates", "massage", "recovery", "body_comp"]);
   if (!allowedSessionTypes.has(sessionType)) {
     return NextResponse.json({ error: "Choose a valid session type." }, { status: 400 });
   }
@@ -52,6 +53,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Choose a valid IMS studio time. Sundays are by appointment." }, { status: 400 });
   }
   const svc = createServiceClient();
+  let duration = 60;
+  let minimumNoticeMinutes = 60;
+  let horizonDays = 60;
+  if (serviceId) {
+    const { data: service, error: serviceError } = await svc.from("service_catalog").select("duration_minutes,session_type,client_bookable,minimum_notice_minutes,booking_horizon_days").eq("id", serviceId).eq("active", true).maybeSingle();
+    if (serviceError) return NextResponse.json({ error: "Service lookup unavailable." }, { status: 503 });
+    if (!service?.client_bookable || !service.duration_minutes || !service.session_type) return NextResponse.json({ error: "That service is not available for client booking." }, { status: 409 });
+    duration = service.duration_minutes; sessionType = service.session_type; minimumNoticeMinutes = service.minimum_notice_minutes ?? 60; horizonDays = service.booking_horizon_days ?? 60;
+  }
 
   // Must be an actual client (staff should use the schedule directly)
   const { data: clientRow, error: clientError } = await svc
@@ -64,7 +74,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: clientRow ? "Your account needs a primary coach before requesting sessions." : "Client account required." }, { status: 403 });
   }
 
-  // Recheck availability server-side; the client picker is advisory and can go stale.\n  const startMs = when.getTime();\n  const { data: conflicts, error: conflictError } = await svc.from("sessions")\n    .select("id,scheduled_at,duration_minutes")\n    .eq("trainer_id", clientRow.primary_trainer_id)\n    .in("status", ["requested","scheduled","confirmed"])\n    .gte("scheduled_at", new Date(startMs - 4 * 3600000).toISOString())\n    .lt("scheduled_at", new Date(startMs + 3600000).toISOString());\n  if (conflictError) return NextResponse.json({ error: "Availability check unavailable." }, { status: 503 });\n  if ((conflicts ?? []).some((other) => {\n    const otherStart = new Date(other.scheduled_at).getTime();\n    const otherEnd = otherStart + (other.duration_minutes ?? 60) * 60000;\n    return otherStart < startMs + 60 * 60000 && otherEnd > startMs;\n  })) return NextResponse.json({ error: "That time was just taken. Choose another available slot." }, { status: 409 });\n\n  // Cap open requests to prevent spam
+  const serviceNoticeBoundary = new Date(now); serviceNoticeBoundary.setMinutes(serviceNoticeBoundary.getMinutes() + minimumNoticeMinutes);
+  const horizonBoundary = new Date(now); horizonBoundary.setDate(horizonBoundary.getDate() + horizonDays);
+  if (when < serviceNoticeBoundary) return NextResponse.json({ error: `This service requires ${minimumNoticeMinutes} minutes notice.` }, { status: 400 });
+  if (when > horizonBoundary) return NextResponse.json({ error: `This service can be booked up to ${horizonDays} days ahead.` }, { status: 400 });
+
+  // Recheck availability server-side; the client picker is advisory and can go stale.\n  const startMs = when.getTime();\n  const { data: conflicts, error: conflictError } = await svc.from("sessions")\n    .select("id,scheduled_at,duration_minutes")\n    .eq("trainer_id", clientRow.primary_trainer_id)\n    .in("status", ["requested","scheduled","confirmed"])\n    .gte("scheduled_at", new Date(startMs - 4 * 3600000).toISOString())\n    .lt("scheduled_at", new Date(startMs + 3600000).toISOString());\n  if (conflictError) return NextResponse.json({ error: "Availability check unavailable." }, { status: 503 });\n  if ((conflicts ?? []).some((other) => {\n    const otherStart = new Date(other.scheduled_at).getTime();\n    const otherEnd = otherStart + (other.duration_minutes ?? 60) * 60000;\n    return otherStart < startMs + duration * 60000 && otherEnd > startMs;\n  })) return NextResponse.json({ error: "That time was just taken. Choose another available slot." }, { status: 409 });\n\n  // Cap open requests to prevent spam
   const { count, error: countError } = await svc
     .from("sessions")
     .select("id", { count: "exact", head: true })
@@ -84,7 +99,7 @@ export async function POST(request: NextRequest) {
       client_id: user.id,
       trainer_id: clientRow.primary_trainer_id,
       scheduled_at: when.toISOString(),
-      duration_minutes: 60,
+      duration_minutes: duration,
       session_type: sessionType,
       status: "requested",
       notes_pre: note || null,
