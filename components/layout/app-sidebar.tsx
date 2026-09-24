@@ -37,8 +37,10 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/clients", label: "Clients", icon: Users },
     { href: "/leads", label: "Leads", icon: Target },
     { href: "/programs", label: "Programs", icon: Dumbbell },
+    { href: "/exercise-reviews/catalog", label: "Exercise Catalog", icon: ClipboardList },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
+    { href: "/schedule/agenda", label: "Daily Agenda", icon: CalendarDays },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/financials", label: "Financials", icon: DollarSign },
     { href: "/checkout", label: "Checkout", icon: CreditCard },
@@ -111,7 +113,7 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
               ? pathname === "/dashboard" && searchParams.get("view") === "owner"
               : item.href === "/dashboard"
                 ? pathname === "/dashboard" && searchParams.get("view") !== "owner"
-                : pathname === item.href || pathname.startsWith(item.href);
+                : pathname === item.href || (item.href !== "/schedule" && pathname.startsWith(item.href + "/"));
             const Icon = item.icon;
             return (
               <li key={item.href}>
