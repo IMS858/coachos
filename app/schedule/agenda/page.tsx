@@ -63,7 +63,7 @@ export default async function ScheduleAgenda({searchParams}:{searchParams:Promis
   visible.length===0?<div className="rounded-xl border border-divider bg-navy-soft p-8 text-center"><p className="text-lg font-semibold text-cream">No sessions on this agenda</p><p className="mt-2 text-sm text-cream-dim">Try another day or trainer, or create a session.</p></div>:
   <ol className="space-y-3">{visible.map(s=><li key={s.id}><Link href={`/sessions/${s.id}`} className="flex flex-wrap items-center gap-4 rounded-xl border border-divider bg-navy-soft p-4 transition-colors hover:border-sky/60">
    <div className="w-28 shrink-0"><p className="text-base font-semibold text-cream">{clock(s.scheduled_at)}</p><p className="text-xs text-cream-dim">{s.duration_minutes??60} min</p></div>
-   <div className="min-w-0 flex-1"><p className="font-semibold text-cream">{(s.client_id ? clientNames.get(s.client_id) : null)??"Client"}</p><p className="mt-1 text-sm text-cream-dim">{trainerNames.get(s.trainer_id)??"Unassigned"} · {String(s.session_type??"Session").replace(/_/g," ")}</p></div>
+   <div className="min-w-0 flex-1"><p className="font-semibold text-cream">{(s.client_id ? clientNames.get(s.client_id) : null)??"Client"}</p><p className="mt-1 text-sm text-cream-dim">{(s.trainer_id ? trainerNames.get(s.trainer_id) : null)??"Unassigned"} · {String(s.session_type??"Session").replace(/_/g," ")}</p></div>
    <span className="rounded-full border border-divider px-3 py-1 text-xs capitalize text-cream-dim">{s.status}</span>
   </Link></li>)}</ol>}
   <p className="text-xs text-cream-dim">This view reads live session data and does not alter booking status.</p>
