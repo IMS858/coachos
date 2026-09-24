@@ -12,7 +12,8 @@ import { ClientProgrammingStatus } from "@/components/clients/client-programming
 import { SendAgreement } from "@/components/clients/send-agreement";
 import { WaiverPanel } from "@/components/clients/waiver-panel";
 import { MedicalPanel } from "@/components/clients/medical-panel";
-import { SendVideoPanel } from "@/components/media/send-video-panel";\nimport { ClientVideoWorkflow } from "@/components/clients/client-video-workflow";
+import { SendVideoPanel } from "@/components/media/send-video-panel";
+import { ClientVideoWorkflow } from "@/components/clients/client-video-workflow";
 import { ClientLoginPanel } from "@/components/clients/client-login-panel";
 import { IntakeLinkButton } from "@/components/clients/intake-link-button";
 
@@ -55,7 +56,8 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     <SendAgreement clientId={id} defaultEmail={profileRow.email ?? ""} defaultName={profileRow.full_name}/>
     <WaiverPanel clientId={id}/>
     <MedicalPanel clientId={id}/>
-    <ClientVideoWorkflow clientId={id}/>\n    <div id="coach-video"><SendVideoPanel clientId={id} clientName={profileRow.full_name}/></div>
+    <ClientVideoWorkflow clientId={id}/>
+    <div id="coach-video"><SendVideoPanel clientId={id} clientName={profileRow.full_name}/></div>
     <ClientLoginPanel clientId={id} clientName={profileRow.full_name} hasEmail={Boolean(profileRow.email)} isOwner={viewerProfile.role === "owner"}/>
     <IntakeLinkButton clientId={id} clientName={profileRow.full_name} clientEmail={profileRow.email}/>
   </div></AppShell>;
