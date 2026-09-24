@@ -28,11 +28,12 @@ export async function POST(request: NextRequest) {
     if (!messageId) return NextResponse.json({ ok: true });
 
     const svc = createServiceClient();
-    const { data: msg } = await svc
+    const { data: msg, error: messageError } = await svc
       .from("messages")
       .select("id, client_id, sender_id, body, created_at")
       .eq("id", messageId)
       .maybeSingle();
+    if (messageError) return NextResponse.json({ ok: false, error: "Message lookup failed" }, { status: 503 });
     if (!msg) return NextResponse.json({ ok: true });
 
     const m = msg as any;
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     const senderIsClient = m.sender_id === m.client_id;
 
     // Anything else already unread from this side means they've been told.
-    const { data: priorUnread } = await svc
+    const { data: priorUnread, error: unreadError } = await svc
       .from("messages")
       .select("id, sender_id")
       .eq("client_id", m.client_id)
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       .neq("id", m.id)
       .limit(20);
 
+    if (unreadError) return NextResponse.json({ ok: false, error: "Notification state unavailable" }, { status: 503 });
     const alreadyPending = (priorUnread ?? []).some((p: any) =>
       senderIsClient ? p.sender_id === m.client_id : p.sender_id !== m.client_id
     );
@@ -105,9 +107,10 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    return NextResponse.json({ ok: true, notified: result.ok });
+    if (!result.ok) return NextResponse.json({ ok: false, notified: false, error: "Notification delivery failed" }, { status: 503 });
+    return NextResponse.json({ ok: true, notified: true });
   } catch (err) {
     console.warn("[messages/notify]", err);
-    return NextResponse.json({ ok: true, notified: false });
+    return NextResponse.json({ ok: false, notified: false }, { status: 503 });
   }
 }
