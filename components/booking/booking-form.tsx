@@ -7,14 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SESSION_TYPES = [
-  { value: "training", label: "Personal Training" },
-  { value: "mobility", label: "Mobility Coaching" },
-  { value: "pilates", label: "Pilates" },
-  { value: "massage", label: "Massage / Bodywork" },
-  { value: "recovery", label: "Recovery (sauna, compression)" },
-];
-
 /**
  * Sessions start on the hour or the half hour — a 6:47 request isn't a slot
  * anyone can actually train in, so the picker shouldn't offer one.
@@ -54,7 +46,6 @@ export function BookingForm() {
   const [time, setTime] = useState("");
   const [available, setAvailable] = useState<string[] | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [type, setType] = useState("training");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -80,7 +71,7 @@ export function BookingForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scheduled_at: new Date(`${date}T${time}`).toISOString(),
-          session_type: type,
+          session_type: "training",
           note,
         }),
       });
