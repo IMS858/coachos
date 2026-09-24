@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";\nimport Link from "next/link";
 import {
   Save,
   Plus,
@@ -244,7 +244,7 @@ export function ClientEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">\n        <Link href={`/sessions/new?client_id=${clientId}`} className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><CalendarPlus className="h-5 w-5 text-sky"/><p className="mt-3 text-sm font-semibold text-cream">Book session</p><p className="text-xs text-cream-faint">Add to calendar</p></Link>\n        <Link href="/messages" className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><MessageCircle className="h-5 w-5 text-sky"/><p className="mt-3 text-sm font-semibold text-cream">Message</p><p className="text-xs text-cream-faint">Coach communication</p></Link>\n        <Link href="/checkout" className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><CreditCard className="h-5 w-5 text-sky"/><p className="mt-3 text-sm font-semibold text-cream">Checkout</p><p className="text-xs text-cream-faint">Sell package or plan</p></Link>\n        <button type="button" onClick={() => setShowAddPanel(true)} className="rounded-2xl border border-divider bg-white p-4 text-left transition hover:border-sky/50"><Plus className="h-5 w-5 text-sky"/><p className="mt-3 text-sm font-semibold text-cream">Add plan</p><p className="text-xs text-cream-faint">Manual plan setup</p></button>\n      </div>\n\n      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Active Plans</h2>
