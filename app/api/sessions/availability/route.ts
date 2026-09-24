@@ -15,8 +15,12 @@ function slots(date:string){
 }
 export async function GET(request:NextRequest){
  const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});
- const date=request.nextUrl.searchParams.get("date")??"";if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return NextResponse.json({error:"Valid date required"},{status:400});
- const svc=createServiceClient();const {data:client,error:clientError}=await svc.from("clients").select("primary_trainer_id").eq("id",user.id).maybeSingle();
+ const date=request.nextUrl.searchParams.get("date")??"";
+ const serviceId=request.nextUrl.searchParams.get("service_id");if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return NextResponse.json({error:"Valid date required"},{status:400});
+ const svc=createServiceClient();
+ let duration=60,bufferBefore=0,bufferAfter=0;
+ if(serviceId){const {data:service,error:serviceError}=await svc.from("service_catalog").select("id,duration_minutes,client_bookable,booking_buffer_before_minutes,booking_buffer_after_minutes").eq("id",serviceId).eq("active",true).maybeSingle();if(serviceError)return NextResponse.json({error:"Service lookup unavailable"},{status:503});if(!service?.client_bookable||!service.duration_minutes)return NextResponse.json({error:"Service is not available for client booking"},{status:409});duration=service.duration_minutes;bufferBefore=service.booking_buffer_before_minutes??0;bufferAfter=service.booking_buffer_after_minutes??0;}
+ const {data:client,error:clientError}=await svc.from("clients").select("primary_trainer_id").eq("id",user.id).maybeSingle();
  if(clientError)return NextResponse.json({error:"Client lookup unavailable"},{status:503});if(!client?.primary_trainer_id)return NextResponse.json({error:"Primary coach required"},{status:409});
  const rawCandidates=slots(date).map(time=>({time,when:wallClockToUtc(date,time)})).filter(x=>x.when) as {time:string;when:Date}[];
  const weekday=new Date(`${date}T12:00:00Z`).getUTCDay();
@@ -30,6 +34,6 @@ export async function GET(request:NextRequest){
  if(blockError && blockError.code!=="42P01")return NextResponse.json({error:"Coach blocked-time lookup unavailable"},{status:503});
  const {data:busy,error}=await svc.from("sessions").select("scheduled_at,duration_minutes,status").eq("trainer_id",client.primary_trainer_id).in("status",["requested","scheduled","confirmed"]).gte("scheduled_at",start.toISOString()).lt("scheduled_at",end.toISOString());
  if(error)return NextResponse.json({error:"Availability lookup unavailable"},{status:503});
- const available=candidates.filter(c=>{const cs=c.when.getTime(),ce=cs+60*60000;const sessionConflict=(busy??[]).some((b:any)=>{const bs=new Date(b.scheduled_at).getTime(),be=bs+(b.duration_minutes??60)*60000;return bs<ce&&be>cs;});const blocked=(blocks??[]).some((b:any)=>new Date(b.starts_at).getTime()<ce&&new Date(b.ends_at).getTime()>cs);return !sessionConflict&&!blocked;}).map(c=>c.time);
- return NextResponse.json({date,trainer_id:client.primary_trainer_id,slots:available},{headers:{"Cache-Control":"private, no-store"}});
+ const available=candidates.filter(c=>{const cs=c.when.getTime()-bufferBefore*60000,ce=c.when.getTime()+(duration+bufferAfter)*60000;const sessionConflict=(busy??[]).some((b:any)=>{const bs=new Date(b.scheduled_at).getTime(),be=bs+(b.duration_minutes??60)*60000;return bs<ce&&be>cs;});const blocked=(blocks??[]).some((b:any)=>new Date(b.starts_at).getTime()<ce&&new Date(b.ends_at).getTime()>cs);return !sessionConflict&&!blocked;}).map(c=>c.time);
+ return NextResponse.json({date,trainer_id:client.primary_trainer_id,duration_minutes:duration,slots:available},{headers:{"Cache-Control":"private, no-store"}});
 }
