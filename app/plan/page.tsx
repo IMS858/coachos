@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle } from "lucide-react";
+import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle, MessageCircle, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { HomeworkList } from "@/components/media/homework-list";
 import { AppShell } from "@/components/layout/app-shell";
@@ -114,8 +114,14 @@ export default async function PlanPage() {
           </p>
         </div>
 
+        <nav aria-label="My training" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <a href="#my-workouts" className="rounded-xl border border-divider bg-navy-soft p-4 hover:border-sky"><Dumbbell className="h-6 w-6 text-sky"/><span className="mt-3 block text-sm font-semibold text-cream">My workouts</span><span className="mt-1 block text-xs text-cream-dim">{program ? "Current plan" : "Awaiting plan"}</span></a>
+          <a href="#my-videos" className="rounded-xl border border-divider bg-navy-soft p-4 hover:border-sky"><PlayCircle className="h-6 w-6 text-sky"/><span className="mt-3 block text-sm font-semibold text-cream">Exercise videos</span><span className="mt-1 block text-xs text-cream-dim">{homeworkWithPosters.length} assigned</span></a>
+          <Link href="/progress" className="rounded-xl border border-divider bg-navy-soft p-4 hover:border-sky"><TrendingUp className="h-6 w-6 text-sky"/><span className="mt-3 block text-sm font-semibold text-cream">My progress</span></Link>
+          <Link href="/messages" className="rounded-xl border border-divider bg-navy-soft p-4 hover:border-sky"><MessageCircle className="h-6 w-6 text-sky"/><span className="mt-3 block text-sm font-semibold text-cream">Message coach</span></Link>
+        </nav>
         {homeworkWithPosters.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div id="my-videos" className="flex scroll-mt-6 flex-col gap-2">
             <div className="flex items-center gap-2"><PlayCircle className="h-5 w-5 text-sky" /><div className="eyebrow">My exercise videos</div></div>
             <p className="prose-ims text-sm text-cream-dim -mt-1 mb-1">
               Your assigned exercise demonstrations and coaching videos.
@@ -128,7 +134,7 @@ export default async function PlanPage() {
         {program && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle id="my-workouts" className="flex scroll-mt-6 items-center gap-2">
                 <Dumbbell className="h-5 w-5 text-sky" />
                 {program.name}
               </CardTitle>
