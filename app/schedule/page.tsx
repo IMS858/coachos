@@ -216,13 +216,19 @@ export default async function SchedulePage({
     ? await supabase.from("profiles").select("id, full_name").in("id", requestClientIds)
     : { data: [] as any[] };
   const nameById = new Map((requestProfiles ?? []).map((p: any) => [p.id, p.full_name]));
-  const pendingRequests = (requestRows ?? []).map((r: any) => ({
+  const requestPlanIds = [...new Set((requestRows ?? []).map((r:any)=>r.client_id))];
+  const { data: requestPlans } = requestPlanIds.length ? await supabase.from("plans").select("client_id,tier,custom_label,total_sessions,sessions_used,kind,status").in("client_id",requestPlanIds).eq("status","active") : { data: [] as any[] };
+  const packageByClient = new Map<string, any>();
+  for (const p of requestPlans ?? []) if (p.kind === "package" && !packageByClient.has(p.client_id)) packageByClient.set(p.client_id,p);
+  const pendingRequests = (requestRows ?? []).map((r: any) => { const plan=packageByClient.get(r.client_id); const remaining=plan?.total_sessions == null ? null : Math.max(0,Number(plan.total_sessions)-Number(plan.sessions_used??0)); return ({
     id: r.id,
     scheduled_at: r.scheduled_at,
     session_type: r.session_type,
     notes_pre: r.notes_pre,
     client_name: nameById.get(r.client_id) ?? "Client",
-  }));
+    package_label: plan?.custom_label || plan?.tier?.replaceAll("_"," ") || null,
+    sessions_remaining: remaining,
+  }); });
 
   return (
     <AppShell>
