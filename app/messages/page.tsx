@@ -79,10 +79,11 @@ export default async function MessagesPage() {
     if (m.sender_id === m.client_id && m.read_at === null) c.unread += 1;
   }
 
-  const totalUnread = Array.from(convoMap.values()).reduce((n, c) => n + c.unread, 0);
-  const activeConversations = Array.from(convoMap.values()).filter((c) => c.last).length;
+  const activeValues = Array.from(convoMap.values()).filter((c) => !archived.has(c.clientId));
+  const totalUnread = activeValues.reduce((n, c) => n + c.unread, 0);
+  const activeConversations = activeValues.filter((c) => c.last).length;
 
-  const convos = Array.from(convoMap.values()).filter((c) => !archived.has(c.clientId)).sort((a, b) => {
+  const convos = activeValues.sort((a, b) => {
     if (a.last && !b.last) return -1;
     if (!a.last && b.last) return 1;
     if (a.last && b.last)
