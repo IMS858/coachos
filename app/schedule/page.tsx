@@ -420,7 +420,7 @@ export default async function SchedulePage({
                         1,
                         Math.round((s.duration_minutes ?? 60) / 30)
                       );
-                      const style = TRAINING_STYLE ?? TYPE_STYLES.training;
+                      const style = TRAINING_STYLE;
                       const dimmed =
                         s.status === "late_cancelled" || s.status === "no_show";
                       return (
@@ -458,15 +458,7 @@ export default async function SchedulePage({
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-cream-faint">
-          {Object.entries(TYPE_STYLES).map(([type, cls]) => (
-            <span key={type} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-sm border ${cls}`} />
-              {type.replace("_", " ")}
-            </span>
-          ))}
-        </div>
+        <div className="flex items-center gap-2 text-xs text-cream-faint"><span className={`h-2.5 w-2.5 rounded-sm border ${TRAINING_STYLE}`} />Personal Training</div>
       </div>
     </AppShell>
   );
