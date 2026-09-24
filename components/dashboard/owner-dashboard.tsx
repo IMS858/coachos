@@ -40,9 +40,8 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
   const [
     { data: summary },
     { count: leadsThisMonth },
-    { count: assessmentsCompletedThisMonth },
     { count: convertedThisMonth },
-    { data: pipelineRows },
+    { data: leadPipelineRows },
     { data: roster },
     { count: clientsAt90 },
     { count: stillActiveAt90 },
@@ -59,17 +58,11 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
     supabase
       .from("clients")
       .select("*", { count: "exact", head: true })
-      .eq("status", "assessment_completed")
-      .gte("updated_at", startOfMonth),
-    supabase
-      .from("clients")
-      .select("*", { count: "exact", head: true })
       .eq("status", "active")
       .gte("joined_at", startOfMonth),
     supabase
-      .from("clients")
-      .select("status")
-      .in("status", ["lead", "assessment_booked", "assessment_completed", "active"]),
+      .from("leads")
+      .select("stage"),
     supabase
       .from("client_billing_summary")
       .select("client_id, full_name, status, primary_plan_label")
@@ -108,10 +101,9 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
       lastSeen: c.last_session_at,
     }));
 
-  const conversionRate =
-    assessmentsCompletedThisMonth && assessmentsCompletedThisMonth > 0
-      ? Math.round(((convertedThisMonth ?? 0) / assessmentsCompletedThisMonth) * 100)
-      : null;
+  const leadRows = leadPipelineRows ?? [];
+  const leadConverted = leadRows.filter((l: any) => l.stage === "converted").length;
+  const conversionRate = leadRows.length > 0 ? Math.round((leadConverted / leadRows.length) * 100) : null;
 
   // Packages at or below 2 sessions remaining — renewal/upsell signal
   const lowBalance = await findLowBalancePackages(2);
@@ -121,19 +113,12 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
       ? Math.round(((stillActiveAt90 ?? 0) / clientsAt90) * 100)
       : null;
 
-  const pipeline = ["lead", "assessment_booked", "assessment_completed", "active"].map((s) => ({
-    stage:
-      s === "lead" ? "New leads"
-      : s === "assessment_booked" ? "Assessment booked"
-      : s === "assessment_completed" ? "Assessment completed"
-      : "Active members",
-    count: (pipelineRows ?? []).filter((c: any) => c.status === s).length,
-    color:
-      s === "lead" ? "bg-cream-faint"
-      : s === "assessment_booked" ? "bg-sky/60"
-      : s === "assessment_completed" ? "bg-sky/80"
-      : "bg-status-optimal",
-  }));
+  const pipeline = [
+    { stage: "New", count: leadRows.filter((l: any) => l.stage === "new").length, color: "bg-cream-faint" },
+    { stage: "Contacted", count: leadRows.filter((l: any) => ["contacted","nurturing"].includes(l.stage)).length, color: "bg-sky/60" },
+    { stage: "Booked", count: leadRows.filter((l: any) => l.stage === "booked").length, color: "bg-sky/80" },
+    { stage: "Converted", count: leadConverted, color: "bg-status-optimal" },
+  ];
   const maxPipelineCount = Math.max(...pipeline.map((p) => p.count), 1);
 
   // Time-aware greeting (Pacific — IMS is in San Diego)
@@ -183,7 +168,7 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
           label="Conversion"
           value={conversionRate !== null ? `${conversionRate}%` : "—"}
           icon={TrendingUp}
-          hint={conversionRate !== null ? "assess → member" : "needs more data"}
+          hint={conversionRate !== null ? "lead → client" : "needs more data"}
         />
         <KpiCard
           label="90-day Retention"
@@ -197,7 +182,7 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Pipeline</CardTitle>
-            <CardDescription>Lead → assessment → member funnel</CardDescription>
+            <CardDescription>Lead → contacted → booked → client</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
