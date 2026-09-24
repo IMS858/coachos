@@ -31,9 +31,10 @@ export default async function WorkoutHistoryPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-8">
       <div>
         <Link href="/progress" className="text-sm text-sky-light">← My progress</Link>
-        <h1 className="mt-3 text-3xl font-semibold text-cream">Workout history</h1>
-        <p className="mt-1 text-sm text-cream-dim">Your recorded sets, loads and effort.</p>
+        <div className="mt-4 rounded-2xl bg-band p-6 text-white shadow-lg"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Your training record</p><h1 className="mt-2 text-4xl font-bold text-white">Workout history</h1><p className="mt-2 text-sm text-white/75">Track your consistency, loads and effort over time.</p></div>
+
       </div>
+      <div className="grid grid-cols-2 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Recorded sets</p><p className="mt-2 text-3xl font-bold tabular text-cream">{logs?.length ?? 0}</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Training days</p><p className="mt-2 text-3xl font-bold tabular text-cream">{byDate.size}</p></div></div>
       {error && <div role="alert" className="rounded-xl border border-divider p-5 text-cream">
         Workout history is unavailable right now. Please try again later.
       </div>}
@@ -41,7 +42,7 @@ export default async function WorkoutHistoryPage() {
         No workouts logged yet. Once you record your sets with your coach, they will appear here.
       </div>}
       {!error && Array.from(byDate).map(([day, entries]) =>
-        <section key={day} className="overflow-hidden rounded-xl border border-divider">
+        <section key={day} className="overflow-hidden rounded-2xl border border-divider bg-white shadow-sm">
           <h2 className="bg-navy-elev px-4 py-3 text-base font-semibold text-cream">{day}</h2>
           <ul className="divide-y divide-divider">
             {(entries ?? []).map(log => <li key={log.id} className="px-4 py-4">
