@@ -19,9 +19,10 @@ const CATALOG = {
     { lookup_key: "recovery_monthly", name: "Recovery", detail: "Recovery access", price: "$100/mo" },
   ],
   packages: [
-    { lookup_key: "package_6", name: "6-Session Package", detail: "$100/session", price: "$600" },
-    { lookup_key: "package_12", name: "12-Session Package", detail: "$95/session", price: "$1,140" },
-    { lookup_key: "package_24", name: "24-Session Package", detail: "$90/session", price: "$2,160" },
+    { lookup_key: "package_6", name: "6-Session Package", detail: "Price loaded from Stripe", price: null },
+    { lookup_key: "package_12", name: "12-Session Package", detail: "Price loaded from Stripe", price: null },
+    { lookup_key: "package_24", name: "24-Session Package", detail: "Price loaded from Stripe", price: null },
+    { lookup_key: "package_48", name: "48-Session Package", detail: "Price loaded from Stripe", price: null },
   ],
 };
 
@@ -155,7 +156,7 @@ export function CheckoutView({
               <CardContent className="py-4">
                 <div className="text-cream font-medium">{p.name}</div>
                 <div className="text-xs text-cream-faint">{p.detail}</div>
-                <div className="text-sm text-sky mt-0.5 mb-2">{p.price}</div>
+                {p.price && <div className="text-sm text-sky mt-0.5 mb-2">{p.price}</div>}
                 <Button size="sm" className="w-full" onClick={() => buy(p.lookup_key)} disabled={busyKey !== null}>
                   {busyKey === p.lookup_key ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sell"}
                 </Button>
