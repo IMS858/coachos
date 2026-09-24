@@ -159,16 +159,15 @@ export default async function SchedulePage({
     );
   }
 
+  const trainingWeekSessions = weekSessions.filter((s) => s.session_type === "training");
   const dayCounts: Record<string, number> = {};
-  for (const s of weekSessions) {
+  for (const s of trainingWeekSessions) {
     const d = ptDateOf(s.scheduled_at);
     dayCounts[d] = (dayCounts[d] ?? 0) + 1;
   }
 
   const daySessions = weekSessions.filter(
-    (s) =>
-      ptDateOf(s.scheduled_at) === selected &&
-      (typeFilter === "all" || s.session_type === typeFilter)
+    (s) => ptDateOf(s.scheduled_at) === selected && s.session_type === "training"
   );
 
   // Whole-hour labels within the range. With a 4:30 start, the first whole
@@ -260,7 +259,7 @@ export default async function SchedulePage({
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Today</p><p className="mt-1 text-2xl font-bold text-cream">{daySessions.length}</p><p className="text-xs text-cream-dim">sessions</p></div>
-          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{weekSessions.length}</p><p className="text-xs text-cream-dim">scheduled</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{trainingWeekSessions.length}</p><p className="text-xs text-cream-dim">training sessions</p></div>
           <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Requests</p><p className="mt-1 text-2xl font-bold text-cream">{pendingRequests.length}</p><p className="text-xs text-cream-dim">need review</p></div>
           <Link href="/schedule/standing" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><p className="text-xs uppercase tracking-wider text-sky">Recurring</p><p className="mt-1 text-sm font-semibold text-cream">Manage standing slots →</p></Link>
         </div>
