@@ -258,6 +258,7 @@ export default async function SchedulePage({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
+            <Link href={`/schedule/agenda?date=${selected}`}><Button variant="secondary">Daily agenda</Button></Link>
             <Link href="/sessions/new">
               <Button>
                 <Plus className="h-4 w-4" />
