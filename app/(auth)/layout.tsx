@@ -20,10 +20,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
         </div>
       </section>
-      <section className="flex min-h-[100dvh] items-center justify-center px-5 py-12 sm:px-10 lg:px-12">
-        <div className="w-full max-w-md">
+      <section className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-4 py-7 sm:px-10 sm:py-12 lg:px-12">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_top,#dcecf7_0,transparent_68%)] opacity-80 lg:hidden" />
+        <div className="relative z-10 w-full max-w-md">
           {children}
-          <p className="mt-8 text-center text-xs text-[#8a94a2]">Innovative Movement Solutions · <Link href="/forgot-password" className="underline underline-offset-4 hover:text-[#267bb1]">Account help</Link></p>
+          <p className="mt-5 text-center text-xs sm:mt-8 text-[#8a94a2]">Innovative Movement Solutions · <Link href="/forgot-password" className="underline underline-offset-4 hover:text-[#267bb1]">Account help</Link></p>
         </div>
       </section>
     </main>
