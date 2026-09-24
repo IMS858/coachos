@@ -40,10 +40,11 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+  const pacificDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
+  const probe = new Date(`${pacificDate}T12:00:00Z`);
+  const zone = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "longOffset" }).formatToParts(probe).find(part => part.type === "timeZoneName")?.value.replace("GMT", "") || "-08:00";
+  const startOfDay = new Date(`${pacificDate}T00:00:00${zone}`);
+  const endOfDay = new Date(`${pacificDate}T23:59:59.999${zone}`);
 
   const [
     { data: todaySessions },
@@ -135,7 +136,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
               sessions.map((session: any) => {
                 const time = new Date(session.scheduled_at).toLocaleTimeString(
                   "en-US",
-                  { hour: "numeric", minute: "2-digit" }
+                  { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" }
                 );
                 const isCompleted = session.status === "completed";
                 return (
