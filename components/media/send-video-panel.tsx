@@ -208,7 +208,7 @@ export function SendVideoPanel({
           <Video className="h-4 w-4 text-sky" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-cream">Send homework</h3>
+          <h3 className="text-base font-semibold text-cream">Coach video</h3>
           <p className="prose-ims text-sm text-cream-dim mt-0.5">
             Film the cue while it&apos;s fresh — {clientName.split(" ")[0]} sees it
             on their plan.
