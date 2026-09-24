@@ -50,22 +50,31 @@ export default async function PlanPage() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // Existing assignments may predate the safety gate. Never surface an
+  // unapproved library demonstration to a client.
+  const assignedIds = [...new Set((homework ?? []).map(h => h.exercise_id).filter((id): id is string => !!id))];
+  const {data: safetyReviews, error: safetyError} = assignedIds.length
+    ? await supabase.from("exercise_reviews").select("exercise_id,safety_status").in("exercise_id",assignedIds)
+    : {data:[],error:null};
+  const approvedIds = new Set((safetyReviews ?? []).filter(r => r.safety_status === "approved").map(r => r.exercise_id));
+  const safeHomework = (homework ?? []).filter(h => !h.exercise_id || (!safetyError && approvedIds.has(h.exercise_id)));
+
   // Sign the posters in one batch so the list renders with real thumbnails
   // rather than fetching each one after mount.
   const homeworkWithPosters = await Promise.all(
-    (homework ?? []).map(async (h: any) => {
+    safeHomework.map(async (h: any) => {
       // A library assignment has no upload of its own — its media lives on the
       // exercise record.
       if (h.exercise_id) {
         const { data: ex } = await supabase
           .from("exercises")
-          .select("video_url, thumbnail_url, coaching_cues")
+          .select("video_url, thumbnail_url, coaching_cues, client_visible")
           .eq("id", h.exercise_id)
           .maybeSingle();
         return {
           ...h,
           poster_url: (ex as any)?.thumbnail_url ?? null,
-          external_url: (ex as any)?.video_url ?? null,
+          external_url: (ex as any)?.client_visible ? (ex as any)?.video_url ?? null : null,
           cues: (ex as any)?.coaching_cues ?? [],
         };
       }
@@ -107,18 +116,31 @@ export default async function PlanPage() {
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-cream">My Plan</h1>
+        <div className="rounded-2xl bg-navy-soft border border-divider p-5">
+          <div className="text-xs uppercase tracking-widest text-sky">IMS / Your training</div>
+          <h1 className="mt-2 text-2xl font-semibold text-cream">My Plan</h1>
           <p className="text-cream-faint text-sm">
             Your current program and what&apos;s coming up.
           </p>
         </div>
 
+        <nav aria-label="Training shortcuts" className="grid grid-cols-2 gap-3">
+          <a href="#exercise-videos" className="rounded-xl border border-divider bg-navy-soft p-4 text-cream hover:border-sky">
+            <PlayCircle className="mb-3 h-6 w-6 text-sky" />
+            <span className="block font-semibold">Exercise videos</span>
+            <span className="mt-1 block text-xs text-cream-dim">{homeworkWithPosters.length} assigned</span>
+          </a>
+          <Link href="/progress" className="rounded-xl border border-divider bg-navy-soft p-4 text-cream hover:border-sky">
+            <Dumbbell className="mb-3 h-6 w-6 text-sky" />
+            <span className="block font-semibold">My progress</span>
+            <span className="mt-1 block text-xs text-cream-dim">Review your training</span>
+          </Link>
+        </nav>
         {homeworkWithPosters.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div id="exercise-videos" className="flex flex-col gap-2 scroll-mt-6">
             <div className="flex items-center gap-2"><PlayCircle className="h-5 w-5 text-sky" /><div className="eyebrow">My exercise videos</div></div>
             <p className="prose-ims text-sm text-cream-dim -mt-1 mb-1">
-              Your assigned exercise demonstrations and coaching videos.
+              Watch your coach-approved demonstrations, review your cues and replay them whenever you train.
             </p>
             <HomeworkList items={homeworkWithPosters as never} />
           </div>
