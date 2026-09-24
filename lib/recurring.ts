@@ -146,10 +146,11 @@ export async function generateSeriesSessions(
   }
 
   if (rows.length === 0) {
-    await svc
+    const { error: advanceError } = await svc
       .from("recurring_series")
       .update({ generated_until: horizonEnd })
       .eq("id", series.id);
+    if (advanceError) throw new Error(`Series cursor update failed: ${advanceError.message}`);
     return 0;
   }
 
@@ -157,21 +158,23 @@ export async function generateSeriesSessions(
   // its conflict target): fetch existing slot times for this series in range
   // and skip any we've already created.
   const times = rows.map((r) => r.scheduled_at).sort();
-  const { data: existing } = await svc
+  const { data: existing, error: existingError } = await svc
     .from("sessions")
     .select("scheduled_at")
     .eq("recurring_series_id", series.id)
     .gte("scheduled_at", times[0])
     .lte("scheduled_at", times[times.length - 1]);
 
+  if (existingError) throw new Error(`Existing series lookup failed: ${existingError.message}`);
   const have = new Set((existing ?? []).map((e: any) => e.scheduled_at));
   const toInsert = rows.filter((r) => !have.has(r.scheduled_at));
 
   if (toInsert.length === 0) {
-    await svc
+    const { error: advanceError } = await svc
       .from("recurring_series")
       .update({ generated_until: horizonEnd })
       .eq("id", series.id);
+    if (advanceError) throw new Error(`Series cursor update failed: ${advanceError.message}`);
     return 0;
   }
 
@@ -185,10 +188,11 @@ export async function generateSeriesSessions(
     throw new Error(`Session insert failed: ${error.message}`);
   }
 
-  await svc
+  const { error: advanceError } = await svc
     .from("recurring_series")
     .update({ generated_until: horizonEnd })
     .eq("id", series.id);
+  if (advanceError) throw new Error(`Sessions created but series cursor update failed: ${advanceError.message}`);
 
   return count ?? toInsert.length;
 }
@@ -198,13 +202,14 @@ export async function generateAllActiveSeries(
   svc: SupabaseClient,
   horizonWeeks = 8
 ): Promise<{ series: number; created: number }> {
-  const { data: list } = await svc
+  const { data: list, error: listError } = await svc
     .from("recurring_series")
     .select(
       "id, client_id, trainer_id, session_type, duration_minutes, location, slots, status, generated_until, start_date"
     )
     .eq("status", "active");
 
+  if (listError) throw new Error(`Recurring series lookup failed: ${listError.message}`);
   let created = 0;
   for (const s of list ?? []) {
     created += await generateSeriesSessions(svc, s as SeriesRow, horizonWeeks);
