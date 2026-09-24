@@ -21,6 +21,13 @@ export async function POST(request: NextRequest) {
   const scheduledAt = String(body.scheduled_at ?? "");
   const sessionType = String(body.session_type ?? "training");
   const note = String(body.note ?? "").slice(0, 500);
+  const allowedSessionTypes = new Set(["training", "mobility", "pilates", "massage", "recovery"]);
+  if (!allowedSessionTypes.has(sessionType)) {
+    return NextResponse.json({ error: "Choose a valid session type." }, { status: 400 });
+  }
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[ch] ?? ch);
 
   const when = new Date(scheduledAt);
   if (!scheduledAt || isNaN(when.getTime())) {
@@ -98,8 +105,8 @@ export async function POST(request: NextRequest) {
         html: emailShell({
           heading: "New session request",
           bodyHtml: `
-            <p><strong>${me?.full_name ?? "A client"}</strong> requested a ${sessionType} session for <strong>${whenStr}</strong>.</p>
-            ${note ? `<p style="color:#8a94a3;">Note: "${note}"</p>` : ""}
+            <p><strong>${escapeHtml(me?.full_name ?? "A client")}</strong> requested a ${sessionType} session for <strong>${whenStr}</strong>.</p>
+            ${note ? `<p style="color:#8a94a3;">Note: "${escapeHtml(note)}"</p>` : ""}
             <p>Approve or decline it from the Schedule page in Coach OS.</p>
           `,
         }),
