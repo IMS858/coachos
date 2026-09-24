@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
-  generateSeriesSessions,
+  buildSeriesOccurrences,
   type RecurringSlot,
-  type SeriesRow,
 } from "@/lib/recurring";
 
 /**
@@ -62,44 +61,30 @@ export async function POST(request: NextRequest) {
 
   const svc = createServiceClient();
 
-  const { data: series, error } = await svc
-    .from("recurring_series")
-    .insert({
-      client_id: body.client_id,
-      trainer_id: body.trainer_id ?? user.id,
-      session_type: body.session_type ?? "training",
-      duration_minutes: body.duration_minutes ?? 60,
-      location: body.location ?? "IMS Studio",
-      slots,
-      status: "active",
-      start_date: body.start_date ?? undefined,
-      created_by: user.id,
-    })
-    .select(
-      "id, client_id, trainer_id, session_type, duration_minutes, location, slots, status, generated_until, start_date"
-    )
-    .single();
-
-  if (error || !series) {
+  const trainerId = body.trainer_id ?? user.id;
+  const sessionType = body.session_type ?? "training";
+  const duration = Number(body.duration_minutes ?? 60);
+  const startDate = body.start_date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
+  const built = buildSeriesOccurrences({ slots, startDate, horizonWeeks: 8 });
+  const { data: seriesId, error } = await svc.rpc("create_recurring_series_atomic", {
+    p_client_id: body.client_id,
+    p_trainer_id: trainerId,
+    p_session_type: sessionType,
+    p_duration_minutes: duration,
+    p_location: body.location ?? "IMS Studio",
+    p_slots: slots,
+    p_start_date: startDate,
+    p_created_by: user.id,
+    p_occurrences: built.occurrences.map((scheduled_at) => ({ scheduled_at })),
+    p_generated_until: built.generatedUntil,
+  });
+  if (error || !seriesId) {
+    const conflict = error?.code === "23P01" || error?.code === "40P01";
     return NextResponse.json(
-      { error: "Could not create standing booking", detail: error?.message },
-      { status: 500 }
+      { error: conflict ? "One of these standing slots conflicts with an existing trainer booking." : "Could not create standing booking", detail: error?.message },
+      { status: conflict ? 409 : 500 }
     );
   }
 
-  let created = 0;
-  try {
-    created = await generateSeriesSessions(svc, series as SeriesRow);
-  } catch (e: any) {
-    return NextResponse.json(
-      {
-        error: "Booking created but sessions couldn't be scheduled",
-        detail: e?.message ?? String(e),
-        series_id: series.id,
-      },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({ ok: true, series_id: series.id, created });
+  return NextResponse.json({ ok: true, series_id: seriesId, built.occurrences.length });
 }
