@@ -1,219 +1,98 @@
-/**
- * In-browser video compression, run before upload.
- *
- * WHY THIS EXISTS
- * A modern iPhone records 4K by default, which is ~375MB per minute. Supabase's
- * free tier is 1GB of file storage — two clips and it's full. Re-encoding to
- * 720p at 1.5Mbps lands around 11MB/min, which is roughly 34x more clips in the
- * same space and drops monthly egress from hundreds of GB to single digits.
- *
- * For a coaching clip that's not a quality compromise: at 720p you can still
- * see joint position clearly, which is the entire point of the footage.
- *
- * HOW
- * Decode → draw each frame to a downscaled canvas → capture that canvas as a
- * stream → re-encode via MediaRecorder, carrying the original audio track so
- * spoken cues survive.
- *
- * THE TRADE-OFF, STATED PLAINLY
- * MediaRecorder records in wall-clock time, so compressing a 60-second clip
- * takes about 60 seconds. That's why this only runs on files big enough to be
- * worth it, always reports progress, and can always be skipped.
+/** Optional browser encoding. Original uploads remain the default.
+ * Encoding is capped at 30 fps and may change codec, colour/HDR and slow-motion
+ * metadata. Keep the original for source fidelity; no upscaling is performed.
+ * An audio setup, decode or encode failure always returns the original file.
  */
-
 export const COMPRESS_THRESHOLD_MB = 25;
-
-/**
- * Quality presets.
- *
- * Deliberately no 4K option. Clients watch in a ~400px-wide container on a
- * phone, so 4K's pixels are thrown away on arrival — but because this is a
- * progressive MP4 with no adaptive bitrate, they still wait for every one of
- * them. A 1-minute 4K clip is roughly six minutes of loading on LTE. That's not
- * a quality setting, it's a way to make people give up before they watch.
- *
- * For movement review, framerate beats resolution: 1080p at 60fps shows joint
- * motion far better under slow-mo than 4K at 30fps.
- */
 export const QUALITY_PRESETS = {
-  standard: {
-    label: "1080p",
-    hint: "Full HD · strong default for coaching",
-    maxHeight: 1080,
-    bitrate: 5_000_000,
-    approxMbPerMin: 38,
-  },
-  high: {
-    label: "1080p High Motion",
-    hint: "More detail for slow-mo and faster lifts",
-    maxHeight: 1080,
-    bitrate: 8_000_000,
-    approxMbPerMin: 60,
-  },
+  standard: { label: "Full HD", hint: "Up to 1080p · 30 fps · smaller file", maxHeight: 1080, bitrate: 5_000_000, approxMbPerMin: 38 },
+  high: { label: "Full HD high detail", hint: "Up to 1080p · 30 fps · higher bitrate", maxHeight: 1080, bitrate: 8_000_000, approxMbPerMin: 60 },
 } as const;
-
 export type QualityKey = keyof typeof QUALITY_PRESETS;
-
-export type CompressResult = {
-  file: File;
-  originalBytes: number;
-  compressedBytes: number;
-  skipped: boolean;
-  reason?: string;
-};
-
-/** Best container/codec this browser will actually produce. */
+export type CompressResult = { file: File; originalBytes: number; compressedBytes: number; skipped: boolean; reason?: string };
+export function fitVideoDimensions(width: number, height: number, maxHeight = 1080) {
+  if (![width, height, maxHeight].every(n => Number.isFinite(n) && n >= 2)) throw new Error("Invalid video dimensions.");
+  const scale = Math.min(1, maxHeight / Math.min(width, height), (maxHeight * 16 / 9) / Math.max(width, height));
+  return { width: Math.max(2, Math.floor(width * scale / 2) * 2), height: Math.max(2, Math.floor(height * scale / 2) * 2) };
+}
 function pickMimeType(): string | null {
   if (typeof MediaRecorder === "undefined") return null;
-  const candidates = [
-    "video/mp4;codecs=avc1.42E01E,mp4a.40.2", // Safari, and most playable everywhere
-    "video/mp4",
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-  ];
-  return candidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? null;
+  return ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(type => MediaRecorder.isTypeSupported(type)) ?? null;
 }
-
 export function canCompress(): boolean {
-  return (
-    typeof MediaRecorder !== "undefined" &&
-    typeof HTMLCanvasElement.prototype.captureStream === "function" &&
-    pickMimeType() !== null
-  );
+  return typeof HTMLCanvasElement !== "undefined" && typeof HTMLCanvasElement.prototype.captureStream === "function" && typeof AudioContext !== "undefined" && pickMimeType() !== null;
 }
-
-export async function compressVideo(
-  file: File,
-  opts: {
-    maxHeight?: number;
-    bitrate?: number;
-    onProgress?: (pct: number) => void;
-  } = {}
-): Promise<CompressResult> {
-  const maxHeight = opts.maxHeight ?? 1080;
-  const bitrate = opts.bitrate ?? 5_000_000;
-  const onProgress = opts.onProgress ?? (() => {});
+export async function compressVideo(file: File, opts: { maxHeight?: number; bitrate?: number; onProgress?: (pct: number) => void } = {}): Promise<CompressResult> {
   const original = file.size;
-
-  const bail = (reason: string): CompressResult => ({
-    file,
-    originalBytes: original,
-    compressedBytes: original,
-    skipped: true,
-    reason,
-  });
-
-  const mimeType = pickMimeType();
-  if (!mimeType) return bail("This browser can't re-encode video.");
-
+  const keep = (reason: string): CompressResult => ({ file, originalBytes: original, compressedBytes: original, skipped: true, reason });
+  if (!canCompress()) return keep("Audio-preserving browser optimization is unavailable. Original retained.");
+  if (original < COMPRESS_THRESHOLD_MB * 1024 * 1024) return keep("Original is already small enough.");
+  const mimeType = pickMimeType()!;
   const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  let audio: AudioContext | undefined, audioSource: MediaElementAudioSourceNode | undefined;
+  let stream: MediaStream | undefined, recorder: MediaRecorder | undefined;
+  let raf = 0;
   try {
-    const video = document.createElement("video");
-    video.src = url;
-    video.muted = true;
-    video.playsInline = true;
-
+    video.playsInline = true; video.preload = "auto";
     await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("Couldn't read the video."));
-      setTimeout(() => reject(new Error("Timed out reading the video.")), 15000);
+      const timer = setTimeout(() => reject(new Error("Video metadata timed out.")), 15000);
+      video.onloadedmetadata = () => { clearTimeout(timer); resolve(); };
+      video.onerror = () => { clearTimeout(timer); reject(new Error("This video cannot be decoded here.")); };
+      video.src = url;
     });
-
-    // Already small enough that re-encoding would cost more time than it saves.
-    if (video.videoHeight <= maxHeight && original < COMPRESS_THRESHOLD_MB * 1024 * 1024) {
-      return bail("Already small enough.");
-    }
-
-    const scale = Math.min(1, maxHeight / (video.videoHeight || maxHeight));
-    // Even dimensions — odd ones break some H.264 encoders.
-    const width = Math.round((video.videoWidth * scale) / 2) * 2;
-    const height = Math.round((video.videoHeight * scale) / 2) * 2;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+    if (!Number.isFinite(video.duration) || video.duration <= 0 || video.duration > 15 * 60) return keep("Use the original for long or unsupported footage.");
+    const { width, height } = fitVideoDimensions(video.videoWidth, video.videoHeight, opts.maxHeight ?? 1080);
+    const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return bail("Canvas unavailable.");
-
-    const canvasStream = canvas.captureStream(30);
-
-    // Carry the spoken cues across. Not every browser exposes captureStream on
-    // a media element — if it doesn't, compress video-only rather than fail.
-    try {
-      const el = video as HTMLVideoElement & { captureStream?: () => MediaStream };
-      if (typeof el.captureStream === "function") {
-        const src = el.captureStream();
-        for (const track of src.getAudioTracks()) canvasStream.addTrack(track);
-      }
-    } catch {
-      /* video-only is an acceptable degradation */
-    }
-
-    const recorder = new MediaRecorder(canvasStream, {
-      mimeType,
-      videoBitsPerSecond: bitrate,
-      audioBitsPerSecond: 96_000,
-    });
-
+    if (!ctx) return keep("Canvas unavailable. Original retained.");
+    stream = canvas.captureStream(30);
+    // Route decoded audio into the recorder, not into the speakers. Never silently discard it.
+    audio = new AudioContext();
+    await audio.resume();
+    if (audio.state !== "running") return keep("Audio permission unavailable. Original retained.");
+    const audioOut = audio.createMediaStreamDestination();
+    audioSource = audio.createMediaElementSource(video); audioSource.connect(audioOut);
+    const audioTrack = audioOut.stream.getAudioTracks()[0];
+    if (!audioTrack) return keep("Audio capture unavailable. Original retained.");
+    stream.addTrack(audioTrack);
+    recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: opts.bitrate ?? 5_000_000, audioBitsPerSecond: 128_000 });
     const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-
-    const finished = new Promise<void>((resolve) => {
-      recorder.onstop = () => resolve();
-    });
-
+    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    let encodeFailed = false;
+    recorder.onerror = () => { encodeFailed = true; video.pause(); };
+    const finished = new Promise<void>(resolve => { recorder!.onstop = () => resolve(); });
     recorder.start(1000);
-    video.muted = false;
-    video.volume = 0; // audible playback would be bizarre; the track still records
     await video.play();
-
-    let raf = 0;
     const draw = () => {
-      if (video.paused || video.ended) return;
+      if (video.ended || video.paused) return;
       ctx.drawImage(video, 0, 0, width, height);
-      if (video.duration) {
-        onProgress(Math.min(99, Math.round((video.currentTime / video.duration) * 100)));
-      }
+      opts.onProgress?.(Math.min(99, Math.round(video.currentTime / video.duration * 100)));
       raf = requestAnimationFrame(draw);
     };
     draw();
-
-    await new Promise<void>((resolve) => {
-      video.onended = () => resolve();
-      // Hard ceiling so a corrupt file can't hang the UI forever.
-      setTimeout(resolve, (video.duration || 60) * 1000 + 10_000);
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Optimization did not finish. Original retained.")), (video.duration * 1.25 + 15) * 1000);
+      video.onended = () => { clearTimeout(timer); resolve(); };
+      video.onerror = () => { clearTimeout(timer); reject(new Error("Decode failed. Original retained.")); };
     });
-
     cancelAnimationFrame(raf);
     if (recorder.state !== "inactive") recorder.stop();
-    await finished;
-    onProgress(100);
-
+    await new Promise<void>((resolve, reject) => { const timer = setTimeout(() => reject(new Error("Encoder did not finish.")), 10000); void finished.then(() => { clearTimeout(timer); resolve(); }); });
+    if (encodeFailed) return keep("Encoding failed. Original retained.");
     const blob = new Blob(chunks, { type: mimeType.split(";")[0] });
-    if (blob.size === 0) return bail("Re-encode produced nothing.");
-    // If the re-encode isn't meaningfully smaller, keep the original.
-    if (blob.size >= original * 0.9) return bail("Wouldn't save enough to be worth it.");
-
+    if (!blob.size || blob.size >= original * 0.9) return keep("Optimization would not save enough space. Original retained.");
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-    const base = file.name.replace(/\.[^.]+$/, "") || "clip";
-    const out = new File([blob], `${base}-${height}p.${ext}`, { type: blob.type });
-
-    return {
-      file: out,
-      originalBytes: original,
-      compressedBytes: out.size,
-      skipped: false,
-    };
-  } catch (e) {
-    return bail(e instanceof Error ? e.message : "Compression failed.");
-  } finally {
-    URL.revokeObjectURL(url);
+    const result = new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-${width}x${height}.${ext}`, { type: blob.type });
+    opts.onProgress?.(100);
+    return { file: result, originalBytes: original, compressedBytes: result.size, skipped: false };
+  } catch (e) { return keep(e instanceof Error ? e.message : "Optimization failed. Original retained."); }
+  finally {
+    cancelAnimationFrame(raf); video.pause();
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    stream?.getTracks().forEach(track => track.stop()); audioSource?.disconnect();
+    if (audio && audio.state !== "closed") await audio.close().catch(() => {});
+    video.removeAttribute("src"); video.load(); URL.revokeObjectURL(url);
   }
 }
-
-export function formatMB(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-}
+export function formatMB(bytes: number): string { return `${(bytes / 1024 / 1024).toFixed(1)}MB`; }

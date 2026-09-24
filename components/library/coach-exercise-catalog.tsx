@@ -5,14 +5,13 @@ import { allCatalogPages, exerciseSetIds, isExerciseSet, UUID, type CatalogExerc
 import { CATALOG_COLUMNS } from "@/lib/exercises/collections-server";
 import { ExerciseCatalogBrowser } from "@/components/library/exercise-catalog-browser";
 import { AddExercisePanel } from "@/components/library/add-exercise-panel";
-
+import { RecentCustomExercises } from "@/components/library/recent-custom-exercises";
 export async function CoachExerciseCatalog({ clientId, collectionId }: { clientId?: string; collectionId?: string }) {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login?next=/library");
   const { data: me, error: authError } = await db.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
   if (authError || !me || me.deleted_at || !["owner", "trainer"].includes(me.role)) redirect("/dashboard");
-
   let rows: CatalogExercise[] = [];
   let clients: CatalogClient[] = [];
   let initialSet: SavedExerciseSet | null = null;
@@ -33,12 +32,9 @@ export async function CoachExerciseCatalog({ clientId, collectionId }: { clientI
       const set = result.data;
       if (!set || set.status !== "draft" || !isExerciseSet(set.data)) throw new Error("This draft exercise set is no longer available.");
       if (!clients.some(c => c.id === set.client_id)) throw new Error("The client profile for this set is unavailable.");
-      initialSet = { id: set.id, name: set.name, client_id: set.client_id, updated_at: set.updated_at,
-        canonical_ids: exerciseSetIds(set.data), note: typeof set.data.note === "string" ? set.data.note : "" };
-    } else if (clientId && !clients.some(c => c.id === clientId)) {
-      throw new Error("That client profile is unavailable. Open the library from an existing client.");
-    }
+      initialSet = { id: set.id, name: set.name, client_id: set.client_id, updated_at: set.updated_at, canonical_ids: exerciseSetIds(set.data), note: typeof set.data.note === "string" ? set.data.note : "" };
+    } else if (clientId && !clients.some(c => c.id === clientId)) throw new Error("That client profile is unavailable. Open the library from an existing client.");
   } catch (cause) { error = cause instanceof Error ? cause.message : "Exercise workspace is unavailable."; }
   if (error) return <main className="mx-auto w-full max-w-6xl space-y-4 pb-16"><h1 className="text-3xl font-bold text-cream">Exercise Library</h1><div role="alert" className="rounded-2xl border border-status-limited/40 bg-white p-6 text-cream">{error} No selections or approvals were changed.</div><Link href="/library" className="inline-flex min-h-11 items-center text-sky underline">Reload the library</Link></main>;
-  return <div className="space-y-5"><div className="flex justify-end"><AddExercisePanel clients={clients}/></div><ExerciseCatalogBrowser exercises={rows} clients={clients} initialClientId={clientId ?? ""} initialSet={initialSet} /></div>;
+  return <div className="space-y-5"><AddExercisePanel clients={clients} initialClientId={initialSet?.client_id ?? clientId ?? ""}/><RecentCustomExercises/><ExerciseCatalogBrowser exercises={rows} clients={clients} initialClientId={clientId ?? ""} initialSet={initialSet}/></div>;
 }

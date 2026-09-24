@@ -33,6 +33,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Parse every source and test file
+        run: node scripts/verify-source.cjs
       - name: Security, device and integration regression tests
         run: npm test
       - name: Lint

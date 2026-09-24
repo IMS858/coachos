@@ -1,0 +1,371 @@
+import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, GripVertical, Trash2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { AppShell } from "@/components/layout/app-shell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ProgramExercises } from "@/components/programs/program-exercises";
+import { EditableProgram } from "@/components/programs/editable-program";
+import { GenerateProgramButton } from "@/components/programs/generate-program-button";
+import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
+import { FourWeekProgramPreview } from "@/components/programs/four-week-program-preview";
+import { ProgramReadinessPanel } from "@/components/programs/program-readiness-panel";
+
+const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
+
+export default async function ProgramPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: viewerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isStaff =
+    viewerProfile?.role === "trainer" || viewerProfile?.role === "owner";
+
+  const { data: program } = await supabase
+    .from("programs")
+    .select("id, name, status, data, client_id, assessment_id, pdf_client_url, pdf_coach_url, coach_edits")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!program) notFound();
+  if (!isStaff && (program.client_id !== user.id || !["active", "published"].includes(program.status))) notFound();
+
+  // Client name fetched separately so a missing clients row can't 404 the page
+  let clientName = "Client";
+  if ((program as any).client_id) {
+    const { data: cp } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", (program as any).client_id)
+      .maybeSingle();
+    if (cp?.full_name) clientName = cp.full_name;
+  }
+
+  const generated = (program as any).data;
+  const isImsGenerator = generated?.source === "ims_generator";
+  const isQuickLibraryProgram = generated?.source === "ims_library_program";
+  const hasGenerated =
+    !isImsGenerator &&
+    generated &&
+    Array.isArray(generated.weekly_structure) &&
+    generated.weekly_structure.length > 0;
+
+  const { data: assignments } = await supabase
+    .from("program_exercises")
+    .select(
+      `id, block, position, sets, reps, load_prescription, rest_seconds, tempo, notes,
+       exercises!inner(id, name, ims_label, slug, category, movement_pattern,
+                       coaching_cues, video_guid, primary_joints, client_visible)`
+    )
+    .eq("program_id", id)
+    .order("block")
+    .order("position");
+
+  const grouped = BLOCK_ORDER.map((block) => ({
+    block,
+    items: (assignments ?? [])
+      .filter((a: any) => a.block === block && (isStaff || a.exercises?.client_visible === true))
+      .map((a: any) => ({ ...a, sort_order: a.position, load: a.load_prescription,
+        notes_trainer: null, notes_client: a.notes,
+        duration_seconds: null, exercises: { ...a.exercises, video_id: a.exercises?.video_guid ?? null,
+          video_provider: a.exercises?.video_guid ? "guid" : "none" } })),
+  }));
+
+  return (
+    <AppShell>
+      <div className="flex flex-col gap-6">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 text-sm text-cream-dim hover:text-cream w-fit"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Link>
+
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {(program as any).name}
+              </h1>
+              <Badge tone={statusTone((program as any).status)}>
+                {(program as any).status}
+              </Badge>
+            </div>
+            <p className="text-sm text-cream-dim mt-1">
+              {clientName}
+            </p>
+          </div>
+        </div>
+
+        {isStaff && isQuickLibraryProgram && <div className="rounded-2xl border border-sky/25 bg-sky/5 p-5"><p className="text-xs font-semibold uppercase tracking-wider text-sky">Quick programming path</p><h2 className="mt-2 text-xl font-semibold text-cream">Turn the selection into a prescription.</h2><p className="mt-2 text-sm leading-6 text-cream-dim">These exercises came from a coach-only library set. Add sets, reps, load, rest, tempo and client notes below before this becomes a client-facing workout. A current IMS assessment is optional for this pathway.</p></div>}
+        {isStaff && (program as any).client_id && <Link href={"/clients/" + (program as any).client_id} className="inline-flex w-fit rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-white">Send client a coaching video</Link>}
+        {isStaff && (program as any).status === "draft" && <ProgramReadinessPanel programId={id} />}
+
+        {/* IMS Generator program — PDF-based */}
+        {isImsGenerator && (
+          <div className="flex flex-col gap-4">
+            <Card>
+              <CardContent className="py-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-lg bg-sky/10 flex items-center justify-center">
+                    <Badge tone="optimal">IMS Engine</Badge>
+                  </div>
+                  <div>
+                    <div className="text-cream font-medium">
+                      Your IMS Training Program
+                    </div>
+                    <div className="text-xs text-cream-faint">
+                      IMS exercise library · FRA priority rotation · individualized progression
+                    </div>
+                  </div>
+                </div>
+                {isStaff && generated.assessment_summary && (
+                  <div className="flex flex-col gap-2 text-sm">
+                    {generated.assessment_summary.goal && (
+                      <div>
+                        <span className="text-cream-faint">Goal: </span>
+                        <span className="text-cream">{generated.assessment_summary.goal}</span>
+                      </div>
+                    )}
+                    {generated.assessment_summary.fra_priorities?.length > 0 && (
+                      <div>
+                        <span className="text-cream-faint">FRA Priorities: </span>
+                        <span className="text-cream">
+                          {generated.assessment_summary.fra_priorities.join(" · ")}
+                        </span>
+                      </div>
+                    )}
+                    {generated.assessment_summary.constraints?.length > 0 && (
+                      <div>
+                        <span className="text-cream-faint">Constraints: </span>
+                        <span className="text-cream">
+                          {generated.assessment_summary.constraints.join(", ")}
+                        </span>
+                      </div>
+                    )}
+                    {generated.assessment_summary.concerns?.length > 0 && (
+                      <div>
+                        <span className="text-cream-faint">Concerns: </span>
+                        <span className="text-cream">
+                          {generated.assessment_summary.concerns.join(", ")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="mt-4 text-xs text-cream-faint">
+                  Generated {generated.generated_at
+                    ? new Date(generated.generated_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : ""}{" "}
+                  · {generated.pdf_mode ?? "client"} plan
+                </div>
+              </CardContent>
+            </Card>
+            {((program as any).pdf_client_url || (isStaff && ((program as any).pdf_coach_url || generated.pdf_base64))) && (
+              <a href={`/api/programs/${id}/pdf`} className="inline-flex w-fit rounded-lg border border-sky/40 bg-sky/10 px-4 py-3 text-sm font-medium text-sky-light hover:bg-sky/20">Download {isStaff && generated.pdf_mode === "coach" ? "coach" : "client"} PDF</a>
+            )}
+            {!isStaff && !(program as any).pdf_client_url && (
+              <p className="rounded-lg border border-divider p-4 text-sm text-cream-dim">Your reviewed PDF is not yet available. Please contact your IMS coach.</p>
+            )}
+            {isStaff && generated.structured_program && (
+              program.status === "draft"
+                ? <ImsProgramStudio key={id} programId={id} plan={generated.structured_program}
+                    initialEdits={program.coach_edits?.structured_program}
+                    canPublish={generated.review_status === "ready_to_publish" && !!program.pdf_client_url} />
+                : <FourWeekProgramPreview program={generated.structured_program} />
+            )}
+            {isStaff && (program as any).assessment_id && (
+              <GenerateProgramButton assessmentId={(program as any).assessment_id} />
+            )}
+          </div>
+        )}
+
+        {/* AI-generated program — editable for staff, read-only for clients */}
+        {hasGenerated && isStaff && (
+          <EditableProgram
+            programId={id}
+            initialData={generated}
+            initialStatus={(program as any).status}
+          />
+        )}
+
+        {hasGenerated && !isStaff && (
+          <div className="flex flex-col gap-5">
+            {generated.summary && (
+              <div className="rounded-xl border border-sky/30 bg-sky/5 p-4">
+                <p className="text-sm text-cream">{generated.summary}</p>
+                <div className="flex flex-wrap gap-3 mt-2 text-xs text-cream-faint">
+                  {generated.focus && <span>Focus: {generated.focus}</span>}
+                  {generated.sessions_per_week && (
+                    <span>{generated.sessions_per_week}×/week</span>
+                  )}
+                  {generated.weeks && <span>{generated.weeks} weeks</span>}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(generated.weekly_progression) &&
+              generated.weekly_progression.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">4-Week Progression</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    {generated.weekly_progression.map((w: any, wi: number) => (
+                      <div
+                        key={wi}
+                        className="flex gap-3 text-sm border-b border-divider/40 pb-2 last:border-0"
+                      >
+                        <span className="text-sky font-medium shrink-0 w-14">
+                          Week {w.week ?? wi + 1}
+                        </span>
+                        <div className="text-cream-dim">
+                          <span className="text-cream">{w.theme ?? w.focus}</span>
+                          {w.intensity && (
+                            <span className="text-cream-faint"> · {w.intensity}</span>
+                          )}
+                          {(w.volume_note ?? w.key_change) && (
+                            <span className="block text-xs text-cream-faint">
+                              {w.volume_note ?? w.key_change}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+            {generated.weekly_structure.map((day: any, di: number) => (
+              <Card key={di}>
+                <CardHeader>
+                  <CardTitle className="text-base">{day.day_label}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  {(day.blocks ?? []).map((blk: any, bi: number) => (
+                    <div key={bi}>
+                      <div className="text-xs uppercase tracking-widest text-sky mb-2">
+                        {blk.block}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {(blk.exercises ?? []).map((ex: any, ei: number) => (
+                          <div
+                            key={ei}
+                            className="flex items-baseline justify-between gap-3 border-b border-divider/40 pb-1.5 last:border-0"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-sm text-cream">{ex.name}</span>
+                              {ex.notes && (
+                                <span className="text-xs text-cream-faint block">
+                                  {ex.notes}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-cream-dim shrink-0 whitespace-nowrap text-right">
+                              {[ex.sets && `${ex.sets}×`, ex.reps]
+                                .filter(Boolean)
+                                .join(" ")}
+                              {(ex.tempo || ex.rest || ex.intensity) && (
+                                <span className="block text-cream-faint">
+                                  {[
+                                    ex.tempo && `tempo ${ex.tempo}`,
+                                    ex.rest && `rest ${ex.rest}`,
+                                    ex.intensity && ex.intensity,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ))}
+
+            {(generated.progression_notes || generated.coach_cautions || generated.home_work) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Coach Notes</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 text-sm text-cream-dim">
+                  {generated.progression_notes && (
+                    <div>
+                      <span className="text-cream font-medium">Progression: </span>
+                      {generated.progression_notes}
+                    </div>
+                  )}
+                  {generated.coach_cautions && (
+                    <div>
+                      <span className="text-cream font-medium">Cautions: </span>
+                      {generated.coach_cautions}
+                    </div>
+                  )}
+                  {generated.home_work && (
+                    <div>
+                      <span className="text-cream font-medium">Between sessions: </span>
+                      {generated.home_work}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {isStaff && !hasGenerated && !isImsGenerator && (
+          <div className="rounded-md border border-divider bg-navy-deep px-4 py-3 text-sm text-cream-dim">
+            Add exercises from the{" "}
+            <Link
+              href={isQuickLibraryProgram ? `/library?client_id=${(program as any).client_id}` : "/library"}
+              className="text-sky-light hover:text-sky underline underline-offset-2"
+            >
+              Library
+            </Link>{" "}
+            — click any exercise, then &ldquo;Add to program&rdquo;.
+          </div>
+        )}
+
+        {!hasGenerated && !isImsGenerator && (
+          <ProgramExercises programId={id} grouped={grouped as never} isStaff={isStaff} />
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+function statusTone(s: string): any {
+  switch (s) {
+    case "active":
+    case "published":
+      return "optimal";
+    case "draft":
+      return "moderate";
+    case "archived":
+      return "neutral";
+    default:
+      return "neutral";
+  }
+}

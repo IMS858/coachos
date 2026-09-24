@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isExerciseSet } from "@/lib/exercises/catalog";
+import { smallJson } from "@/lib/media/request";
 
-/** Staff-only edits. Exercise collections have a separate private save contract. */
+/** Private collections and quick drafts cannot bypass the dedicated review workflows. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -11,7 +12,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { data: me, error: profileError } = await supabase.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
   if (profileError) return NextResponse.json({ error: "Authorization unavailable" }, { status: 503 });
   if (!me || me.deleted_at || !["owner", "trainer"].includes(me.role)) return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  const body = await request.json().catch(() => null);
+  const origin = request.headers.get("origin");
+  if (origin && origin !== request.nextUrl.origin) return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
+  const body = await smallJson(request, 160000).catch(() => null) as Record<string, any> | null;
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   const { data: existing, error: readError } = await supabase.from("programs")
     .select("id,status,data,coach_edits,updated_at,pdf_client_url").eq("id", id).maybeSingle();
@@ -19,6 +22,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!existing) return NextResponse.json({ error: "Program not found" }, { status: 404 });
   if (isExerciseSet(existing.data) || isExerciseSet(body.data)) {
     return NextResponse.json({ error: "Exercise sets are private coaching selections, not publishable programs. Edit this set in the Exercise Library." }, { status: 409 });
+  }
+  if (existing.data?.source === "ims_library_program" || body.data?.source === "ims_library_program") {
+    return NextResponse.json({ error: "Use the private library-draft editor. Saving a prescription does not authorize client publication." }, { status: 409 });
   }
   const update: Record<string, unknown> = {};
   if (body.name !== undefined) {
@@ -52,5 +58,5 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { data: saved, error } = await supabase.from("programs").update(update).eq("id", id).eq("updated_at", existing.updated_at).select("id").maybeSingle();
   if (error) return NextResponse.json({ error: "Unable to save program" }, { status: 500 });
   if (!saved) return NextResponse.json({ error: "Program changed since you opened it; refresh and retry" }, { status: 409 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "private, no-store" } });
 }
