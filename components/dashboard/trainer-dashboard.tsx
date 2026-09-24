@@ -4,7 +4,7 @@ import {
   CircleDot,
   MessageCircle,
   ChevronRight,
-  ClipboardList,
+  Users,
   Plus,
   Calendar,
 } from "lucide-react";
@@ -47,7 +47,6 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   const [
     { data: todaySessions },
     { data: draftPrograms },
-    { data: pendingAssessments },
     { data: unreadMessages },
   ] = await Promise.all([
     supabase
@@ -69,15 +68,8 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
-      .from("assessments")
-      .select("id, clients!inner(profiles!inner(full_name))")
-      .eq("trainer_id", user.id)
-      .eq("status", "complete")
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    supabase
       .from("messages")
-      .select("id, body, created_at, profiles:sender_id!inner(full_name)")
+      .select("id, client_id, body, created_at, profiles:sender_id!inner(full_name)")
       .is("read_at", null)
       .neq("sender_id", user.id)
       .order("created_at", { ascending: false })
@@ -97,14 +89,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
       href: `/programs/${p.id}`,
     });
   }
-  for (const a of pendingAssessments ?? []) {
-    const name = (a as any).clients?.profiles?.full_name ?? "client";
-    tasks.push({
-      label: `${name}'s assessment ready for program`,
-      urgent: false,
-      href: `/assessments/${a.id}`,
-    });
-  }
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -133,10 +118,10 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
               Schedule
             </Button>
           </Link>
-          <Link href="/assessments">
+          <Link href="/clients">
             <Button variant="secondary" size="md">
-              <ClipboardList className="h-4 w-4" />
-              Assessment
+              <Users className="h-4 w-4" />
+              Clients
             </Button>
           </Link>
         </div>
@@ -247,9 +232,10 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
             <CardContent className="space-y-3">
               {unreadMessages && unreadMessages.length > 0 ? (
                 unreadMessages.map((msg: any) => (
-                  <div
+                  <Link
                     key={msg.id}
-                    className="flex items-start justify-between gap-2"
+                    href={`/messages/${msg.client_id}`}
+                    className="flex items-start justify-between gap-2 rounded-xl -mx-2 px-2 py-2 transition hover:bg-navy-elev"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-cream truncate">
@@ -262,7 +248,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
                     <span className="text-xs text-cream-faint shrink-0">
                       {humanAgo(new Date(msg.created_at))}
                     </span>
-                  </div>
+                  </Link>
                 ))
               ) : (
                 <p className="text-sm text-cream-faint italic">
