@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { approvedDeviceEvidence } from "@/lib/devices/approved-evidence";
+import { generatorCardioProfile, generatorRichRestrictions, includeUnverifiedSurgicalHistory, recommendedTrainingDays } from "@/lib/programs/cardio-assessment";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -44,13 +46,8 @@ function mapConstraints(data: any): { constraints: string[]; concerns: string[];
   if (pm.left_ankle?.severity && Number(pm.left_ankle.severity) >= 3) concerns.push("ankle");
   if (pm.right_ankle?.severity && Number(pm.right_ankle.severity) >= 3) concerns.push("ankle");
 
-  // Health history → constraints
-  if (health.surgeries) {
-    const s = health.surgeries.toLowerCase();
-    if (s.includes("knee")) constraints.push("post_surgery_knee");
-    if (s.includes("shoulder")) constraints.push("post_surgery_shoulder");
-    if (s.includes("hip")) constraints.push("post_surgery_hip");
-  }
+  // Surgical history is represented in constraints_rich with a clearance
+  // status, not inferred from a mention of a body part in free text.
 
   // Build concern notes from pain descriptions + health notes
   for (const [area, val] of Object.entries(pm) as [string, any][]) {
@@ -173,12 +170,15 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const assessmentId = body.assessment_id;
+  const pdfMode = body.pdf_mode === "coach" ? "coach" : "client";
   if (!assessmentId) {
     return NextResponse.json({ error: "assessment_id required" }, { status: 400 });
   }
 
+  // Use the caller-scoped client to enforce assessment RLS; never fetch an
+  // arbitrary assessment through service-role privileges from a supplied ID.
   const svc = createServiceClient();
-  const { data: assessment } = await svc
+  const { data: assessment } = await supabase
     .from("assessments")
     .select("id, client_id, data")
     .eq("id", assessmentId)
@@ -194,6 +194,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   const a = (assessment.data as any) ?? {};
+  const { data: privateEvidence, error: privateEvidenceError } = await supabase
+    .from("assessment_device_evidence").select("device_measurements,voltra_sessions")
+    .eq("assessment_id", assessment.id).maybeSingle();
+  if (privateEvidenceError) return NextResponse.json({ error: "Unable to load private objective evidence" }, { status: 503 });
+  const deviceEvidence = approvedDeviceEvidence(privateEvidence ?? {});
   const goals = a.goals ?? {};
   const health = a.health ?? {};
   const screen = a.movement_screen ?? {};
@@ -204,7 +209,9 @@ export async function POST(request: NextRequest) {
   const summary = a.summary ?? {};
   const client = a.client ?? {};
 
-  const sessionsPerWeek = summary.recommended_sessions_per_week || goals.target_sessions_per_week || 3;
+  const rawFrequency = Number(summary.recommended_sessions_per_week || goals.target_sessions_per_week || 3);
+  const sessionsPerWeek = Number.isInteger(rawFrequency) && rawFrequency >= 1 && rawFrequency <= 5
+    ? rawFrequency : 3;
   const { constraints, concerns, concernNotes } = mapConstraints(a);
 
   // FRA priorities: use coach-ranked if available, otherwise auto-derive from screen
@@ -231,16 +238,12 @@ export async function POST(request: NextRequest) {
   // Cardio tolerance
   const ct = a.cardio_tolerance ?? {};
 
-  // Constraint status enrichment
-  const constraintsRich = Object.entries(a.pain_map ?? {})
-    .filter(([, v]: any) => v?.status && v.status !== "")
-    .map(([key, v]: any) => ({
-      key: key.replace(/_/g, " "),
-      display_name: key.replace(/_/g, " "),
-      status: v.status,
-      pain_level: v.severity ? Number(v.severity) : null,
-      avoid_notes: v.description || null,
-    }));
+  // Normalize sided joint keys. A surgical history without documented clearance
+  // remains on hold rather than being silently treated as a safe exercise pool.
+  const constraintsRich = includeUnverifiedSurgicalHistory(
+    generatorRichRestrictions(a.pain_map ?? {}),
+    health.surgeries
+  );
 
   // Build background string from lifestyle + training history
   const bgParts = [
@@ -263,9 +266,7 @@ export async function POST(request: NextRequest) {
     age_range: client.age_range || "",
     sex: client.sex || "",
     background: bgParts.join(". ") || "",
-    strength_days: Math.min(sessionsPerWeek, 4),
-    cardio_days: sessionsPerWeek > 3 ? 1 : 0,
-    training_frequency: sessionsPerWeek,
+    ...recommendedTrainingDays(sessionsPerWeek),
     primary_goal: goals.primary || "General strength and movement quality",
     fra_priorities: fraPriorities,
     mobility_map: mobilityMap,
@@ -285,8 +286,11 @@ export async function POST(request: NextRequest) {
       goals.primary?.toLowerCase().includes("fat")
         ? "fat_loss"
         : "maintenance"),
-    coach_notes: [summary.recommendation, summary.focus_areas, summary.red_flags].filter(Boolean).join(". "),
-    pdf_mode: body.pdf_mode || "client",
+    coach_notes: [summary.recommendation, summary.focus_areas, summary.red_flags,
+      ...deviceEvidence.approved_voltra_notes.map(note => `Approved VOLTRA workout (descriptive only): ${note}`)]
+      .filter(Boolean).join(". "),
+    ...(deviceEvidence.objective_measures ? { objective_measures: deviceEvidence.objective_measures } : {}),
+    pdf_mode: pdfMode,
     // ── Coach OS integration fields ──
     sleep_quality: lifestyle.sleep_quality || "",
     sleep_hours: lifestyle.sleep_hours || "",
@@ -310,34 +314,24 @@ export async function POST(request: NextRequest) {
     ),
     red_flags: summary.red_flags || "",
     accessory_categories: a.accessory_categories ?? [],
-    // Cardio profile
-    ...(ct.primary_machine ? {
-      cardio_profile: {
-        primary_modality: ct.primary_machine,
-        secondary_modalities: ct.tolerated_machines ?? [],
-        avoid_modalities: ct.avoid_machines ?? [],
-        interval_clearance: ct.interval_clearance || "not_assessed",
-      },
-    } : {}),
+    // Always send restrictions even without a selected primary machine.
+    // An unassessed interval clearance MUST NOT unlock pickups.
+    cardio_profile: generatorCardioProfile(ct, conditioning),
+    conditioning_level: conditioning.conditioning_level || "",
   };
 
+  const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
+  if (!generatorSecret || !process.env.PROGRAM_GENERATOR_URL) {
+    return NextResponse.json({ error: "Secure generator is not configured" }, { status: 503 });
+  }
   const started = Date.now();
   try {
-    console.log("[generate] payload:", JSON.stringify({
-      fra_priorities: generatorPayload.fra_priorities,
-      mobility_map_count: generatorPayload.mobility_map.length,
-      strength_markers: generatorPayload.strength_markers,
-      constraints: generatorPayload.constraints,
-      concerns: generatorPayload.concerns,
-      strength_days: generatorPayload.strength_days,
-      cardio_days: generatorPayload.cardio_days,
-    }));
-    console.log("[generate] calling IMS generator at", GENERATOR_URL);
     const res = await fetch(`${GENERATOR_URL}/api/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/pdf",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${generatorSecret}`,
       },
       body: JSON.stringify(generatorPayload),
       signal: AbortSignal.timeout(55000),
@@ -345,20 +339,43 @@ export async function POST(request: NextRequest) {
 
     console.log("[generate] generator responded", res.status, "in", Date.now() - started, "ms");
 
+    if (res.status === 422) {
+      const hold = await res.json().catch(() => null);
+      if (hold?.error === "coach_review_required") {
+        return NextResponse.json({
+          error: "coach_review_required",
+          detail: "No verified exercise option is available for these restrictions. Review the assessment and approve an appropriate substitution before generating a client plan.",
+        }, { status: 422 });
+      }
+    }
     if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[generate] generator error", res.status, errText.slice(0, 500));
+      // Upstream errors may contain assessment details; never log or echo them.
       return NextResponse.json(
-        { error: `Generator returned ${res.status}`, detail: errText.slice(0, 300) },
+        { error: `Generator returned ${res.status}`, detail: "The generator could not process this assessment. Review its inputs or retry." },
         { status: 502 }
       );
     }
 
-    // The generator returns a PDF
-    const pdfBuffer = await res.arrayBuffer();
-
-    // Store a record in programs table
-    const { data: program } = await svc
+    // The integrated generator returns the exact generated plan and PDF together.
+    // Do not persist or publish a PDF-only response as if it were editable.
+    if (!(res.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
+      return NextResponse.json({ error: "Generator version mismatch: structured response required" }, { status: 502 });
+    }
+    const result = await res.json().catch(() => null);
+    if (!result || typeof result.program !== "object" || Array.isArray(result.program)
+      || typeof result.pdf_base64 !== "string" || result.pdf_base64.length > 7_000_000) {
+      return NextResponse.json({ error: "Generator returned an incomplete or oversized plan" }, { status: 502 });
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(result.pdf_base64)) {
+      return NextResponse.json({ error: "Generator returned an invalid PDF encoding" }, { status: 502 });
+    }
+    const pdfBuffer = Buffer.from(result.pdf_base64, "base64");
+    if (pdfBuffer.byteLength < 5 || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      return NextResponse.json({ error: "Generator returned an invalid PDF" }, { status: 502 });
+    }
+    // Store structured plan metadata first. The PDF goes into private storage,
+    // never into JSONB where it bloats reads and risks accidental exposure.
+    const { data: program, error: saveError } = await svc
       .from("programs")
       .insert({
         client_id: assessment.client_id,
@@ -366,12 +383,17 @@ export async function POST(request: NextRequest) {
         trainer_id: user.id,
         name: `${clientProfile?.full_name ?? "Client"} — IMS Plan`,
         weeks: 4,
-        status: "published",
-        published_at: new Date().toISOString(),
+        status: "draft",
+        generator_version: result.generator_version,
+        contract_version: result.contract_version,
+        request_payload: generatorPayload,
         data: {
           source: "ims_generator",
+          structured_program: result.program,
+          generator_version: result.generator_version,
+          contract_version: result.contract_version,
           generated_at: new Date().toISOString(),
-          pdf_mode: body.pdf_mode || "client",
+          pdf_mode: pdfMode,
           assessment_summary: {
             goal: goals.primary,
             fra_priorities: fraPriorities,
@@ -382,23 +404,45 @@ export async function POST(request: NextRequest) {
       })
       .select("id")
       .single();
+    if (saveError || !program) {
+      console.error("[generate] could not save draft", saveError?.code);
+      return NextResponse.json({ error: "PDF generated but could not save the program draft. Please retry." }, { status: 500 });
+    }
 
+    const pdfPath = `${assessment.client_id}/${program.id}/initial-${crypto.randomUUID()}.pdf`;
+    const { error: uploadError } = await svc.storage.from("ims-program-pdfs")
+      .upload(pdfPath, pdfBuffer, { contentType: "application/pdf", upsert: false });
+    if (uploadError) {
+      await svc.from("programs").delete().eq("id", program.id);
+      console.error("[generate] private PDF upload failed", uploadError.name);
+      return NextResponse.json({ error: "Could not securely store the generated PDF. Retry generation." }, { status: 502 });
+    }
+    const { error: linkError } = await svc.from("programs")
+      .update({ pdf_client_url: pdfMode === "client" ? pdfPath : null,
+        pdf_coach_url: pdfMode === "coach" ? pdfPath : null })
+      .eq("id", program.id);
+    if (linkError) {
+      await svc.storage.from("ims-program-pdfs").remove([pdfPath]);
+      await svc.from("programs").delete().eq("id", program.id);
+      return NextResponse.json({ error: "Could not link the private PDF. Retry generation." }, { status: 502 });
+    }
     // Return the PDF directly for download
     const safeName = (clientProfile?.full_name ?? "client").toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
+        "X-IMS-Program-ID": program.id,
         "Content-Disposition": `attachment; filename="${safeName}_ims_plan.pdf"`,
       },
     });
   } catch (err: any) {
-    console.error("[generate] error after", Date.now() - started, "ms:", err?.name, err?.message);
+    console.error("[generate] error after", Date.now() - started, "ms:", err?.name);
     return NextResponse.json(
       {
         error: "Generator error",
         detail: err?.name === "TimeoutError"
           ? "The generator took too long. Try again."
-          : String(err?.message ?? err).slice(0, 300),
+          : "Unable to generate the plan right now.",
       },
       { status: 502 }
     );

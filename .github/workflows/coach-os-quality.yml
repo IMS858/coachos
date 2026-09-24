@@ -1,0 +1,24 @@
+name: Coach OS quality gate
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund
+      - name: Security and device contract regression tests
+        run: node --test tests/*.test.cjs
+      - name: Cross-system cardio assessment regression tests
+        run: npx tsx --test tests/cardio-assessment.test.ts
+      - name: TypeScript with inline error annotations
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsc --noEmit --pretty false 2>&1 | sed -E 's|^(.+)\\(([0-9]+),([0-9]+)\\): error TS[0-9]+: (.*)$|::error file=\\1,line=\\2,col=\\3::\\4|'

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   DollarSign,
@@ -32,12 +32,15 @@ interface NavItem {
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   owner: [
-    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Today", icon: LayoutDashboard },
+    { href: "/dashboard?view=owner", label: "Business Overview", icon: BarChart3 },
     { href: "/clients", label: "Clients", icon: Users },
     { href: "/leads", label: "Leads", icon: Target },
     { href: "/programs", label: "Programs", icon: Dumbbell },
+    { href: "/exercise-reviews/catalog", label: "Exercise Catalog", icon: ClipboardList },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
+    { href: "/schedule/agenda", label: "Daily Agenda", icon: CalendarDays },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/financials", label: "Financials", icon: DollarSign },
     { href: "/checkout", label: "Checkout", icon: CreditCard },
@@ -71,6 +74,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const items = NAV_BY_ROLE[role];
 
   async function handleSignOut() {
@@ -105,9 +109,11 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-0.5">
           {items.map((item) => {
-            const active =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const active = item.href === "/dashboard?view=owner"
+              ? pathname === "/dashboard" && searchParams.get("view") === "owner"
+              : item.href === "/dashboard"
+                ? pathname === "/dashboard" && searchParams.get("view") !== "owner"
+                : pathname === item.href || (item.href !== "/schedule" && pathname.startsWith(item.href + "/"));
             const Icon = item.icon;
             return (
               <li key={item.href}>

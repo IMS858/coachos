@@ -53,6 +53,28 @@ export async function PATCH(
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });
   }
 
+  // Publication is a separate privilege from editing. A coach-review
+  // record is mandatory, and editing safety-critical fields invalidates it.
+  const safetyFields = ["name", "primary_joints", "contraindications", "movement_pattern", "load_descriptors"];
+  if (safetyFields.some((field) => Object.hasOwn(allowed, field))) {
+    const { error: resetError } = await supabase.from("exercise_reviews")
+      .update({ safety_status: "pending", primary_joints_confirmed: false,
+        contraindications_confirmed: false, reviewed_by: null, reviewed_at: null })
+      .eq("exercise_id", id);
+    if (resetError) return NextResponse.json({ error: "Could not invalidate previous safety review" }, { status: 500 });
+    // No automatic re-publication after modifying safety-critical metadata.
+    allowed.client_visible = false;
+  }
+  if (allowed.client_visible === true || allowed.status === "published") {
+    const { data: review, error: reviewError } = await supabase.from("exercise_reviews")
+      .select("safety_status,mapping_status,primary_joints_confirmed,contraindications_confirmed")
+      .eq("exercise_id", id).maybeSingle();
+    if (reviewError || !review || review.safety_status !== "approved" ||
+      !["exact_normalized", "coach_confirmed"].includes(review.mapping_status) ||
+      !review.primary_joints_confirmed || !review.contraindications_confirmed) {
+      return NextResponse.json({ error: "Verified coach safety approval is required before publication." }, { status: 422 });
+    }
+  }
   const { error } = await supabase.from("exercises").update(allowed).eq("id", id);
   if (error) {
     return NextResponse.json(

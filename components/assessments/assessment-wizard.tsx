@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import "./assessment-workspace.css";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -92,8 +93,19 @@ export function AssessmentWizard({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   function upd(fn: (d: AssessmentData) => void) {
+    setDirty(true);
+    setSavedAt(null);
     setData((prev) => {
       const copy: AssessmentData = JSON.parse(JSON.stringify(prev));
       fn(copy);
@@ -107,9 +119,11 @@ export function AssessmentWizard({
     const sectionKey = SECTION_KEYS[step];
     const body: Record<string, unknown> = { data, section_status: { ...sections, [sectionKey]: "complete" } };
     if (finish) body.status = "complete";
+    if (!id && !selectedClient) { setError("Select a client before saving."); setSaving(false); return null; }
     if (!id && selectedClient) body.client_id = selectedClient;
 
     const url = id ? `/api/assessments/${id}` : "/api/assessments";
+    try {
     const res = await fetch(url, {
       method: id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,22 +131,32 @@ export function AssessmentWizard({
     });
     const json = await res.json().catch(() => ({}));
     setSaving(false);
-    if (!res.ok) { setError(json.error || "Save failed."); return false; }
-    if (!id && json.id) setId(json.id);
+    if (!res.ok) { setError(json.error || "Save failed."); return null; }
+    if (!id && json.id) {
+      setId(json.id);
+      // A newly created assessment must open its canonical URL before the
+      // coach can navigate away or attach device results.
+      if (!finish) router.replace(`/assessments/${json.id}`);
+    }
+    setDirty(false);
+    setSavedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
     setSections((p) => ({ ...p, [sectionKey]: "complete" }));
-    return true;
+    return id ?? json.id ?? null;
+    } catch {
+      setError("Could not reach the server. Your changes remain here; retry saving.");
+      return null;
+    } finally { setSaving(false); }
   }
 
   async function next() {
-    const ok = await save(false);
-    if (ok && step < STEPS.length - 1) setStep(step + 1);
+    const savedId = await save(false);
+    if (savedId && step < STEPS.length - 1) setStep(step + 1);
   }
 
   async function finish() {
-    const ok = await save(true);
-    if (ok) {
-      if (id) router.push(`/assessments/${id}`);
-      else router.push("/assessments");
+    const savedId = await save(true);
+    if (savedId) {
+      router.push(`/assessments/${savedId}`);
       router.refresh();
     }
   }
@@ -146,16 +170,31 @@ export function AssessmentWizard({
   const sm = data.summary;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="assessment-workspace flex flex-col gap-5">
+      <header className="assessment-hero">
+        <div className="assessment-eyebrow">IMS METHOD / MOVEMENT INTELLIGENCE</div>
+        <div className="assessment-hero-row">
+          <div>
+            <h2>Assessment studio</h2>
+            <p>Capture the baseline. Identify priorities. Build a program with intent.</p>
+          </div>
+          <div className="assessment-step-counter"><strong>{String(step + 1).padStart(2, "0")}</strong><span> / {STEPS.length} · {STEPS[step]}</span></div>
+        </div>
+        <div className="assessment-progress-track" aria-label={`Section ${step + 1} of ${STEPS.length}`}>
+          <div style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+        </div>
+      </header>
       {/* Step progress */}
-      <div className="flex flex-wrap gap-1.5 mb-2">
+      <div className="assessment-step-nav flex flex-wrap gap-1.5 mb-2">
         {STEPS.map((label, i) => {
           const done = sections[SECTION_KEYS[i]] === "complete" && i !== step;
           const active = i === step;
           return (
             <button
               key={label}
-              onClick={() => (id ? setStep(i) : undefined)}
+              type="button"
+              aria-current={active ? "step" : undefined}
+              onClick={() => { if (id && !saving && (!dirty || window.confirm("You have unsaved changes. Leave this section?"))) { setStep(i); setDirty(false); } }}
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
                 active ? "bg-sky text-white" : done ? "bg-status-optimal/20 text-status-optimal" : "bg-navy-soft text-cream-faint border border-divider"
               }`}
@@ -167,6 +206,7 @@ export function AssessmentWizard({
         })}
       </div>
 
+      <main className="assessment-form-panel">
       {/* Client picker (new assessment only) */}
       {!assessmentId && step === 0 && clients && (
         <div className="mb-3">
@@ -444,7 +484,7 @@ export function AssessmentWizard({
             <div className="text-sm text-cream font-medium mb-1">Heart-rate recovery</div>
             <p className="text-xs text-cream-faint mb-2">
               After a hard effort, take HR immediately and again at one minute.
-              The drop is the best single field marker of conditioning.
+              Record this only after a consistent supervised test. Heart-rate recovery is one data point, not clearance for intervals.
             </p>
             <div className="grid grid-cols-3 gap-2">
               <div>
@@ -470,7 +510,7 @@ export function AssessmentWizard({
               </div>
             </div>
             <p className="text-xs text-cream-faint mt-1.5">
-              30+ bpm is well conditioned · 20-29 average · under 20 deconditioned
+              Interpret against the same test protocol and individual baseline; do not classify fitness from one reading.
             </p>
           </div>
 
@@ -480,7 +520,10 @@ export function AssessmentWizard({
             <h4 className="text-sm font-medium text-cream mb-2">Machine Tolerance</h4>
             <div className="mb-2">
               <label className={labelCls}>Primary tolerated machine</label>
-              <select className={selectCls} value={data.cardio_tolerance.primary_machine} onChange={(e) => upd((d) => (d.cardio_tolerance.primary_machine = e.target.value))}>
+              <select className={selectCls} value={data.cardio_tolerance.primary_machine} onChange={(e) => upd((d) => {
+                d.cardio_tolerance.primary_machine = e.target.value;
+                d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((m: string) => m !== e.target.value);
+              })}>
                 <option value="">—</option>
                 {CARDIO_MACHINES.map((m) => <option key={m} value={m}>{CARDIO_MACHINE_LABELS[m]}</option>)}
               </select>
@@ -491,8 +534,10 @@ export function AssessmentWizard({
                 {CARDIO_MACHINES.map((m) => (
                   <label key={m} className="flex items-center gap-1.5 text-xs text-cream-dim">
                     <input type="checkbox" checked={data.cardio_tolerance.tolerated_machines.includes(m)} onChange={(e) => upd((d) => {
-                      if (e.target.checked) d.cardio_tolerance.tolerated_machines.push(m);
-                      else d.cardio_tolerance.tolerated_machines = d.cardio_tolerance.tolerated_machines.filter((x: string) => x !== m);
+                      if (e.target.checked) {
+                        d.cardio_tolerance.tolerated_machines.push(m);
+                        d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((x: string) => x !== m);
+                      } else d.cardio_tolerance.tolerated_machines = d.cardio_tolerance.tolerated_machines.filter((x: string) => x !== m);
                     })} />
                     {CARDIO_MACHINE_LABELS[m]}
                   </label>
@@ -505,8 +550,11 @@ export function AssessmentWizard({
                 {CARDIO_MACHINES.map((m) => (
                   <label key={m} className="flex items-center gap-1.5 text-xs text-cream-dim">
                     <input type="checkbox" checked={data.cardio_tolerance.avoid_machines.includes(m)} onChange={(e) => upd((d) => {
-                      if (e.target.checked) d.cardio_tolerance.avoid_machines.push(m);
-                      else d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((x: string) => x !== m);
+                      if (e.target.checked) {
+                        d.cardio_tolerance.avoid_machines.push(m);
+                        d.cardio_tolerance.tolerated_machines = d.cardio_tolerance.tolerated_machines.filter((x: string) => x !== m);
+                        if (d.cardio_tolerance.primary_machine === m) d.cardio_tolerance.primary_machine = "";
+                      } else d.cardio_tolerance.avoid_machines = d.cardio_tolerance.avoid_machines.filter((x: string) => x !== m);
                     })} />
                     {CARDIO_MACHINE_LABELS[m]}
                   </label>
@@ -516,8 +564,8 @@ export function AssessmentWizard({
             <div>
               <label className={labelCls}>Interval clearance</label>
               <select className={selectCls} value={data.cardio_tolerance.interval_clearance} onChange={(e) => upd((d) => (d.cardio_tolerance.interval_clearance = e.target.value))}>
-                <option value="">Not assessed</option>
-                <option value="cleared">Cleared for intervals</option>
+                <option value="">Not assessed — Zone 2 only</option>
+                <option value="cleared">Coach-confirmed: cleared for intervals</option>
                 <option value="not_cleared">Not cleared for intervals</option>
               </select>
             </div>
@@ -590,8 +638,10 @@ export function AssessmentWizard({
         </div>
       )}
 
+      </main>
+      <div className="assessment-save-status" role="status" aria-live="polite">{saving ? "Saving assessment…" : dirty ? "Unsaved changes — save before leaving" : savedAt ? `Saved at ${savedAt}` : "Complete each section to save your assessment"}</div>
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-2 border-t border-divider">
+      <div className="assessment-footer flex items-center justify-between pt-2 border-t border-divider">
         <Button variant="secondary" size="sm" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
           ← Back
         </Button>

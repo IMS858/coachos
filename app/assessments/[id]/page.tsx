@@ -1,10 +1,13 @@
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { AssessmentWizard } from "@/components/assessments/assessment-wizard";
+import { ActivForceEntry } from "@/components/assessments/activforce-entry";
+import { VoltraImport } from "@/components/assessments/voltra-import";
+import { DeviceReview } from "@/components/assessments/device-review";
 import {
   emptyAssessment,
   type AssessmentData,
@@ -38,27 +41,11 @@ export default async function AssessmentPage({
     .maybeSingle();
   if (!viewer || viewer.role === "client") redirect("/dashboard");
 
-  let { data: row } = await supabase
+  const { data: row } = await supabase
     .from("assessments")
     .select("id, client_id, status, data, section_status, assessment_date")
     .eq("id", id)
     .maybeSingle();
-
-  // Fallback: if RLS hid the row for a staff member, re-read with service role.
-  // Guarded — a missing SERVICE_ROLE_KEY must not crash the page.
-  if (!row && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      const svc = createServiceClient();
-      const { data: svcRow } = await svc
-        .from("assessments")
-        .select("id, client_id, status, data, section_status, assessment_date")
-        .eq("id", id)
-        .maybeSingle();
-      row = svcRow;
-    } catch {
-      // ignore — fall through to not-found UI
-    }
-  }
 
   if (!row) {
     return (
@@ -77,6 +64,9 @@ export default async function AssessmentPage({
       </AppShell>
     );
   }
+
+  const { data: deviceEvidence } = await supabase.from("assessment_device_evidence")
+    .select("device_measurements,voltra_sessions").eq("assessment_id", id).maybeSingle();
 
   const { data: clientProfile } = await supabase
     .from("profiles")
@@ -129,7 +119,7 @@ export default async function AssessmentPage({
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-5 max-w-3xl">
+      <div className="assessment-page flex flex-col gap-5 max-w-5xl">
         <div className="flex items-center gap-3">
           <Link
             href="/assessments"
@@ -146,6 +136,7 @@ export default async function AssessmentPage({
           </div>
         </div>
 
+
         <AssessmentWizard
           assessmentId={row.id}
           clientId={row.client_id}
@@ -154,6 +145,16 @@ export default async function AssessmentPage({
           initialSectionStatus={sectionStatus}
           initialStep={resumeStep}
         />
+        <section className="assessment-device-zone" aria-label="Objective testing and device results">
+          <div className="assessment-device-heading"><span className="assessment-eyebrow">OBJECTIVE TESTING</span><h2>Measure. Review. Apply.</h2><p>Record test data, import workouts and approve results before they inform a program.</p></div>
+          <div className="assessment-device-grid">
+            <ActivForceEntry assessmentId={row.id} />
+            <VoltraImport assessmentId={row.id} />
+          </div>
+          <DeviceReview assessmentId={row.id}
+            measurements={Array.isArray(deviceEvidence?.device_measurements) ? deviceEvidence.device_measurements : []}
+            workouts={Array.isArray(deviceEvidence?.voltra_sessions) ? deviceEvidence.voltra_sessions : []} />
+        </section>
       </div>
     </AppShell>
   );
