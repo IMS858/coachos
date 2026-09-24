@@ -85,9 +85,11 @@ export async function POST(request: NextRequest) {
 
     if (!to) return NextResponse.json({ ok: true, notified: false, reason: "no_recipient" });
 
+    const notificationKey = `message:${m.id}`;
     const result = await sendEmail({
       to,
       subject,
+      idempotencyKey: notificationKey,
       html: emailShell({
         heading,
         bodyHtml: `
