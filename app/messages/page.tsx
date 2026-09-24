@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, MessageCircle } from "lucide-react";
+import { ChevronRight, MessageCircle, Inbox, Target, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +29,8 @@ export default async function MessagesPage() {
     .single();
   if (!viewer) redirect("/login");
   if (viewer.role === "client") redirect(`/messages/${user.id}`);
+
+  const { count: newLeads } = await supabase.from("leads").select("*", { count: "exact", head: true }).eq("stage", "new");
 
   // Recent messages (covers list ordering + unread counts + previews)
   const { data: recent } = await supabase
@@ -72,6 +74,9 @@ export default async function MessagesPage() {
     if (m.sender_id === m.client_id && m.read_at === null) c.unread += 1;
   }
 
+  const totalUnread = Array.from(convoMap.values()).reduce((n, c) => n + c.unread, 0);
+  const activeConversations = Array.from(convoMap.values()).filter((c) => c.last).length;
+
   const convos = Array.from(convoMap.values()).sort((a, b) => {
     if (a.last && !b.last) return -1;
     if (!a.last && b.last) return 1;
@@ -96,6 +101,10 @@ export default async function MessagesPage() {
             Real-time conversations with clients.
           </p>
         </div>
+
+        <div className="grid grid-cols-3 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><Inbox className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{totalUnread}</p><p className="text-xs text-cream-faint">Unread client messages</p></div><div className="rounded-2xl border border-divider bg-white p-4"><Users className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{activeConversations}</p><p className="text-xs text-cream-faint">Active conversations</p></div><Link href="/leads" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><Target className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{newLeads ?? 0}</p><p className="text-xs text-cream-faint">New inquiries / leads →</p></Link></div>
+
+        <div className="flex gap-2 overflow-x-auto"><span className="whitespace-nowrap rounded-full bg-sky px-3 py-2 text-xs font-semibold text-white">Client conversations</span><Link href="/leads" className="whitespace-nowrap rounded-full border border-divider bg-white px-3 py-2 text-xs font-semibold text-cream-dim hover:border-sky/40">Inquiries & leads</Link></div>
 
         <Card>
           <CardContent className="p-0">
