@@ -17,18 +17,23 @@ export function PendingRequests({ requests }: { requests: RequestRow[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [handled, setHandled] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<Record<string,string>>({});
 
   async function respond(id: string, action: "approve" | "decline") {
     setBusy(id);
+    setError((prev) => ({ ...prev, [id]: "" }));
     const res = await fetch(`/api/sessions/${id}/respond`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
+    const data = await res.json().catch(() => ({}));
     setBusy(null);
     if (res.ok) {
       setHandled((prev) => new Set(prev).add(id));
       router.refresh();
+    } else {
+      setError((prev) => ({ ...prev, [id]: data.error || "Could not update this request." }));
     }
   }
 
@@ -65,7 +70,7 @@ export function PendingRequests({ requests }: { requests: RequestRow[] }) {
                 {r.notes_pre && <span> · &quot;{r.notes_pre}&quot;</span>}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col items-end gap-1"><div className="flex gap-2">
               <Button
                 size="sm"
                 onClick={() => respond(r.id, "approve")}
@@ -87,7 +92,7 @@ export function PendingRequests({ requests }: { requests: RequestRow[] }) {
                 <X className="h-4 w-4" />
                 Decline
               </Button>
-            </div>
+            </div>{error[r.id] && <p className="max-w-xs text-right text-xs text-status-limited">{error[r.id]}</p>}</div>
           </div>
         ))}
       </div>
