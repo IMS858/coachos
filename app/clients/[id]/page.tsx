@@ -1,12 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CalendarPlus, MessageCircle, CreditCard, ClipboardList } from "lucide-react";
+import { ArrowLeft, CalendarPlus, MessageCircle, CreditCard, ClipboardList, Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientEditor } from "@/components/clients/client-editor";
 import { SessionTracker } from "@/components/clients/session-tracker";
 import { ClientProgressReport } from "@/components/clients/client-progress-report";
 import { ClientProgramLink } from "@/components/clients/client-program-link";
+import { ClientExerciseSets } from "@/components/clients/client-exercise-sets";
 import { SendAgreement } from "@/components/clients/send-agreement";
 import { WaiverPanel } from "@/components/clients/waiver-panel";
 import { MedicalPanel } from "@/components/clients/medical-panel";
@@ -32,29 +33,28 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const { data: plans, error: plansError } = await supabase.from("plans")
     .select("*").eq("client_id", id).order("status", { ascending: true })
     .order("created_at", { ascending: false });
-  // Never initialize an editable client form with a false empty plan list.
   if (plansError) throw new Error("Client plans could not be loaded.");
   const actionClass = "flex min-h-24 min-w-0 flex-col gap-3 rounded-2xl border border-divider bg-white p-4 text-left shadow-sm transition hover:border-sky/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky";
 
   return <AppShell><div className="flex min-w-0 flex-col gap-6">
     <Link href="/clients" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-cream-dim hover:text-cream"><ArrowLeft aria-hidden="true" className="h-4 w-4" />All clients</Link>
-    <nav aria-label="Client actions" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Link href={`/sessions/new?client_id=${id}`} className={actionClass}><CalendarPlus aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Book session</span></Link>
+    <nav aria-label="Client actions" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <Link href={`/sessions/new?client_id=${id}`} className={actionClass}><CalendarPlus aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Book training</span></Link>
+      <Link href={`/library?client_id=${id}`} className={actionClass}><Dumbbell aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Add exercise set</span></Link>
       <Link href={`/messages/${id}`} className={actionClass}><MessageCircle aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Message this client</span></Link>
       {viewerProfile.role === "owner" && <Link href={`/checkout?client_id=${id}`} className={actionClass}><CreditCard aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Client checkout</span></Link>}
       <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
     </nav>
-    <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans">
-      <ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []} />
-    </section>
-    <SessionTracker clientId={id} />
-    <ClientProgramLink clientId={id} />
-    <ClientProgressReport clientId={id} clientName={profileRow.full_name} />
-    <SendAgreement clientId={id} defaultEmail={profileRow.email ?? ""} defaultName={profileRow.full_name} />
-    <WaiverPanel clientId={id} />
-    <MedicalPanel clientId={id} />
-    <SendVideoPanel clientId={id} clientName={profileRow.full_name} />
-    <ClientLoginPanel clientId={id} clientName={profileRow.full_name} hasEmail={Boolean(profileRow.email)} isOwner={viewerProfile.role === "owner"} />
-    <IntakeLinkButton clientId={id} clientName={profileRow.full_name} clientEmail={profileRow.email} />
+    <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
+    <ClientExerciseSets clientId={id}/>
+    <SessionTracker clientId={id}/>
+    <ClientProgramLink clientId={id}/>
+    <ClientProgressReport clientId={id} clientName={profileRow.full_name}/>
+    <SendAgreement clientId={id} defaultEmail={profileRow.email ?? ""} defaultName={profileRow.full_name}/>
+    <WaiverPanel clientId={id}/>
+    <MedicalPanel clientId={id}/>
+    <SendVideoPanel clientId={id} clientName={profileRow.full_name}/>
+    <ClientLoginPanel clientId={id} clientName={profileRow.full_name} hasEmail={Boolean(profileRow.email)} isOwner={viewerProfile.role === "owner"}/>
+    <IntakeLinkButton clientId={id} clientName={profileRow.full_name} clientEmail={profileRow.email}/>
   </div></AppShell>;
 }
