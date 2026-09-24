@@ -73,8 +73,12 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
       .is("read_at", null)
       .neq("sender_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(5),
+      .limit(20),
   ]);
+
+  const { data: threadStates } = await supabase.from("message_thread_state").select("client_id,archived_at");
+  const archivedClients = new Set((threadStates ?? []).filter((s:any)=>s.archived_at).map((s:any)=>s.client_id));
+  const actionableMessages = (unreadMessages ?? []).filter((m:any)=>m.sender_id !== user.id && !archivedClients.has(m.client_id)).slice(0,5);
 
   const sessions = todaySessions ?? [];
   const completed = sessions.filter((s: any) => s.status === "completed").length;
@@ -230,8 +234,8 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {unreadMessages && unreadMessages.length > 0 ? (
-                unreadMessages.map((msg: any) => (
+              {actionableMessages.length > 0 ? (
+                actionableMessages.map((msg: any) => (
                   <Link
                     key={msg.id}
                     href={`/messages/${msg.client_id}`}
