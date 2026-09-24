@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, existing: true, duplicate: true, id: existing.id });
     const { error } = await svc.from("leads").update({
       notes: (oldNotes ? oldNotes + "\n\n" : "") + entry,
+      stage: existing.stage === "not_interested" ? existing.stage : "new",
       updated_at: new Date().toISOString(),
     }).eq("id", existing.id);
     if (error) return NextResponse.json({ error: "Update failed" }, { status: 503 });
