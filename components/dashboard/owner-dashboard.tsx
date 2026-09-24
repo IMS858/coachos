@@ -82,7 +82,7 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
       .select("*", { count: "exact", head: true })
       .lte("joined_at", ninetyDaysAgo)
       .eq("status", "active"),
-    supabase.from("messages").select("*", { count: "exact", head: true }).is("read_at", null),
+    supabase.from("messages").select("*", { count: "exact", head: true }).is("read_at", null).neq("sender_id", user.id),
     supabase.from("leads").select("*", { count: "exact", head: true }).in("stage", ["new","contacted","nurturing"]).is("last_contacted_at", null),
     supabase.from("payments").select("*", { count: "exact", head: true }).eq("status", "failed"),
   ]);
