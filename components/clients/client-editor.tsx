@@ -13,6 +13,9 @@ import {
   Package as PackageIcon,
   Check,
   RotateCcw,
+  CalendarPlus,
+  MessageCircle,
+  CreditCard,
 } from "lucide-react";
 import {
   Card,
