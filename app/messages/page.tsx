@@ -31,6 +31,7 @@ export default async function MessagesPage() {
   if (viewer.role === "client") redirect(`/messages/${user.id}`);
 
   const { count: newLeads } = await supabase.from("leads").select("*", { count: "exact", head: true }).eq("stage", "new");
+  const { data: inquiryRows } = await supabase.from("leads").select("id, full_name, interest, source, stage, updated_at, last_contacted_at").in("stage", ["new","contacted","nurturing"]).order("updated_at", { ascending: false }).limit(5);
 
   // Recent messages (covers list ordering + unread counts + previews)
   const { data: recent } = await supabase
@@ -103,6 +104,8 @@ export default async function MessagesPage() {
         <div className="grid grid-cols-3 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><Inbox className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{totalUnread}</p><p className="text-xs text-cream-faint">Unread client messages</p></div><div className="rounded-2xl border border-divider bg-white p-4"><Users className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{activeConversations}</p><p className="text-xs text-cream-faint">Active conversations</p></div><Link href="/leads" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><Target className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{newLeads ?? 0}</p><p className="text-xs text-cream-faint">New inquiries / leads →</p></Link></div>
 
         <div className="flex gap-2 overflow-x-auto"><span className="whitespace-nowrap rounded-full bg-sky px-3 py-2 text-xs font-semibold text-white">Client conversations</span><Link href="/leads" className="whitespace-nowrap rounded-full border border-divider bg-white px-3 py-2 text-xs font-semibold text-cream-dim hover:border-sky/40">Inquiries & leads</Link></div>
+
+        {(inquiryRows ?? []).length > 0 && <Card><CardContent className="p-0"><div className="flex items-center justify-between border-b border-divider px-5 py-4"><div><p className="text-sm font-semibold text-cream">Recent inquiries</p><p className="text-xs text-cream-faint">Prospects still in the follow-up pipeline</p></div><Link href="/leads" className="text-xs font-semibold text-sky">View pipeline →</Link></div><div className="divide-y divide-divider">{(inquiryRows ?? []).map((lead) => <Link key={lead.id} href="/leads" className="flex items-center justify-between gap-3 px-5 py-3 transition hover:bg-navy-elev"><div className="min-w-0"><p className="truncate text-sm font-medium text-cream">{lead.full_name}</p><p className="truncate text-xs text-cream-faint">{lead.interest ? lead.interest.replaceAll("_"," ") : "General inquiry"} · {(lead.source ?? "manual").replaceAll("_"," ")}</p></div><div className="text-right"><p className="text-xs capitalize text-cream-dim">{lead.stage.replaceAll("_"," ")}</p><p className="text-[11px] text-cream-faint">{lead.last_contacted_at ? "Contacted" : "Needs first touch"}</p></div></Link>)}</div></CardContent></Card>}
 
         <Card>
           <CardContent className="p-0">
