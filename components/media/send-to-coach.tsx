@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Loader2, Check, X } from "lucide-react";
+import { Camera, Video, Upload, Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadWithProgress } from "@/lib/video";
 
@@ -13,7 +13,7 @@ import { uploadWithProgress } from "@/lib/video";
  * realistic moment for this is standing in a kitchen looking at an ankle.
  */
 export function SendToCoach() {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);\n  const uploadRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -132,7 +132,7 @@ export function SendToCoach() {
               rows={2}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Rolled my ankle Saturday, still puffy and sore to walk on."
+              placeholder="e.g. Squat from the side — can you check depth and knee position?"
               className="w-full rounded-lg border border-divider bg-navy-elev px-3 py-2 text-sm text-cream focus:outline-none focus:border-sky"
             />
           </div>
