@@ -1,9 +1,15 @@
 import Link from "next/link";
-import { ChevronRight, TrendingUp, DollarSign, Users, FileSpreadsheet, Activity } from "lucide-react";
+import { ChevronRight, TrendingUp, DollarSign, Users, FileSpreadsheet, Activity, Target } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 
 const REPORTS = [
+  {
+    href: "/reports/leads",
+    title: "Lead Pipeline & Conversion",
+    desc: "Open pipeline, follow-up health, booked prospects and conversion by source.",
+    icon: Target,
+  },
   {
     href: "/reports/progress",
     title: "Client Progress Report",
@@ -51,11 +57,8 @@ const REPORTS = [
 export default function ReportsPage() {
   return (
     <AppShell expectedRole="owner">
-      <div className="max-w-3xl mx-auto py-6">
-        <h1 className="text-2xl font-semibold text-cream mb-1">Reports</h1>
-        <p className="text-sm text-cream-faint mb-6">
-          Business intelligence and printable client documents.
-        </p>
+      <div className="max-w-4xl mx-auto py-6">
+        <div className="rounded-3xl bg-band px-6 py-7 text-white shadow-lg mb-6"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Owner intelligence</p><h1 className="mt-2 text-4xl font-bold">Reports</h1><p className="mt-2 text-sm text-white/75">Growth, revenue, retention, utilization and client outcomes in one place.</p></div>
         <div className="flex flex-col gap-3">
           {REPORTS.map((r) => {
             const Icon = r.icon;
