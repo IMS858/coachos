@@ -22,7 +22,6 @@ const CATALOG = {
     { lookup_key: "package_6", name: "6-Session Package", detail: "Price loaded from Stripe", price: null },
     { lookup_key: "package_12", name: "12-Session Package", detail: "Price loaded from Stripe", price: null },
     { lookup_key: "package_24", name: "24-Session Package", detail: "Price loaded from Stripe", price: null },
-    { lookup_key: "package_48", name: "48-Session Package", detail: "Price loaded from Stripe", price: null },
   ],
 };
 
