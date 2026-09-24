@@ -36,7 +36,20 @@ export const COMPRESS_THRESHOLD_MB = 25;
  * motion far better under slow-mo than 4K at 30fps.
  */
 export const QUALITY_PRESETS = {
-  standard: {\n    label: "1080p",\n    hint: "Full HD · strong default for coaching",\n    maxHeight: 1080,\n    bitrate: 5_000_000,\n    approxMbPerMin: 38,\n  },\n  high: {\n    label: "1080p High Motion",\n    hint: "More detail for slow-mo and faster lifts",\n    maxHeight: 1080,\n    bitrate: 8_000_000,\n    approxMbPerMin: 60,\n  },
+  standard: {
+    label: "1080p",
+    hint: "Full HD · strong default for coaching",
+    maxHeight: 1080,
+    bitrate: 5_000_000,
+    approxMbPerMin: 38,
+  },
+  high: {
+    label: "1080p High Motion",
+    hint: "More detail for slow-mo and faster lifts",
+    maxHeight: 1080,
+    bitrate: 8_000_000,
+    approxMbPerMin: 60,
+  },
 } as const;
 
 export type QualityKey = keyof typeof QUALITY_PRESETS;
