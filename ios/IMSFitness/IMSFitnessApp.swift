@@ -25,7 +25,7 @@ struct RootView: View {
 struct ClientTabs: View {
     var body: some View {
         TabView {
-            WebDestination(path: "/dashboard").tabItem { Label("Today", systemImage: "house") }
+            TodayView().tabItem { Label("Today", systemImage: "house") }
             WebDestination(path: "/programs").tabItem { Label("Train", systemImage: "figure.strengthtraining.traditional") }
             WebDestination(path: "/progress").tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
             WebDestination(path: "/book").tabItem { Label("Book", systemImage: "calendar") }
