@@ -8,6 +8,7 @@ import { SessionTracker } from "@/components/clients/session-tracker";
 import { ClientProgressReport } from "@/components/clients/client-progress-report";
 import { ClientProgramLink } from "@/components/clients/client-program-link";
 import { ClientExerciseSets } from "@/components/clients/client-exercise-sets";
+import { ClientProgrammingStatus } from "@/components/clients/client-programming-status";
 import { SendAgreement } from "@/components/clients/send-agreement";
 import { WaiverPanel } from "@/components/clients/waiver-panel";
 import { MedicalPanel } from "@/components/clients/medical-panel";
@@ -46,6 +47,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
       <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
     </nav>
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
+    <ClientProgrammingStatus clientId={id}/>
     <ClientExerciseSets clientId={id}/>
     <SessionTracker clientId={id}/>
     <ClientProgramLink clientId={id}/>
