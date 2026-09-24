@@ -1,0 +1,4 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+test("coach and client both have record-or-upload video paths",()=>{const coach=readFileSync("components/media/send-video-panel.tsx","utf8"),client=readFileSync("components/media/send-to-coach.tsx","utf8");assert.match(coach,/Record/);assert.match(coach,/Upload/);assert.match(client,/Record movement/);assert.match(client,/Upload existing/);});
+test("client media upload is identity scoped and direct-to-storage",()=>{const route=readFileSync("app/api/media/client-upload/route.ts","utf8");assert.match(route,/\$\{user\.id\}\//);assert.match(route,/createSignedUploadUrl/);assert.doesNotMatch(route,/client_id.*body/);});
+test("video coaching is integrated into client profile",()=>{const profile=readFileSync("app/clients/[id]/page.tsx","utf8");assert.match(profile,/ClientVideoWorkflow/);assert.match(profile,/SendVideoPanel/);});
