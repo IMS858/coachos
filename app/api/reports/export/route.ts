@@ -33,11 +33,12 @@ export async function GET(request: NextRequest) {
   let filename = "export.csv";
 
   if (type === "members") {
-    const { data } = await svc
+    const { data, error } = await svc
       .from("profiles")
       .select("full_name, phone, role, created_at")
       .eq("role", "client")
       .order("full_name", { ascending: true });
+    if (error) return NextResponse.json({ error: "Member export unavailable" }, { status: 503 });
     csv = toCsv(
       ["Name", "Phone", "Role", "Joined"],
       (data ?? []).map((m) => [
@@ -49,11 +50,12 @@ export async function GET(request: NextRequest) {
     );
     filename = "members.csv";
   } else if (type === "sessions") {
-    const { data } = await svc
+    const { data, error } = await svc
       .from("sessions")
       .select("scheduled_at, session_type, status, duration_minutes, location")
       .order("scheduled_at", { ascending: false })
       .limit(2000);
+    if (error) return NextResponse.json({ error: "Session export unavailable" }, { status: 503 });
     csv = toCsv(
       ["Date", "Type", "Status", "Minutes", "Location"],
       (data ?? []).map((s) => [
@@ -72,6 +74,8 @@ export async function GET(request: NextRequest) {
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
