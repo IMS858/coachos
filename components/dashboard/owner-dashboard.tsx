@@ -6,6 +6,9 @@ import {
   AlertCircle,
   Activity,
   ArrowRight,
+  Inbox,
+  Target,
+  ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -45,6 +48,9 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
     { data: roster },
     { count: clientsAt90 },
     { count: stillActiveAt90 },
+    { count: unreadMessages },
+    { count: untouchedLeads },
+    { count: failedPayments },
   ] = await Promise.all([
     // The summary view gives us MRR, plan counts, last session per client
     supabase
@@ -76,6 +82,9 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
       .select("*", { count: "exact", head: true })
       .lte("joined_at", ninetyDaysAgo)
       .eq("status", "active"),
+    supabase.from("messages").select("*", { count: "exact", head: true }).is("read_at", null),
+    supabase.from("leads").select("*", { count: "exact", head: true }).in("stage", ["new","contacted","nurturing"]).is("last_contacted_at", null),
+    supabase.from("payments").select("*", { count: "exact", head: true }).eq("status", "failed"),
   ]);
 
   const allClients = summary ?? [];
@@ -138,7 +147,7 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
         subline="Here's how IMS is doing today."
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-3 gap-3"><Link href="/messages" className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><Inbox className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{unreadMessages ?? 0}</p><p className="text-xs text-cream-faint">Unread messages</p></Link><Link href="/leads" className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><Target className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{untouchedLeads ?? 0}</p><p className="text-xs text-cream-faint">Leads need first touch</p></Link><Link href="/reports/operations" className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><ShieldAlert className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{(failedPayments ?? 0) + lowBalance.length}</p><p className="text-xs text-cream-faint">Billing/package actions</p></Link></div>\n\n      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <KpiCard
           label="MRR"
           value={mrr > 0 ? formatCurrency(mrr) : "—"}
