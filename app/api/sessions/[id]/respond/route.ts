@@ -19,11 +19,12 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: me } = await supabase
+  const { data: me, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileError) return NextResponse.json({ error: "Staff authorization unavailable" }, { status: 503 });
   if (!me || !["owner", "trainer"].includes(me.role)) {
     return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
@@ -35,11 +36,12 @@ export async function POST(
   }
 
   const svc = createServiceClient();
-  const { data: session } = await svc
+  const { data: session, error: sessionError } = await svc
     .from("sessions")
     .select("id, client_id, scheduled_at, session_type, status")
     .eq("id", id)
     .maybeSingle();
+  if (sessionError) return NextResponse.json({ error: "Session lookup unavailable" }, { status: 503 });
   if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (session.status !== "requested") {
     return NextResponse.json({ error: "This request was already handled." }, { status: 409 });
@@ -94,6 +96,7 @@ export async function POST(
       if (action === "approve") {
         await sendEmail({
           to: clientProfile.email,
+          idempotencyKey: `session-response/${session.id}/approve`,
           subject: `Confirmed — your IMS session on ${whenStr}`,
           html: emailShell({
             heading: "You're booked! ✓",
@@ -108,6 +111,7 @@ export async function POST(
       } else {
         await sendEmail({
           to: clientProfile.email,
+          idempotencyKey: `session-response/${session.id}/decline`,
           subject: "About your IMS session request",
           html: emailShell({
             heading: "Let's find another time",
