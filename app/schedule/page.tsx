@@ -34,20 +34,7 @@ const TOTAL_HALF_HOURS = DAY_END_HALF - DAY_START_HALF;
 //   brand blue    = the two things IMS sells under its own brand
 //   slate         = IMS-run testing / screening
 //   warm neutral  = independent practitioners renting the space
-const TYPE_STYLES: Record<string, string> = {
-  training: "bg-sky/10 border-l-[3px] border-l-sky text-sky-deep",
-  recovery: "bg-sky/[0.06] border-l-[3px] border-l-sky-light text-sky-deep",
-  assessment: "bg-[#eef1f5] border-l-[3px] border-l-[#5b6b7d] text-[#33414f]",
-  mobility: "bg-[#eef1f5] border-l-[3px] border-l-[#5b6b7d] text-[#33414f]",
-  body_comp: "bg-[#eef1f5] border-l-[3px] border-l-[#5b6b7d] text-[#33414f]",
-  pilates: "bg-[#f5f3ef] border-l-[3px] border-l-[#a08b6a] text-[#5c4c33]",
-  massage: "bg-[#f5f3ef] border-l-[3px] border-l-[#a08b6a] text-[#5c4c33]",
-};
-const _TYPE_STYLE_FALLBACK =
-  "bg-navy-elev border-l-[3px] border-l-cream-faint text-cream-dim";
-const TYPE_STYLES_LOOKUP: Record<string, string> = new Proxy(TYPE_STYLES, {
-  get: (t, k: string) => t[k] ?? _TYPE_STYLE_FALLBACK,
-}) as Record<string, string>;
+const TRAINING_STYLE = "bg-sky/10 border-l-[3px] border-l-sky text-sky-deep";
 
 function todayInPt(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
@@ -442,7 +429,7 @@ export default async function SchedulePage({
                         1,
                         Math.round((s.duration_minutes ?? 60) / 30)
                       );
-                      const style = TYPE_STYLES_LOOKUP[s.session_type] ?? TYPE_STYLES.training;
+                      const style = TRAINING_STYLE ?? TYPE_STYLES.training;
                       const dimmed =
                         s.status === "late_cancelled" || s.status === "no_show";
                       return (
