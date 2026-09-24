@@ -105,6 +105,7 @@ export default async function ProgramPage({
           </div>
         </div>
 
+        {isStaff && (program as any).client_id && <Link href={"/clients/" + (program as any).client_id} className="inline-flex w-fit rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-navy">Send client a coaching video</Link>}
         {isStaff && (program as any).status === "draft" && <ProgramReadinessPanel programId={id} />}
 
         {/* IMS Generator program — PDF-based */}
