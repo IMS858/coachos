@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, LockKeyhole } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,22 +68,21 @@ function LoginForm() {
   }
 
   return (
-    <Card className="overflow-hidden rounded-[28px] border border-[#e3e8ee] bg-white shadow-[0_24px_70px_rgba(18,35,49,0.10)] sm:rounded-3xl">
-      <div className="h-1.5 bg-sky" />
-      <CardHeader className="px-5 pt-6 sm:px-7 sm:pt-7">
-        <div className="flex items-center justify-center mb-5">
+    <Card className="overflow-hidden rounded-[28px] border border-[#dde3e9] bg-white shadow-[0_28px_80px_rgba(18,35,49,0.12)] sm:rounded-[32px]">
+      <CardHeader className="px-6 pt-7 sm:px-8 sm:pt-8">
+        <div className="mb-6 flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[190px] object-contain sm:max-w-[220px]" />
+          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[165px] object-contain sm:max-w-[185px]" />
         </div>
         <CardTitle className="text-center text-3xl font-bold">
-          Welcome to IMS
+          Welcome back
         </CardTitle>
         <CardDescription className="text-center">
-          Everything you need to train, track progress and stay connected with your coach.
+          Sign in to your IMS training account.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="px-5 pb-5 sm:px-7 sm:pb-7">
+      <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">
         <form
           noValidate
           onSubmit={(e) => void handlePassword(e)}
@@ -100,7 +99,7 @@ function LoginForm() {
               name="email"
               autoComplete="username"
               inputMode="email"
-              placeholder="you@example.com"
+              placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="h-13 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] placeholder:text-[#8492a3] focus-visible:ring-[#1876b4]"
@@ -142,7 +141,7 @@ function LoginForm() {
           )}
 
           <Button type="submit" disabled={loading} className="mt-2 min-h-13 rounded-xl bg-[#1876b4] text-base font-semibold text-white hover:bg-[#125f95]">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4"/>Sign in securely</>}
           </Button>
 
           <a
@@ -167,7 +166,7 @@ function LoginForm() {
             )}
           </div>
         )}
-        <p className="mt-6 border-t border-divider pt-5 text-center text-xs text-cream-faint">Innovative Movement Solutions · Train smarter. Move better.</p>
+        <p className="mt-6 border-t border-divider pt-5 text-center text-xs leading-5 text-cream-faint">Secure access for IMS clients and coaches.</p>
       </CardContent>
     </Card>
   );
