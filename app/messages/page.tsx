@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, MessageCircle, Inbox, Target, Users } from "lucide-react";
+import { ChevronRight, MessageCircle, Inbox, Target, Users, Archive } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -98,12 +98,7 @@ export default async function MessagesPage() {
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
-          <p className="text-sm text-cream-dim mt-1">
-            Real-time conversations with clients.
-          </p>
-        </div>
+        <div className="flex items-start justify-between gap-3"><div><div className="eyebrow">Communications</div><h1 className="text-3xl font-bold tracking-tight">Inbox</h1><p className="mt-1 text-sm text-cream-dim">Client conversations and incoming business opportunities in one workflow.</p></div><Link href="/messages/archived" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-divider bg-white px-3 text-sm font-medium text-cream-dim hover:border-sky/40"><Archive className="h-4 w-4"/>Archived <span className="rounded-full bg-navy-soft px-2 py-0.5 text-xs">{archived.size}</span></Link></div>
 
         <div className="grid grid-cols-3 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><Inbox className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{totalUnread}</p><p className="text-xs text-cream-faint">Unread client messages</p></div><div className="rounded-2xl border border-divider bg-white p-4"><Users className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{activeConversations}</p><p className="text-xs text-cream-faint">Active conversations</p></div><Link href="/leads" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><Target className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{newLeads ?? 0}</p><p className="text-xs text-cream-faint">New inquiries / leads →</p></Link></div>
 
