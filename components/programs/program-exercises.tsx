@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { Trash2, ExternalLink, Loader2, Pencil, Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -54,7 +54,7 @@ const BLOCK_LABELS: Record<string, string> = {
 export function ProgramExercises({ programId, grouped, isStaff }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);\n  const [editingId,setEditingId]=useState<string|null>(null);\n  const [savingId,setSavingId]=useState<string|null>(null);\n  const [edit,setEdit]=useState({sets:"",reps:"",load:"",rest:"",tempo:"",notes:""});\n  const [saveError,setSaveError]=useState<string|null>(null);\n  function beginEdit(a:Assignment){setEditingId(a.id);setSaveError(null);setEdit({sets:a.sets?.toString()??"",reps:a.reps??"",load:a.load??"",rest:a.rest_seconds?.toString()??"0",tempo:a.tempo??"",notes:a.notes_client??""});}\n  async function savePrescription(a:Assignment){setSavingId(a.id);setSaveError(null);try{const response=await fetch(`/api/programs/assignments/${a.id}/prescription`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({sets:Number(edit.sets),reps:edit.reps,load:edit.load,rest_seconds:Number(edit.rest||0),tempo:edit.tempo,notes:edit.notes})});const data=await response.json().catch(()=>null);if(!response.ok)throw new Error(data?.error||"Could not save prescription.");setEditingId(null);startTransition(()=>router.refresh());}catch(e){setSaveError(e instanceof Error?e.message:"Could not save prescription.");}finally{setSavingId(null);}}
 
   async function removeAssignment(assignmentId: string) {
     if (!confirm("Remove this exercise from the program?")) return;
@@ -113,7 +113,7 @@ export function ProgramExercises({ programId, grouped, isStaff }: Props) {
                         <ExternalLink className="h-3 w-3 opacity-50" />
                       </Link>
 
-                      {/* Prescription line */}
+                      {isStaff && editingId===a.id && <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"><input aria-label="Sets" placeholder="Sets" value={edit.sets} onChange={e=>setEdit({...edit,sets:e.target.value})} className="min-h-10 rounded-lg border border-divider px-2 text-sm"/><input aria-label="Reps" placeholder="Reps" value={edit.reps} onChange={e=>setEdit({...edit,reps:e.target.value})} className="min-h-10 rounded-lg border border-divider px-2 text-sm"/><input aria-label="Load" placeholder="Load / RPE" value={edit.load} onChange={e=>setEdit({...edit,load:e.target.value})} className="min-h-10 rounded-lg border border-divider px-2 text-sm"/><input aria-label="Rest seconds" placeholder="Rest sec" value={edit.rest} onChange={e=>setEdit({...edit,rest:e.target.value})} className="min-h-10 rounded-lg border border-divider px-2 text-sm"/><input aria-label="Tempo" placeholder="Tempo" value={edit.tempo} onChange={e=>setEdit({...edit,tempo:e.target.value})} className="min-h-10 rounded-lg border border-divider px-2 text-sm"/><input aria-label="Client note" placeholder="Client cue / note" value={edit.notes} onChange={e=>setEdit({...edit,notes:e.target.value})} className="min-h-10 rounded-lg border border-divider px-2 text-sm sm:col-span-3"/><div className="col-span-2 flex gap-2 sm:col-span-3"><button type="button" disabled={savingId===a.id} onClick={()=>void savePrescription(a)} className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-sky px-3 text-xs font-semibold text-white"><Check className="h-3 w-3"/>{savingId===a.id?"Saving…":"Save prescription"}</button><button type="button" onClick={()=>setEditingId(null)} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-divider px-3 text-xs"><X className="h-3 w-3"/>Cancel</button></div>{saveError&&<p role="alert" className="col-span-2 text-xs text-status-limited sm:col-span-3">{saveError}</p>}</div>}\n\n                      {/* Prescription line */}
                       <div className="mt-1 flex items-center gap-3 flex-wrap text-xs text-cream-dim">
                         {a.sets && (
                           <span>
