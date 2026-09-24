@@ -2,7 +2,6 @@ import { pushClient } from "@/lib/mobile/push-client";
 import { type NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, emailShell } from "@/lib/mailer";
-import { pushClient } from "@/lib/mobile/push-client";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
