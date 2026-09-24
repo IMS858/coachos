@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { User, CreditCard, FileCheck, LogOut, Smartphone, CalendarPlus, MessageCircle, AlertTriangle } from "lucide-react";
+import { User, CreditCard, FileCheck, LogOut, Smartphone, CalendarPlus, MessageCircle, AlertTriangle, ReceiptText } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,6 +133,8 @@ export default async function AccountPage() {
             )}
           </CardContent>
         </Card>
+
+        <Link href="/account/billing" className="flex items-center justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky/10"><ReceiptText className="h-5 w-5 text-sky"/></div><div><p className="text-sm font-semibold text-cream">Billing history</p><p className="text-xs text-cream-faint">View payments recorded in Coach OS</p></div></div><span className="text-cream-faint">→</span></Link>
 
         {/* Signed documents */}
         <Card>
