@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle } from "lucide-react";
+import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle, History, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { HomeworkList } from "@/components/media/homework-list";
 import { AppShell } from "@/components/layout/app-shell";
@@ -107,11 +107,18 @@ export default async function PlanPage() {
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-cream">My Plan</h1>
-          <p className="text-cream-faint text-sm">
+        <div className="rounded-2xl bg-band px-5 py-7 text-white shadow-lg">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Your training</div>
+          <h1 className="mt-2 text-4xl font-bold text-white">My Plan</h1>
+          <p className="mt-2 text-sm text-white/75">
             Your current program and what&apos;s coming up.
           </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Link href="/workouts" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><History className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Workout history →</span></Link>
+          <Link href="/book" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><Calendar className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Book a session →</span></Link>
+          <Link href="/messages" className="col-span-2 flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50 sm:col-span-1"><MessageCircle className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Message coach →</span></Link>
         </div>
 
         {homeworkWithPosters.length > 0 && (
