@@ -41,6 +41,7 @@ export default async function ProgramPage({
     .maybeSingle();
 
   if (!program) notFound();
+  if (!isStaff && (program.client_id !== user.id || !["active", "published"].includes(program.status))) notFound();
 
   // Client name fetched separately so a missing clients row can't 404 the page
   let clientName = "Client";
@@ -64,18 +65,22 @@ export default async function ProgramPage({
   const { data: assignments } = await supabase
     .from("program_exercises")
     .select(
-      `id, block, sort_order, sets, reps, load, rest_seconds, tempo, duration_seconds,
-       notes_trainer, notes_client,
+      `id, block, position, sets, reps, load_prescription, rest_seconds, tempo, notes,
        exercises!inner(id, name, ims_label, slug, category, movement_pattern,
-                       coaching_cues, video_id, video_provider, primary_joints)`
+                       coaching_cues, video_guid, primary_joints, client_visible)`
     )
     .eq("program_id", id)
     .order("block")
-    .order("sort_order");
+    .order("position");
 
   const grouped = BLOCK_ORDER.map((block) => ({
     block,
-    items: (assignments ?? []).filter((a: any) => a.block === block),
+    items: (assignments ?? [])
+      .filter((a: any) => a.block === block && (isStaff || a.exercises?.client_visible === true))
+      .map((a: any) => ({ ...a, sort_order: a.position, load: a.load_prescription,
+        notes_trainer: isStaff ? a.notes : null, notes_client: a.notes,
+        duration_seconds: null, exercises: { ...a.exercises, video_id: a.exercises?.video_guid ?? null,
+          video_provider: a.exercises?.video_guid ? "guid" : "none" } })),
   }));
 
   return (
