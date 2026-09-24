@@ -44,7 +44,7 @@ export default async function ClientsPage({
   if (statusFilter !== "all") query = query.eq("status", statusFilter);
   if (search) query = query.ilike("full_name", `%${search}%`);
 
-  const { data: rows } = await query;
+  const { data: rows, error: clientsError } = await query;
   const allClients = rows ?? [];
 
   const totalMrr = allClients.reduce(
@@ -94,6 +94,7 @@ export default async function ClientsPage({
 
         <Card>
           <CardContent className="p-0">
+          {clientsError && <div role="alert" className="border-b border-status-limited/30 p-5 text-sm text-status-limited">Client records could not be loaded. Refresh to retry; no client data was changed.</div>}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
