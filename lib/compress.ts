@@ -36,20 +36,7 @@ export const COMPRESS_THRESHOLD_MB = 25;
  * motion far better under slow-mo than 4K at 30fps.
  */
 export const QUALITY_PRESETS = {
-  standard: {
-    label: "Standard",
-    hint: "720p · fast on cellular",
-    maxHeight: 720,
-    bitrate: 1_500_000,
-    approxMbPerMin: 11,
-  },
-  high: {
-    label: "High",
-    hint: "1080p · best for slow-mo detail",
-    maxHeight: 1080,
-    bitrate: 4_000_000,
-    approxMbPerMin: 30,
-  },
+  standard: {\n    label: "1080p",\n    hint: "Full HD · strong default for coaching",\n    maxHeight: 1080,\n    bitrate: 5_000_000,\n    approxMbPerMin: 38,\n  },\n  high: {\n    label: "1080p High Motion",\n    hint: "More detail for slow-mo and faster lifts",\n    maxHeight: 1080,\n    bitrate: 8_000_000,\n    approxMbPerMin: 60,\n  },
 } as const;
 
 export type QualityKey = keyof typeof QUALITY_PRESETS;
@@ -91,8 +78,8 @@ export async function compressVideo(
     onProgress?: (pct: number) => void;
   } = {}
 ): Promise<CompressResult> {
-  const maxHeight = opts.maxHeight ?? 720;
-  const bitrate = opts.bitrate ?? 1_500_000;
+  const maxHeight = opts.maxHeight ?? 1080;
+  const bitrate = opts.bitrate ?? 5_000_000;
   const onProgress = opts.onProgress ?? (() => {});
   const original = file.size;
 
@@ -199,7 +186,7 @@ export async function compressVideo(
 
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
     const base = file.name.replace(/\.[^.]+$/, "") || "clip";
-    const out = new File([blob], `${base}-720p.${ext}`, { type: blob.type });
+    const out = new File([blob], `${base}-${height}p.${ext}`, { type: blob.type });
 
     return {
       file: out,
