@@ -115,11 +115,7 @@ export default async function SchedulePage({
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
   // Coach OS self-booking is training-only. Keep the staff calendar focused on training.
-  const validTypes = ["training"];
-  const typeFilter = validTypes.includes(params.type ?? "")
-    ? (params.type as string)
-    : "all";
-  const typeQS = typeFilter === "all" ? "" : `&type=${typeFilter}`;
+  const typeQS = "";
 
   // Trainers = staff profiles (owner coaches too)
   const { data: staff } = await supabase
