@@ -31,13 +31,14 @@ export async function GET(request: NextRequest) {
   const from = new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString();
   const to = new Date(Date.now() + 30 * 60 * 60 * 1000).toISOString();
 
-  const { data: sessions } = await svc
+  const { data: sessions, error: sessionError } = await svc
     .from("sessions")
     .select("id, client_id, trainer_id, scheduled_at, session_type")
     .in("status", ["scheduled", "confirmed"])
     .gte("scheduled_at", from)
     .lte("scheduled_at", to);
 
+  if (sessionError) return NextResponse.json({ error: "Session lookup failed" }, { status: 503 });
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ ok: true, reminded: 0 });
   }
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest) {
   const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
 
   let reminded = 0;
+  let failed = 0;
+  let skipped = 0;
   for (const s of sessions as any[]) {
     const client = byId.get(s.client_id);
     if (!client?.email) continue;
@@ -67,6 +70,12 @@ export async function GET(request: NextRequest) {
     });
     const firstName = (client.full_name ?? "").split(" ")[0] || "there";
 
+    const dedupeKey = `session-reminder-24h:${s.id}:${s.scheduled_at}`;
+    const { error: claimError } = await svc.from("notification_deliveries").insert({
+      dedupe_key: dedupeKey, recipient_id: s.client_id, template: "session-reminder-24h", status: "pending",
+    });
+    if (claimError?.code === "23505") { skipped++; continue; }
+    if (claimError) return NextResponse.json({ error: "Notification ledger unavailable", reminded, failed }, { status: 503 });
     const result = await sendEmail({
       to: client.email,
       subject: `Reminder — your IMS session ${whenStr}`,
@@ -80,8 +89,14 @@ export async function GET(request: NextRequest) {
         `,
       }),
     });
-    if (result.ok) reminded++;
+    if (result.ok) {
+      reminded++;
+      await svc.from("notification_deliveries").update({ status: "sent", sent_at: new Date().toISOString(), provider_id: result.id }).eq("dedupe_key", dedupeKey);
+    } else {
+      failed++;
+      await svc.from("notification_deliveries").update({ status: "failed", error: result.error.slice(0, 500) }).eq("dedupe_key", dedupeKey);
+    }
   }
 
-  return NextResponse.json({ ok: true, reminded, total: sessions.length });
+  return NextResponse.json({ ok: failed === 0, reminded, failed, skipped, total: sessions.length }, { status: failed ? 502 : 200 });
 }
