@@ -47,17 +47,18 @@ function LoginForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-center mb-4">
+    <Card className="overflow-hidden rounded-3xl border border-divider bg-white shadow-xl">
+      <div className="h-1.5 bg-sky" />
+      <CardHeader className="pt-7">
+        <div className="flex items-center justify-center mb-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-20 w-auto" />
+          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[240px] object-contain" />
         </div>
-        <CardTitle className="text-center text-xl">
-          Welcome to IMS Coach OS
+        <CardTitle className="text-center text-3xl font-bold">
+          Welcome back
         </CardTitle>
         <CardDescription className="text-center">
-          Sign in to continue
+          Sign in to your IMS training and coaching hub.
         </CardDescription>
       </CardHeader>
 
@@ -65,7 +66,7 @@ function LoginForm() {
         <form
           noValidate
           onSubmit={(e) => void handlePassword(e)}
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-4"
         >
           <div>
             <label htmlFor="email" className="block text-xs font-medium text-cream-dim mb-1.5">
@@ -115,7 +116,7 @@ function LoginForm() {
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="mt-2">
+          <Button type="submit" disabled={loading} className="mt-2 min-h-12 rounded-xl text-base font-semibold">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
           </Button>
 
@@ -126,6 +127,7 @@ function LoginForm() {
             Forgot your password?
           </a>
         </form>
+        <p className="mt-6 border-t border-divider pt-5 text-center text-xs text-cream-faint">Innovative Movement Solutions · Train smarter. Move better.</p>
       </CardContent>
     </Card>
   );
@@ -133,8 +135,14 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
-      <LoginForm />
-    </Suspense>
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#eef1f4] px-4 py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[#17191c]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-[#2e83b8]" />
+      <div className="relative z-10 w-full max-w-md">
+        <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-white/75">IMS Coach OS</p>
+        <Suspense fallback={null}><LoginForm /></Suspense>
+        <p className="mt-5 text-center text-xs text-cream-faint">Secure access for IMS clients and coaches</p>
+      </div>
+    </div>
   );
 }
