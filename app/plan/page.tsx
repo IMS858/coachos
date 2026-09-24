@@ -24,7 +24,7 @@ export default async function PlanPage() {
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, name, weeks, start_date, end_date, status")
+    .select("id, name, weeks, start_date, end_date, status, pdf_client_url, data")
     .eq("client_id", user.id)
     .in("status", ["active", "published"])
     .order("created_at", { ascending: false })
@@ -88,7 +88,7 @@ export default async function PlanPage() {
     }).format(new Date(iso));
   }
 
-  if (!program && (!upcoming || upcoming.length === 0)) {
+  if (!program && (!upcoming || upcoming.length === 0) && homeworkWithPosters.length === 0) {
     return (
       <AppShell>
         <ComingSoon
@@ -146,6 +146,10 @@ export default async function PlanPage() {
                   </span>
                 )}
                 <span className="capitalize">{program.status}</span>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link href={`/programs/${program.id}`} className="inline-flex min-h-11 items-center rounded-lg bg-sky px-4 py-2 text-sm font-semibold text-navy">View my program →</Link>
+                {program.pdf_client_url && <a href={`/api/programs/${program.id}/pdf`} className="inline-flex min-h-11 items-center rounded-lg border border-divider px-4 py-2 text-sm font-medium text-cream">Download reviewed PDF</a>}
               </div>
             </CardContent>
           </Card>
