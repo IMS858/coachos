@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
   if (!scheduledAt || isNaN(when.getTime())) {
     return NextResponse.json({ error: "Pick a valid date and time." }, { status: 400 });
   }
-  if (when.getTime() < Date.now() + 60 * 60 * 1000) {
+  const now = new Date();
+  const oneHourFromNow = new Date(now);
+  oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
+  if (when < oneHourFromNow) {
     return NextResponse.json(
       { error: "Requests need at least 1 hour of notice." },
       { status: 400 }
@@ -51,21 +54,23 @@ export async function POST(request: NextRequest) {
   const svc = createServiceClient();
 
   // Must be an actual client (staff should use the schedule directly)
-  const { data: clientRow } = await svc
+  const { data: clientRow, error: clientError } = await svc
     .from("clients")
     .select("id, primary_trainer_id")
     .eq("id", user.id)
     .maybeSingle();
-  if (!clientRow) {
-    return NextResponse.json({ error: "Client account required." }, { status: 403 });
+  if (clientError) return NextResponse.json({ error: "Client account lookup unavailable." }, { status: 503 });
+  if (!clientRow || !clientRow.primary_trainer_id) {
+    return NextResponse.json({ error: clientRow ? "Your account needs a primary coach before requesting sessions." : "Client account required." }, { status: 403 });
   }
 
   // Cap open requests to prevent spam
-  const { count } = await svc
+  const { count, error: countError } = await svc
     .from("sessions")
     .select("id", { count: "exact", head: true })
     .eq("client_id", user.id)
     .eq("status", "requested");
+  if (countError) return NextResponse.json({ error: "Unable to verify pending requests." }, { status: 503 });
   if ((count ?? 0) >= 5) {
     return NextResponse.json(
       { error: "You already have 5 pending requests. We'll respond soon!" },
@@ -110,6 +115,7 @@ export async function POST(request: NextRequest) {
       });
       await sendEmail({
         to: ownerEmail,
+        idempotencyKey: `session-request/${session.id}`,
         subject: `Session request — ${me?.full_name ?? "Client"} · ${whenStr}`,
         html: emailShell({
           heading: "New session request",
