@@ -9,6 +9,7 @@ async function update(request:NextRequest,context:Context,mark:boolean){
  if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const body=mark?await request.json().catch(()=>({})):{};
  const {data,error}=await supabase.rpc('set_session_no_show',{p_id:id,p_mark:mark,p_charge:body.charge!==false});
+  if(error?.code === "40P01") return NextResponse.json({error:"Another booking changed at the same time. Refresh availability and retry."},{status:409});
  if(error)return NextResponse.json({error:error.code==='23P01'?'Restoring this session would overlap another booking.':'No-show change could not be saved',detail:error.message},
  {status:error.code==='42501'?403:error.code==='P0002'?404:['22023','23P01'].includes(error.code)?409:503});
  return NextResponse.json(data);

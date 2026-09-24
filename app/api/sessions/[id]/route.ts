@@ -40,6 +40,7 @@ export async function PATCH(
   }
 
   const { error } = await supabase.from("sessions").update(allowed as never).eq("id", id);
+  if(error?.code === "40P01") return NextResponse.json({error:"Another booking changed at the same time. Refresh availability and retry."},{status:409});
   if (error?.code === "23P01") return NextResponse.json({error:"Trainer already has a session at this time."},{status:409});
   if (error) {
     return NextResponse.json(

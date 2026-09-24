@@ -72,6 +72,7 @@ export async function POST(
 
   const { data: updated, error } = await svc.from("sessions").update(updates as never).eq("id", id).eq("status", "requested").select("id").maybeSingle();
   if (!error && !updated) return NextResponse.json({ error: "This request was already handled." }, { status: 409 });
+  if(error?.code === "40P01") return NextResponse.json({error:"Another booking changed at the same time. Refresh availability and retry."},{status:409});
   if (error?.code === "23P01") return NextResponse.json({error:"Trainer already has a session at this time."},{status:409});
   if (error) {
     return NextResponse.json({ error: "Update failed", detail: error.message }, { status: 500 });

@@ -125,7 +125,8 @@ test('trainer exclusion rejects concurrent overlapping bookings but allows adjac
  const {Client}=require('pg');const peers=[new Client({connectionString:live}),new Client({connectionString:live})];
  try{await Promise.all(peers.map(c=>c.connect()));
  const results=await Promise.allSettled(peers.map((c,i)=>c.query("insert into public.sessions(id,client_id,trainer_id,scheduled_at,duration_minutes) values($1,$2,$3,'2026-09-24T16:00:00Z',60)",[`66666666-6666-4666-8666-66666666666${i}`,client,owner])));
- assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.find(r=>r.status==='rejected').reason.code,'23P01');
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);const rejected=results.findIndex(r=>r.status==='rejected');assert.ok(['23P01','40P01'].includes(results[rejected].reason.code));
+ await assert.rejects(peers[rejected].query("insert into public.sessions(id,client_id,trainer_id,scheduled_at,duration_minutes) values($1,$2,$3,'2026-09-24T16:00:00Z',60)",[`66666666-6666-4666-8666-66666666666${rejected}`,client,owner]),error=>error.code==='23P01');
  await db.query("insert into public.sessions(id,client_id,trainer_id,scheduled_at,duration_minutes) values('77777777-7777-4777-8777-777777777777',$1,$2,'2026-09-24T17:00:00Z',60)",[client,owner]);
  }finally{await Promise.all(peers.map(c=>c.end()));}
 });

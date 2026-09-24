@@ -31,10 +31,14 @@ Vagaro edits or test email/payment sends were performed.** This work belongs to
 
 ## Verification scope
 
-Local regression tests, strict lint, production build and TypeScript are checked
-before publication. The CI job additionally runs concurrent completion, competing
+Local verification: 60 tests pass, strict lint has zero warnings, and the Node 20
+production build and standalone TypeScript checks pass. The CI job additionally runs concurrent completion, competing
 trainer bookings and duplicate checkout workers against PostgreSQL 16. Its result
-must be green for the exact PR head before accepting this checkpoint.
+must be green for the exact PR head before accepting this checkpoint. The first
+PostgreSQL run proved one overlapping writer is rejected; it exposed that PostgreSQL
+may return a deadlock rejection (40P01) as well as an exclusion violation (23P01).
+The API now handles both, and the test retries the loser to verify persistent
+conflict rejection. Vercel successfully built the initial stabilization commit.
 
 The synthetic database fixture matches the inspected billing/session column contract;
 it is **not** a complete production schema reconstruction. No migrations were applied

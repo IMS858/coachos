@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({error:"A session request ID is required. Refresh and try again."},{status:400});
   }
   const {data,error}=await supabase.rpc("create_staff_session",{p_id:body.request_id,p_body:{...body,mode}});
+  if(error?.code === "40P01") return NextResponse.json({error:"Another booking changed at the same time. Refresh availability and retry."},{status:409});
   if(error) return NextResponse.json({error:error.code==="23P01"?"Trainer already has a session at this time.":"Session could not be saved",detail:error.message},
     {status:error.code==="23P01"||error.code==="22023"?409:error.code==="42501"?403:503});
   return NextResponse.json(data);

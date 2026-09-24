@@ -12,6 +12,7 @@ async function complete(request:NextRequest,id:string,value:boolean) {
   const {data,error}=await supabase.rpc('set_session_completion',{
     p_session_id:id,p_complete:value,p_service_type:body.service_type ?? null,
   });
+  if(error?.code === "40P01") return NextResponse.json({error:"Another booking changed at the same time. Refresh availability and retry."},{status:409});
   if (error) {
     const status=error.code==='42501'?403:error.code==='P0002'?404:['22023','23P01'].includes(error.code)?409:503;
     return NextResponse.json({error:status===503?'Completion service unavailable. Retry after checking the session.':error.message},{status});
