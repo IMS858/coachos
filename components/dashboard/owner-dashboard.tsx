@@ -51,9 +51,8 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
       .from("client_billing_summary")
       .select("client_id, full_name, status, billing_type, total_monthly_cents, active_subscriptions_count, active_packages_count, last_session_at, primary_plan_label"),
     supabase
-      .from("clients")
+      .from("leads")
       .select("*", { count: "exact", head: true })
-      .eq("status", "lead")
       .gte("created_at", startOfMonth),
     supabase
       .from("clients")
