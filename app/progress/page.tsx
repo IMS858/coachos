@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { ProgressReportView } from "@/components/progress/progress-report-view";
@@ -50,6 +51,7 @@ export default async function ProgressPage() {
             What&apos;s changed since you started at IMS.
           </p>
         </div>
+        <Link href="/workouts" className="flex min-h-12 items-center justify-between rounded-xl border border-sky/30 bg-sky/10 px-4 py-3 text-sm font-semibold text-sky-light">View my workout history <span aria-hidden="true">→</span></Link>
         <ProgressReportView report={report} forClient />
       </div>
     </AppShell>
