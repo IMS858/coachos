@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
   // an owner email is configured. No-ops silently if Resend isn't set up yet.
   // ---------------------------------------------------------------------------
   const ownerEmail = process.env.OWNER_EMAIL || "admin@imsfitnesscenter.com";
+  const escapeHtml = (value: string) => value
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
   let emailed = false;
 
   if (lowBalance.length > 0) {
@@ -48,8 +51,8 @@ export async function GET(request: NextRequest) {
       .map(
         (c) =>
           `<tr>
-             <td style="padding:6px 0;color:#dfe7f0;font-family:Arial,sans-serif;font-size:14px;">${c.name}</td>
-             <td style="padding:6px 0;color:#b8c4d2;font-family:Arial,sans-serif;font-size:13px;">${c.planLabel}</td>
+             <td style="padding:6px 0;color:#dfe7f0;font-family:Arial,sans-serif;font-size:14px;">${escapeHtml(c.name)}</td>
+             <td style="padding:6px 0;color:#b8c4d2;font-family:Arial,sans-serif;font-size:13px;">${escapeHtml(c.planLabel)}</td>
              <td style="padding:6px 0;text-align:right;font-family:Arial,sans-serif;font-size:13px;color:${
                c.state === "depleted" ? "#f08a8a" : "#f0b46a"
              };">${c.state === "depleted" ? "Depleted" : `${c.remaining} left`}</td>
