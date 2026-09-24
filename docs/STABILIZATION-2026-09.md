@@ -138,7 +138,7 @@ under the existing IMS Coach OS project. Use synthetic accounts only, disable
 outbound cron/email and Stripe live mode, and do not merge its schema into production
 until full migration and role acceptance checks are complete.
 
-The read-only live security advisor also reports [public-schema extension placement](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),
+A read-only hosted schema recovery checkpoint is now recorded in [HOSTED-SCHEMA-RECOVERY-2026-09.md](HOSTED-SCHEMA-RECOVERY-2026-09.md). It verifies 45 public tables, 21 views/materialized views, 88 policies, 22 user triggers and 64 public functions while the hosted migration ledger still has only 24 entries. All 45 inspected public tables have RLS enabled. This inventory is a comparison target, not a replacement for a schema-only pull and clean replay.\n\nThe read-only live security advisor also reports [public-schema extension placement](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),
 [four executable definer functions](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
 (two role predicates and two legacy counter routines), and
 [leaked-password protection disabled](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
