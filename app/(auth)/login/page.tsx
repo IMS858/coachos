@@ -18,7 +18,8 @@ import {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  const requestedNext = searchParams.get("next") || "/dashboard";
+  const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : "/dashboard";
   const linkError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -80,6 +81,7 @@ function LoginForm() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="h-12 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] placeholder:text-[#8492a3] focus-visible:ring-[#1876b4]"
             />
           </div>
 
@@ -93,6 +95,7 @@ function LoginForm() {
               autoComplete="current-password"
               value={password}
               onChange={setPassword}
+              inputClassName="h-12 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] focus-visible:ring-[#1876b4]"
             />
           </div>
 
@@ -122,7 +125,7 @@ function LoginForm() {
 
           <a
             href="/forgot-password"
-            className="text-xs text-cream-faint hover:text-sky text-center mt-1"
+            className="inline-flex min-h-11 items-center justify-center text-sm text-[#246d9c] hover:underline text-center mt-1"
           >
             Forgot your password?
           </a>
