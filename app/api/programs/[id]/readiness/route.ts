@@ -28,6 +28,7 @@ export async function GET(
   if (!program) return NextResponse.json({error: "Program not found"}, {status: 404});
 
   const generated = program.data?.source === "ims_generator";
+  const quick = program.data?.source === "ims_library_program";
   const [mappingResult, reviewResult] = generated ? await Promise.all([
     supabase.from("canonical_exercise_queue").select("canonical_id,matched_exercise_id,mapping_status").limit(1000),
     supabase.from("exercise_reviews").select("exercise_id,safety_status").limit(1000),
@@ -37,10 +38,15 @@ export async function GET(
     && !!mappingResult.data && mappingResult.data.length === 423
     && mappingResult.data.every(row => row.mapping_status === "coach_confirmed"
       && !!row.matched_exercise_id && approved.has(row.matched_exercise_id));
+  const assignmentResult = quick ? await supabase.from("program_exercises").select("id,sets,reps,load_prescription,rest_seconds,tempo,notes,exercises!inner(client_visible)").eq("program_id",id) : {data:[],error:null};
+  const quickAssignments = assignmentResult.data ?? [];
+  const quickPrescriptionComplete = !quick || (!assignmentResult.error && quickAssignments.length > 0 && quickAssignments.every((row:any) => row.sets && row.reps));
+  const quickClientSafe = !quick || (!assignmentResult.error && quickAssignments.length > 0 && quickAssignments.every((row:any) => row.exercises?.client_visible === true));
   const checks = [
     {key:"draft_status",label:"Program is still a draft",ok:program.status === "draft"},
     {key:"client_assigned",label:"Client is assigned",ok:!!program.client_id},
-    {key:"assessment_linked",label:"Assessment is linked",ok:!!program.assessment_id},
+    {key:"assessment_linked",label:quick ? "Assessment optional for quick programming" : "Assessment is linked",ok:quick || !!program.assessment_id},
+    ...(quick ? [{key:"prescription_complete",label:"Every selected exercise has sets and reps",ok:quickPrescriptionComplete},{key:"client_safe_exercises",label:"Every prescribed exercise is client-visible",ok:quickClientSafe}] : []),
     {key:"structured_plan",label:"Structured generated program exists",ok:!generated || (!!program.data?.structured_program && typeof program.data.structured_program === "object" && !Array.isArray(program.data.structured_program))},
     {key:"client_pdf",label:"Client PDF exists",ok:!generated || !!program.pdf_client_url},
     {key:"client_pdf_mode",label:"Client-safe PDF mode",ok:!generated || program.data?.pdf_mode !== "coach"},
@@ -55,7 +61,7 @@ export async function GET(
   return NextResponse.json({
     program_id:program.id,
     program_name:program.name,
-    source:generated?"ims_generator":"manual",
+    source:generated?"ims_generator":quick?"ims_library_program":"manual",
     ready_for_coach_review:blockers.length===0,
     ready_for_client_release:false,
     release_checks:releaseChecks,
