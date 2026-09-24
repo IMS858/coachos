@@ -86,5 +86,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, series_id: seriesId, built.occurrences.length });
+  return NextResponse.json({ ok: true, series_id: seriesId, created: built.occurrences.length });
 }
