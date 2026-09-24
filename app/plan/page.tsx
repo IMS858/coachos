@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle, History, MessageCircle } from "lucide-react";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { HomeworkList } from "@/components/media/homework-list";
+import { HomeworkList } from "@/components/media/homework-list";\nimport { SendToCoach } from "@/components/media/send-to-coach";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComingSoon } from "@/components/dashboard/coming-soon";
@@ -146,7 +146,7 @@ export default async function PlanPage() {
         )}
 
 
-        {program && (
+        <section className="scroll-mt-6"><SendToCoach /></section>\n\n        {program && (
           <Card>
             <CardHeader>
               <CardTitle id="my-workouts" className="flex scroll-mt-6 items-center gap-2">
