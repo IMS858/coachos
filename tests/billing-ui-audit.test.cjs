@@ -15,7 +15,7 @@ function load(relative, mocks = {}, cache = new Map()) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   });
   assert.equal((compiled.diagnostics || []).filter(d => d.category === ts.DiagnosticCategory.Error).length, 0, relative);
-  const module = { exports: {} }; cache.set(filename, module);
+  const compiledModule = { exports: {} }; cache.set(filename, compiledModule);
   const localRequire = (name) => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
     if (name === 'react/jsx-runtime') return jsx;
@@ -29,8 +29,8 @@ function load(relative, mocks = {}, cache = new Map()) {
     }
     throw new Error(`Unmocked dependency: ${name}`);
   };
-  vm.runInThisContext(`(function(require,module,exports){${compiled.outputText}\n})`, { filename })(localRequire, module, module.exports);
-  return module.exports;
+  vm.runInThisContext(`(function(require,module,exports){${compiled.outputText}\n})`, { filename })(localRequire, compiledModule, compiledModule.exports);
+  return compiledModule.exports;
 }
 function nodes(tree) {
   if (Array.isArray(tree)) return tree.flatMap(nodes);
