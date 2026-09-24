@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFinancialSnapshot } from "@/lib/queries/financials";
 import { RentersPanel } from "@/components/financials/renters-panel";
 import { formatCurrency } from "@/lib/utils";
+import Link from "next/link";
+import { CreditCard, ReceiptText, AlertTriangle, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,12 @@ export default async function FinancialsPage() {
     .eq("status", "active")
     .order("name", { ascending: true });
 
+  const { data: recentPayments } = await svc.from("payments").select("id, client_id, amount_cents, currency, status, description, paid_at").order("paid_at", { ascending: false }).limit(8);
+  const paymentClientIds = [...new Set((recentPayments ?? []).map((p: any) => p.client_id).filter(Boolean))];
+  const { data: paymentProfiles } = paymentClientIds.length ? await svc.from("profiles").select("id, full_name").in("id", paymentClientIds) : { data: [] as any[] };
+  const paymentNames = new Map((paymentProfiles ?? []).map((p: any) => [p.id, p.full_name]));
+  const failedPayments = (recentPayments ?? []).filter((p: any) => p.status === "failed").length;
+
   const monthName = new Intl.DateTimeFormat("en-US", {
     month: "long",
     timeZone: "America/Los_Angeles",
@@ -51,6 +59,8 @@ export default async function FinancialsPage() {
             revenue.
           </p>
         </div>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Link href="/checkout" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><CreditCard className="h-5 w-5 text-sky"/><p className="mt-3 text-sm font-semibold text-cream">New checkout</p><p className="text-xs text-cream-faint">Sell a plan securely</p></Link><div className="rounded-2xl border border-divider bg-white p-4"><ReceiptText className="h-5 w-5 text-sky"/><p className="mt-3 text-2xl font-bold text-cream">{recentPayments?.length ?? 0}</p><p className="text-xs text-cream-faint">Recent payment records</p></div><div className="rounded-2xl border border-divider bg-white p-4"><AlertTriangle className="h-5 w-5 text-amber-600"/><p className="mt-3 text-2xl font-bold text-cream">{failedPayments}</p><p className="text-xs text-cream-faint">Recent failed payments</p></div><Link href="/clients" className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><ArrowRight className="h-5 w-5 text-sky"/><p className="mt-3 text-sm font-semibold text-cream">Client billing</p><p className="text-xs text-cream-faint">Packages and plans</p></Link></div>
 
         {/* Headline: total monthly revenue */}
         <Card>
@@ -120,6 +130,8 @@ export default async function FinancialsPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card><CardHeader><CardTitle>Recent payments</CardTitle></CardHeader><CardContent className="p-0">{!recentPayments?.length ? <p className="px-5 pb-5 text-sm text-cream-faint">No Coach OS payments recorded yet.</p> : <div className="divide-y divide-divider">{recentPayments.map((p:any) => <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-3"><div className="min-w-0"><p className="truncate text-sm font-medium text-cream">{paymentNames.get(p.client_id) ?? "Client"}</p><p className="truncate text-xs text-cream-faint">{p.description || "IMS payment"} · {p.paid_at ? new Date(p.paid_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "Pending"}</p></div><div className="text-right"><p className="text-sm font-semibold tabular text-cream">{formatCurrency(Number(p.amount_cents || 0))}</p><p className={`text-[11px] capitalize ${p.status === "failed" ? "text-red-600" : "text-cream-faint"}`}>{p.status}</p></div></div>)}</div>}</CardContent></Card>
 
         <RentersPanel renters={rentersList ?? []} />
 
