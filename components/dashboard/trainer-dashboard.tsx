@@ -108,18 +108,19 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between flex-wrap gap-4">
+      <div className="flex items-start justify-between flex-wrap gap-5 rounded-3xl bg-band px-6 py-7 text-white shadow-lg">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">IMS Coach OS · Training day</p>
+          <h1 className="text-4xl font-bold tracking-tight text-white">
             Today, {firstName}
           </h1>
-          <p className="text-sm text-cream-dim mt-1">
+          <p className="text-sm text-white/70 mt-2">
             {sessions.length === 0
               ? "No sessions scheduled today."
               : `${sessions.length} session${sessions.length === 1 ? "" : "s"} · ${completed} done · ${remaining} to go`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 rounded-xl bg-white/10 p-2">
           <Link href="/sessions/new?mode=log">
             <Button size="md">
               <Plus className="h-4 w-4" />

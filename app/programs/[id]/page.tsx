@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProgramExercises } from "@/components/programs/program-exercises";
 import { EditableProgram } from "@/components/programs/editable-program";
 import { GenerateProgramButton } from "@/components/programs/generate-program-button";
+import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
 import { FourWeekProgramPreview } from "@/components/programs/four-week-program-preview";
 import { ProgramReadinessPanel } from "@/components/programs/program-readiness-panel";
 
@@ -36,11 +37,12 @@ export default async function ProgramPage({
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, name, status, data, client_id, assessment_id, pdf_client_url, pdf_coach_url")
+    .select("id, name, status, data, client_id, assessment_id, pdf_client_url, pdf_coach_url, coach_edits")
     .eq("id", id)
     .maybeSingle();
 
   if (!program) notFound();
+  if (!isStaff && (program.client_id !== user.id || !["active", "published"].includes(program.status))) notFound();
 
   // Client name fetched separately so a missing clients row can't 404 the page
   let clientName = "Client";
@@ -64,18 +66,22 @@ export default async function ProgramPage({
   const { data: assignments } = await supabase
     .from("program_exercises")
     .select(
-      `id, block, sort_order, sets, reps, load, rest_seconds, tempo, duration_seconds,
-       notes_trainer, notes_client,
+      `id, block, position, sets, reps, load_prescription, rest_seconds, tempo, notes,
        exercises!inner(id, name, ims_label, slug, category, movement_pattern,
-                       coaching_cues, video_id, video_provider, primary_joints)`
+                       coaching_cues, video_guid, primary_joints, client_visible)`
     )
     .eq("program_id", id)
     .order("block")
-    .order("sort_order");
+    .order("position");
 
   const grouped = BLOCK_ORDER.map((block) => ({
     block,
-    items: (assignments ?? []).filter((a: any) => a.block === block),
+    items: (assignments ?? [])
+      .filter((a: any) => a.block === block && (isStaff || a.exercises?.client_visible === true))
+      .map((a: any) => ({ ...a, sort_order: a.position, load: a.load_prescription,
+        notes_trainer: null, notes_client: a.notes,
+        duration_seconds: null, exercises: { ...a.exercises, video_id: a.exercises?.video_guid ?? null,
+          video_provider: a.exercises?.video_guid ? "guid" : "none" } })),
   }));
 
   return (
@@ -105,6 +111,7 @@ export default async function ProgramPage({
           </div>
         </div>
 
+        {isStaff && (program as any).client_id && <Link href={"/clients/" + (program as any).client_id} className="inline-flex w-fit rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-white">Send client a coaching video</Link>}
         {isStaff && (program as any).status === "draft" && <ProgramReadinessPanel programId={id} />}
 
         {/* IMS Generator program — PDF-based */}
@@ -178,7 +185,11 @@ export default async function ProgramPage({
               <p className="rounded-lg border border-divider p-4 text-sm text-cream-dim">Your reviewed PDF is not yet available. Please contact your IMS coach.</p>
             )}
             {isStaff && generated.structured_program && (
-              <FourWeekProgramPreview program={generated.structured_program} />
+              program.status === "draft"
+                ? <ImsProgramStudio key={id} programId={id} plan={generated.structured_program}
+                    initialEdits={program.coach_edits?.structured_program}
+                    canPublish={generated.review_status === "ready_to_publish" && !!program.pdf_client_url} />
+                : <FourWeekProgramPreview program={generated.structured_program} />
             )}
             {isStaff && (program as any).assessment_id && (
               <GenerateProgramButton assessmentId={(program as any).assessment_id} />
@@ -331,7 +342,7 @@ export default async function ProgramPage({
             >
               Library
             </Link>{" "}
-            — click any exercise, then "Add to program".
+            — click any exercise, then &ldquo;Add to program&rdquo;.
           </div>
         )}
 

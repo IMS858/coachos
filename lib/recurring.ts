@@ -23,24 +23,26 @@ export interface RecurringSlot {
  * We find the offset PT had at that moment and apply it.
  */
 export function ptWallClockToUtc(ymd: string, time: string): Date {
-  const [h, m] = time.split(":").map(Number);
-  // Start from the naive UTC guess, then correct by PT's offset that day.
-  const naive = new Date(`${ymd}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`);
-  // What time does that UTC instant show in PT?
-  const ptParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(naive);
-  const ptHour = Number(ptParts.find((p) => p.type === "hour")?.value ?? "0");
-  // Offset in hours between our intended PT hour and what UTC-as-PT shows.
-  // PT is behind UTC, so we add the difference back.
-  let diff = h - ptHour;
-  // Handle wrap-around at midnight (e.g. h=0 vs ptHour=17)
-  if (diff > 12) diff -= 24;
-  if (diff < -12) diff += 24;
-  return new Date(naive.getTime() + diff * 60 * 60 * 1000);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new Error("Invalid Pacific date or time");
+  }
+  const naive = Date.parse(`${ymd}T${time}:00Z`);
+  if (!Number.isFinite(naive) || new Date(naive).toISOString().slice(0, 10) !== ymd) {
+    throw new Error("Invalid Pacific date");
+  }
+  const format = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  });
+  // Pacific time uses UTC-7/-8 for supported modern booking dates. Test both
+  // actual instants. In the repeated fall-back hour choose the earlier instant;
+  // reject the nonexistent spring-forward hour rather than silently moving it.
+  for (const offsetHours of [7, 8]) {
+    const candidate = new Date(naive + offsetHours * 3_600_000);
+    const parts = Object.fromEntries(format.formatToParts(candidate).map(p => [p.type, p.value]));
+    if (`${parts.year}-${parts.month}-${parts.day}` === ymd && `${parts.hour}:${parts.minute}` === time) return candidate;
+  }
+  throw new Error("This Pacific time does not exist due to daylight saving time");
 }
 
 /** YYYY-MM-DD for a Date, in PT. */

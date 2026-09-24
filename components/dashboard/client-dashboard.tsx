@@ -313,12 +313,12 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
               </p>
             </div>
           </div>
-          <a
-            href={`/schedule/standing?reassess=1`}
+          <Link
+            href="/messages"
             className="inline-flex items-center gap-1.5 mt-3 rounded-lg bg-sky text-white text-sm font-medium px-3 py-2"
           >
-            Add to my next session
-          </a>
+            Ask my coach about a check-in
+          </Link>
         </div>
       )}
 
@@ -359,12 +359,9 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
               />
             ))}
           </div>
-          <button
-            type="button"
-            className="w-full rounded-md bg-sky text-white text-sm font-medium py-2.5 active:scale-[0.99] transition-transform"
-          >
-            Mark today complete
-          </button>
+          <Link href="/plan" className="block w-full rounded-md bg-sky py-2.5 text-center text-sm font-medium text-white">
+            View my homework
+          </Link>
         </div>
       ) : (
         <div className="rounded-xl bg-white border border-line p-5">

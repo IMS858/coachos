@@ -24,6 +24,7 @@ export function FourWeekProgramPreview({ program }: { program: StructuredProgram
       s.blocks.every(b => Array.isArray(b.exercises) && b.exercises.length > 0 &&
         b.exercises.every(e => typeof e.name === "string" && e.name.trim().length > 0))));
   const week = weeks[weekIndex];
+  const totalSessions=weeks.reduce((n,w)=>n+(w.sessions?.length??0),0);
   return <section aria-label="Four-week coach program preview" className="overflow-hidden rounded-2xl border border-divider bg-navy-soft">
     <header className="space-y-3 border-b border-divider p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -31,12 +32,23 @@ export function FourWeekProgramPreview({ program }: { program: StructuredProgram
         <span className={`rounded-lg px-3 py-2 text-xs font-semibold ${complete ? "bg-sky/10 text-sky" : "bg-status-limited/10 text-status-limited"}`}>{complete ? "Four weeks present · safety review still required" : "Incomplete plan · do not publish"}</span>
       </div>
       <p className="text-sm text-cream-dim">Inspect each session and week-specific dose against the generated PDF. This preview does not establish medical clearance or exercise approval.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-divider bg-navy p-4"><p className="text-xs text-cream-dim">Training weeks</p><p className="mt-1 text-3xl font-semibold text-cream">{weeks.length}</p></div>
+        <div className="rounded-xl border border-divider bg-navy p-4"><p className="text-xs text-cream-dim">Planned sessions</p><p className="mt-1 text-3xl font-semibold text-cream">{totalSessions}</p></div>
+      </div>
       <nav aria-label="Select program week" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {weeks.map((w,i) => <button type="button" key={i} onClick={() => {setWeekIndex(i);setExpanded([0]);}} aria-current={weekIndex===i?"step":undefined} className={`rounded-xl border p-3 text-left ${weekIndex===i?"border-sky bg-sky/10 text-cream":"border-divider text-cream-dim hover:bg-navy-elev"}`}><span className="block text-xs uppercase tracking-widest">Week {w.week_number ?? i+1}</span><span className="mt-1 block text-sm font-medium">{w.intent || "Review prescription"}</span></button>)}
       </nav>
     </header>
     {!complete && <p role="alert" className="flex items-start gap-2 border-b border-divider bg-status-limited/10 p-4 text-sm text-status-limited"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0"/>The structured program has missing weeks, sessions, blocks or exercise names. Hold publication and regenerate.</p>}
     {week ? <div className="space-y-4 p-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Visual session selector">
+        {(week.sessions??[]).map((session,i)=><button key={i} type="button" onClick={()=>setExpanded([i])} className="rounded-xl border border-divider bg-navy p-4 text-left hover:border-sky">
+          <span className="text-xs font-semibold uppercase tracking-widest text-sky">Day {session.day_number??i+1}</span>
+          <span className="mt-1 block font-semibold text-cream">{session.focus||"Training session"}</span>
+          <span className="mt-2 block text-xs text-cream-dim">{(session.blocks??[]).length} blocks · {(session.blocks??[]).reduce((n,b)=>n+(b.exercises?.length??0),0)} exercises</span>
+        </button>)}
+      </div>
       {Array.isArray(week.progression_notes) && week.progression_notes.length>0 && <div className="rounded-xl border border-divider bg-navy p-4"><h3 className="text-xs font-semibold uppercase tracking-widest text-sky">Week progression</h3><ul className="mt-2 space-y-1 text-sm text-cream-dim">{week.progression_notes.map((note,i)=><li key={i}>{note}</li>)}</ul></div>}
       {(week.sessions ?? []).map((session,i) => <article key={i} className="overflow-hidden rounded-xl border border-divider">
         <button type="button" aria-expanded={expanded.includes(i)} onClick={()=>setExpanded(old=>old.includes(i)?old.filter(x=>x!==i):[...old,i])} className="flex min-h-16 w-full items-center justify-between gap-4 bg-navy p-4 text-left">

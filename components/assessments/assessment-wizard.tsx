@@ -148,6 +148,42 @@ export function AssessmentWizard({
     } finally { setSaving(false); }
   }
 
+  async function saveDraft() {
+    if (saving) return;
+    if (!id && !selectedClient) {setError("Select a client before saving.");return;}
+    setSaving(true);setError(null);
+    try {
+      const res=await fetch(id ? "/api/assessments/"+id : "/api/assessments",{
+        method:id?"PATCH":"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({data,section_status:sections,...(id?{status:"in_progress"}:{client_id:selectedClient})}),
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(json.error||"Draft save failed");
+      setDirty(false);setSavedAt(new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}));
+      if(!id&&json.id){setId(json.id);router.replace("/assessments/"+json.id);}
+    }catch(e){setError(e instanceof Error?e.message:"Save failed; entries remain on screen.");}
+    finally{setSaving(false);}
+  }
+
+  async function deferSection() {
+    if(saving)return;
+    if(!id&&!selectedClient){setError("Select a client first.");return;}
+    setSaving(true);setError(null);
+    const updated={...sections,[SECTION_KEYS[step]]:"deferred"};
+    try{
+      const res=await fetch(id?"/api/assessments/"+id:"/api/assessments",{
+        method:id?"PATCH":"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({data,section_status:updated,...(id?{status:"in_progress"}:{client_id:selectedClient})}),
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(json.error||"Could not defer section");
+      setSections(updated);setDirty(false);
+      if(!id&&json.id){setId(json.id);router.replace("/assessments/"+json.id);}
+      setStep(Math.min(step+1,STEPS.length-1));
+    }catch(e){setError(e instanceof Error?e.message:"Save failed; section not deferred.");}
+    finally{setSaving(false);}
+  }
+
   async function next() {
     const savedId = await save(false);
     if (savedId && step < STEPS.length - 1) setStep(step + 1);
@@ -184,6 +220,12 @@ export function AssessmentWizard({
           <div style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
       </header>
+      <section className="rounded-xl border border-divider bg-navy-soft p-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-sky">Flexible assessment · Visit 1 / Visit 2</p>
+        <h3 className="mt-1 font-semibold text-cream">Assess what matters today. Finish testing later.</h3>
+        <p className="mt-1 text-sm text-cream-dim">Visit 1: goals, health, pain and movement. Visit 2: strength, conditioning and optional Bod Pod. Defer unavailable sections; never invent measurements.</p>
+        <button type="button" disabled={saving||(!id&&!selectedClient)} onClick={saveDraft} className="mt-3 rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">{saving?"Saving…":"Save draft & finish later"}</button>
+      </section>
       {/* Step progress */}
       <div className="assessment-step-nav flex flex-wrap gap-1.5 mb-2">
         {STEPS.map((label, i) => {
@@ -645,7 +687,7 @@ export function AssessmentWizard({
         <Button variant="secondary" size="sm" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
           ← Back
         </Button>
-        <div className="text-xs text-cream-faint">{step + 1} / {STEPS.length}</div>
+        <div className="flex items-center gap-2"><button type="button" disabled={saving||(!id&&!selectedClient)} onClick={deferSection} className="rounded-lg border border-divider px-3 py-2 text-xs text-cream disabled:opacity-40">Defer section</button><div className="text-xs text-cream-faint">{step + 1} / {STEPS.length}</div></div>
         {step < STEPS.length - 1 ? (
           <Button size="sm" onClick={next} disabled={saving || (!id && !selectedClient)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & next →"}

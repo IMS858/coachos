@@ -21,6 +21,13 @@ export async function POST(request: NextRequest) {
   const scheduledAt = String(body.scheduled_at ?? "");
   const sessionType = String(body.session_type ?? "training");
   const note = String(body.note ?? "").slice(0, 500);
+  const allowedSessionTypes = new Set(["training", "mobility", "pilates", "massage", "recovery"]);
+  if (!allowedSessionTypes.has(sessionType)) {
+    return NextResponse.json({ error: "Choose a valid session type." }, { status: 400 });
+  }
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[ch] ?? ch);
 
   const when = new Date(scheduledAt);
   if (!scheduledAt || isNaN(when.getTime())) {
@@ -33,6 +40,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const local = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(when);
+  const part = (type: string) => local.find((p) => p.type === type)?.value ?? "";
+  const day = part("weekday");
+  const minute = Number(part("minute"));
+  const minutes = Number(part("hour")) * 60 + minute;
+  if (day === "Sun" || minutes < (day === "Sat" ? 480 : 360) || minutes > (day === "Sat" ? 720 : 1080) || ![0, 30].includes(minute)) {
+    return NextResponse.json({ error: "Choose a valid IMS studio time. Sundays are by appointment." }, { status: 400 });
+  }
   const svc = createServiceClient();
 
   // Must be an actual client (staff should use the schedule directly)
@@ -79,6 +94,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // A request is not a confirmed booking; staff must check the authoritative calendar.
   // Notify the owner (best effort)
   try {
     const { data: me } = await svc
@@ -98,8 +114,8 @@ export async function POST(request: NextRequest) {
         html: emailShell({
           heading: "New session request",
           bodyHtml: `
-            <p><strong>${me?.full_name ?? "A client"}</strong> requested a ${sessionType} session for <strong>${whenStr}</strong>.</p>
-            ${note ? `<p style="color:#8a94a3;">Note: "${note}"</p>` : ""}
+            <p><strong>${escapeHtml(me?.full_name ?? "A client")}</strong> requested a ${sessionType} session for <strong>${whenStr}</strong>.</p>
+            ${note ? `<p style="color:#8a94a3;">Note: "${escapeHtml(note)}"</p>` : ""}
             <p>Approve or decline it from the Schedule page in Coach OS.</p>
           `,
         }),

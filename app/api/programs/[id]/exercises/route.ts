@@ -17,11 +17,11 @@ import { createClient } from "@/lib/supabase/server";
  *     rest_seconds?: number,
  *     tempo?: string,
  *     duration_seconds?: number,
- *     notes_trainer?: string,
+ *     // Private trainer notes are rejected: the live notes column is shared.
  *     notes_client?: string,
  *   }
  *
- * sort_order is auto-computed (max+1 within the chosen block).
+ * position is auto-computed (max+1 within the chosen block).
  */
 export async function POST(
   request: NextRequest,
@@ -42,7 +42,7 @@ export async function POST(
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.role === "client") {
+  if (!profile || !["owner", "trainer"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -51,6 +51,14 @@ export async function POST(
     return NextResponse.json({ error: "exercise_id required" }, { status: 400 });
   }
 
+  // This schema has only a client-visible notes column. Never reinterpret a
+  // stale client's private trainer note as shared instructions.
+  if (body.notes_trainer != null && body.notes_trainer !== "") {
+    return NextResponse.json({ error: "Private trainer notes are not supported here. Use client instructions instead." }, { status: 400 });
+  }
+  if (body.notes_client != null && (typeof body.notes_client !== "string" || body.notes_client.length > 4000)) {
+    return NextResponse.json({ error: "Client instructions must be text up to 4000 characters" }, { status: 400 });
+  }
   const block = body.block ?? "main";
   if (!["warmup", "main", "finisher", "cooldown"].includes(block)) {
     return NextResponse.json(
@@ -62,23 +70,27 @@ export async function POST(
   // Verify the program exists (RLS gates by trainer/owner — if it returns null, they can't access it)
   const { data: program } = await supabase
     .from("programs")
-    .select("id")
+    .select("id, status, trainer_id")
     .eq("id", programId)
     .maybeSingle();
   if (!program) {
     return NextResponse.json({ error: "Program not found" }, { status: 404 });
   }
 
-  // Compute next sort_order
+  if (program.status !== "draft") {
+    return NextResponse.json({ error: "Only draft programs can be edited" }, { status: 409 });
+  }
+
+  // Compute next position
   const { data: lastInBlock } = await supabase
     .from("program_exercises")
-    .select("sort_order")
+    .select("position")
     .eq("program_id", programId)
     .eq("block", block)
-    .order("sort_order", { ascending: false })
+    .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const nextSortOrder = (lastInBlock?.sort_order ?? -1) + 1;
+  const nextSortOrder = (lastInBlock?.position ?? -1) + 1;
 
   const { data, error } = await supabase
     .from("program_exercises")
@@ -86,15 +98,13 @@ export async function POST(
       program_id: programId,
       exercise_id: body.exercise_id,
       block,
-      sort_order: nextSortOrder,
+      position: nextSortOrder,
       sets: body.sets ?? null,
       reps: body.reps ?? null,
-      load: body.load ?? null,
+      load_prescription: body.load ?? null,
       rest_seconds: body.rest_seconds ?? null,
       tempo: body.tempo ?? null,
-      duration_seconds: body.duration_seconds ?? null,
-      notes_trainer: body.notes_trainer ?? null,
-      notes_client: body.notes_client ?? null,
+      notes: body.notes_client ?? null,
     })
     .select("*")
     .single();

@@ -139,9 +139,9 @@ export function ProgramExercises({ programId, grouped, isStaff }: Props) {
                         )}
                       </div>
 
-                      {a.notes_trainer && (
+                      {a.notes_client && (
                         <div className="mt-2 text-xs text-cream-dim italic">
-                          {a.notes_trainer}
+                          {a.notes_client}
                         </div>
                       )}
                     </div>

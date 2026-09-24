@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { generatorEndpoint } from "@/lib/programs/generator-endpoint";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
@@ -30,11 +31,11 @@ export async function POST(
     return NextResponse.json({ error: "No valid saved coach edits to render" }, { status: 400 });
   }
   const secret = process.env.PROGRAM_GENERATOR_SECRET;
-  if (!secret) return NextResponse.json({ error: "Secure PDF renderer not configured" }, { status: 503 });
-  const baseUrl = process.env.PROGRAM_GENERATOR_URL || "https://program-generator-rho.vercel.app";
+  const endpoint = generatorEndpoint(process.env.PROGRAM_GENERATOR_URL, "render", process.env.NODE_ENV === "production");
+  if (!secret || !endpoint) return NextResponse.json({ error: "Secure PDF renderer not configured" }, { status: 503 });
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/api/render`, {
+    response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${secret}` },
       body: JSON.stringify({ program: reviewed, pdf_mode: "client" }),

@@ -58,7 +58,10 @@ const LOOKUP_KEY_MAP: Record<string, LookupKeyMapping> = {
 
 export async function POST(request: NextRequest) {
   const Stripe = (await import("stripe")).default;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 503 });
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -94,11 +97,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, deduped: true });
   }
 
-  await supabase.from("stripe_events").upsert({
+  const { error: eventSaveError } = await supabase.from("stripe_events").upsert({
     id: event.id,
     type: event.type,
     data: event.data as any,
   });
+  if (eventSaveError) return NextResponse.json({ error: "Event storage failed" }, { status: 503 });
 
   try {
     switch (event.type) {
@@ -180,11 +184,12 @@ async function handleCheckoutComplete(supabase: any, session: any) {
     insert.package_total_cents = session.amount_total ?? 0;
   }
 
-  await supabase.from("plans").insert(insert);
+  const { error: planError } = await supabase.from("plans").insert(insert);
+  if (planError) throw new Error(`Plan creation failed: ${planError.message}`);
 
   // Update billing_type and client status
   const billingType = mapping.kind === "subscription" ? "membership" : "package";
-  await supabase
+  const { error: clientError } = await supabase
     .from("clients")
     .update({
       billing_type: billingType,
@@ -192,6 +197,7 @@ async function handleCheckoutComplete(supabase: any, session: any) {
       joined_at: new Date().toISOString(),
     })
     .eq("id", clientId);
+  if (clientError) throw new Error(`Client update failed: ${clientError.message}`);
 }
 
 async function handleSubscriptionChange(supabase: any, subscription: any) {
@@ -227,7 +233,7 @@ async function handlePaymentSuccess(supabase: any, invoice: any) {
 
   if (!plan) return;
 
-  await supabase.from("payments").insert({
+  const { error: paymentError } = await supabase.from("payments").insert({
     client_id: plan.client_id,
     plan_id: plan.id,
     amount_cents: invoice.amount_paid,
@@ -240,6 +246,7 @@ async function handlePaymentSuccess(supabase: any, invoice: any) {
       ? new Date(invoice.status_transitions.paid_at * 1000).toISOString()
       : new Date().toISOString(),
   });
+  if (paymentError && paymentError.code !== "23505") throw new Error(`Payment insert failed: ${paymentError.message}`);
 }
 
 async function handlePaymentFailure(supabase: any, invoice: any) {
@@ -251,7 +258,7 @@ async function handlePaymentFailure(supabase: any, invoice: any) {
 
   if (!plan) return;
 
-  await supabase.from("payments").insert({
+  const { error: paymentError } = await supabase.from("payments").insert({
     client_id: plan.client_id,
     plan_id: plan.id,
     amount_cents: invoice.amount_due,
@@ -261,12 +268,13 @@ async function handlePaymentFailure(supabase: any, invoice: any) {
     source_id: invoice.id,
     description: `Payment attempt ${invoice.attempt_count} failed`,
   });
+  if (paymentError && paymentError.code !== "23505") throw new Error(`Failed-payment insert failed: ${paymentError.message}`);
 
   // TODO: emit Inngest 'payment.failed' for dunning workflow
 }
 
 async function handleRefund(supabase: any, charge: any) {
-  await supabase.from("payments").insert({
+  const { error: paymentError } = await supabase.from("payments").insert({
     client_id: null, // resolve via charge.metadata.client_id if set
     amount_cents: -1 * (charge.amount_refunded ?? 0),
     currency: charge.currency,
@@ -276,4 +284,5 @@ async function handleRefund(supabase: any, charge: any) {
     description: `Refund of $${(charge.amount_refunded / 100).toFixed(2)}`,
     paid_at: new Date().toISOString(),
   });
+  if (paymentError && paymentError.code !== "23505") throw new Error(`Refund insert failed: ${paymentError.message}`);
 }

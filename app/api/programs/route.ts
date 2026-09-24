@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.role === "client") {
+  if (!profile || !["owner", "trainer"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
     )
     .order("created_at", { ascending: false });
 
-  if (statusFilter === "active") {
+  if (statusFilter === "draft") {
+    query = query.eq("status", "draft");
+  } else if (statusFilter === "active") {
     query = query.in("status", ["draft", "published", "active"]);
   }
 

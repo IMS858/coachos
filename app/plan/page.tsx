@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle, History, MessageCircle } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { HomeworkList } from "@/components/media/homework-list";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,22 +50,33 @@ export default async function PlanPage() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // Existing assignments may predate the safety gate. Never surface an
+  // unapproved library demonstration to a client. Reviews are staff-only; the
+  // service lookup is restricted to IDs from this user's RLS-scoped assignments.
+  // Only eligibility is used; private review records never reach client props.
+  const assignedIds = [...new Set((homework ?? []).map(h => h.exercise_id).filter((id): id is string => !!id))];
+  const {data: safetyReviews, error: safetyError} = assignedIds.length
+    ? await createServiceClient().from("exercise_reviews").select("exercise_id,safety_status").in("exercise_id",assignedIds)
+    : {data:[],error:null};
+  const approvedIds = new Set((safetyReviews ?? []).filter(r => r.safety_status === "approved").map(r => r.exercise_id));
+  const safeHomework = (homework ?? []).filter(h => !h.exercise_id || (!safetyError && approvedIds.has(h.exercise_id)));
+
   // Sign the posters in one batch so the list renders with real thumbnails
   // rather than fetching each one after mount.
   const homeworkWithPosters = await Promise.all(
-    (homework ?? []).map(async (h: any) => {
+    safeHomework.map(async (h: any) => {
       // A library assignment has no upload of its own — its media lives on the
       // exercise record.
       if (h.exercise_id) {
         const { data: ex } = await supabase
           .from("exercises")
-          .select("video_url, thumbnail_url, coaching_cues")
+          .select("video_url, thumbnail_url, coaching_cues, client_visible")
           .eq("id", h.exercise_id)
           .maybeSingle();
         return {
           ...h,
           poster_url: (ex as any)?.thumbnail_url ?? null,
-          external_url: (ex as any)?.video_url ?? null,
+          external_url: (ex as any)?.client_visible ? (ex as any)?.video_url ?? null : null,
           cues: (ex as any)?.coaching_cues ?? [],
         };
       }
@@ -115,17 +126,20 @@ export default async function PlanPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <nav aria-label="My training" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Link href="/workouts" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><History className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Workout history →</span></Link>
           <Link href="/book" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><Calendar className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Book a session →</span></Link>
-          <Link href="/messages" className="col-span-2 flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50 sm:col-span-1"><MessageCircle className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Message coach →</span></Link>
-        </div>
+          <a href="#exercise-videos" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><PlayCircle className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Exercise videos · {homeworkWithPosters.length}</span></a>
+          <Link href="/progress" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><Dumbbell className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">My progress →</span></Link>
+          <Link href="/messages" className="flex min-h-24 flex-col justify-between rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50 sm:col-span-1"><MessageCircle className="h-6 w-6 text-sky" /><span className="text-sm font-semibold text-cream">Message coach →</span></Link>
+        </nav>
 
+        {homeworkWithPosters.length === 0 && <p id="exercise-videos" className="rounded-xl border border-divider bg-surface p-4 text-sm text-cream-dim">Your coach-approved exercise videos will appear here when assigned.</p>}
         {homeworkWithPosters.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div id="exercise-videos" className="flex flex-col gap-2 scroll-mt-6">
             <div className="flex items-center gap-2"><PlayCircle className="h-5 w-5 text-sky" /><div className="eyebrow">My exercise videos</div></div>
             <p className="prose-ims text-sm text-cream-dim -mt-1 mb-1">
-              Your assigned exercise demonstrations and coaching videos.
+              Watch your coach-approved demonstrations, review your cues and replay them whenever you train.
             </p>
             <HomeworkList items={homeworkWithPosters as never} />
           </div>
@@ -135,14 +149,14 @@ export default async function PlanPage() {
         {program && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle id="my-workouts" className="flex scroll-mt-6 items-center gap-2">
                 <Dumbbell className="h-5 w-5 text-sky" />
                 {program.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="mb-5 flex flex-wrap gap-3">
-                <Link href={"/programs/" + program.id} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-navy">Open my workouts <ChevronRight className="h-4 w-4" /></Link>
+                <Link href={"/programs/" + program.id} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-white">Open my workouts <ChevronRight className="h-4 w-4" /></Link>
                 {program.pdf_client_url && <a href={"/api/programs/" + program.id + "/pdf"} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-divider px-4 py-3 text-sm font-semibold text-cream"><FileDown className="h-4 w-4" />Download my PDF</a>}
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-cream-faint">
@@ -157,6 +171,10 @@ export default async function PlanPage() {
                   </span>
                 )}
                 <span className="capitalize">{program.status}</span>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link href={`/programs/${program.id}`} className="inline-flex min-h-11 items-center rounded-lg bg-sky px-4 py-2 text-sm font-semibold text-white">View my program →</Link>
+                {program.pdf_client_url && <a href={`/api/programs/${program.id}/pdf`} className="inline-flex min-h-11 items-center rounded-lg border border-divider px-4 py-2 text-sm font-medium text-cream">Download reviewed PDF</a>}
               </div>
             </CardContent>
           </Card>

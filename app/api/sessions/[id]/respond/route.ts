@@ -46,17 +46,32 @@ export async function POST(
   }
 
   const newStatus = action === "approve" ? "scheduled" : "cancelled";
+  const assignedTrainer = body.trainer_id ?? user.id;
+  if (action === "approve") {
+    // Reject a known conflicting appointment before assigning the trainer.
+    const start = new Date(session.scheduled_at).getTime();
+    const { data: conflicts, error: conflictError } = await svc.from("sessions")
+      .select("id, scheduled_at, duration_minutes")
+      .eq("trainer_id", assignedTrainer)
+      .in("status", ["scheduled", "confirmed"])
+      .gte("scheduled_at", new Date(start - 4 * 60 * 60 * 1000).toISOString())
+      .lt("scheduled_at", new Date(start + 60 * 60 * 1000).toISOString());
+    if (conflictError) return NextResponse.json({ error: "Availability check failed" }, { status: 503 });
+    if ((conflicts ?? []).some((other) => new Date(other.scheduled_at).getTime() < start + 60 * 60 * 1000 && new Date(other.scheduled_at).getTime() + (other.duration_minutes ?? 60) * 60000 > start))
+      return NextResponse.json({ error: "Trainer already has a session at this time." }, { status: 409 });
+  }
   const updates: Record<string, unknown> = { status: newStatus };
   if (action === "approve") {
     // Requests may come in unassigned — the approver picks them up
-    updates.trainer_id = body.trainer_id ?? user.id;
+    updates.trainer_id = assignedTrainer;
   } else {
     updates.cancelled_at = new Date().toISOString();
     updates.cancelled_by = user.id;
     updates.cancellation_reason = "declined_by_staff";
   }
 
-  const { error } = await svc.from("sessions").update(updates as never).eq("id", id);
+  const { data: updated, error } = await svc.from("sessions").update(updates as never).eq("id", id).eq("status", "requested").select("id").maybeSingle();
+  if (!error && !updated) return NextResponse.json({ error: "This request was already handled." }, { status: 409 });
   if (error) {
     return NextResponse.json({ error: "Update failed", detail: error.message }, { status: 500 });
   }
