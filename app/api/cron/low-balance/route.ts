@@ -61,12 +61,7 @@ export async function GET(request: NextRequest) {
     if (!owner?.id) return NextResponse.json({ error: "Owner recipient unavailable" }, { status: 503 });
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
     const dedupeKey = `owner-low-balance:${day}`;
-    const { data: claim, error: claimError } = await svc.rpc("claim_notification", {
-      p_key: dedupeKey, p_recipient: owner.id, p_template: "owner-low-balance", p_payload: { to: ownerEmail, count: lowBalance.length },
-    });
-    if (claimError) return NextResponse.json({ error: "Notification ledger unavailable" }, { status: 503 });
-    if (!claim) return NextResponse.json({ ran_at: new Date().toISOString(), total_flagged: lowBalance.length, emailed: false, duplicate_suppressed: true });
-    const result = await sendEmail({
+    const payload = {
       to: ownerEmail,
       subject: `${lowBalance.length} client${lowBalance.length === 1 ? "" : "s"} need a package renewal`,
       text: lowBalance
@@ -80,7 +75,13 @@ export async function GET(request: NextRequest) {
           `<table role="presentation" width="100%" style="margin-top:16px;border-collapse:collapse;">${rows}</table>`,
         footnote: "Daily automatic scan from IMS Coach OS.",
       }),
+    };
+    const { data: claim, error: claimError } = await svc.rpc("claim_notification", {
+      p_key: dedupeKey, p_recipient: owner.id, p_template: "owner-low-balance", p_payload: payload,
     });
+    if (claimError) return NextResponse.json({ error: "Notification ledger unavailable" }, { status: 503 });
+    if (!claim) return NextResponse.json({ ran_at: new Date().toISOString(), total_flagged: lowBalance.length, emailed: false, duplicate_suppressed: true });
+    const result = await sendEmail({ ...claim.payload, idempotencyKey: dedupeKey });
     const { data: saved, error: saveError } = await svc.rpc("finish_notification", { p_key: dedupeKey, p_token: claim.token, p_provider: result.ok ? result.id : null, p_error: result.ok ? null : result.error });
     if (saveError || !saved) return NextResponse.json({ error: "Delivery acknowledgement failed" }, { status: 503 });
     emailed = result.ok;
