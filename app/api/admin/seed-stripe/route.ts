@@ -31,6 +31,7 @@ const catalog: CatalogItem[] = [
   { name: "IMS 6-Session Package", description: "6 sessions at $100 each", metadata: { tier: "package_6", category: "package" }, prices: [{ unit_amount: 60000, currency: "usd", lookup_key: "package_6" }] },
   { name: "IMS 12-Session Package", description: "12 sessions at $95 each", metadata: { tier: "package_12", category: "package" }, prices: [{ unit_amount: 114000, currency: "usd", lookup_key: "package_12" }] },
   { name: "IMS 24-Session Package", description: "24 sessions at $90 each", metadata: { tier: "package_24", category: "package" }, prices: [{ unit_amount: 216000, currency: "usd", lookup_key: "package_24" }] },
+  { name: "IMS 48-Session Package", description: "48-session training package", metadata: { tier: "package_48", category: "package" }, prices: [] },
 ];
 
 export async function POST(_request: NextRequest) {
