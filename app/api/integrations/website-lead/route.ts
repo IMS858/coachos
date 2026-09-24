@@ -35,9 +35,8 @@ export async function POST(request: NextRequest) {
   if (lookupError) return NextResponse.json({ error: "Lookup failed" }, { status: 503 });
   const existing = matches?.[0];
   if (existing) {
-    // Preserve manually managed lifecycle and imported records. Don't overwrite their notes.
-    if (existing.source !== "website_contact")
-      return NextResponse.json({ ok: true, existing: true, id: existing.id });
+    // Preserve lifecycle/source, but never silently drop a new website enquiry.
+    // Append the enquiry to the audit trail regardless of where the lead originated.
     const entry = "[Website enquiry] " + message;
     const oldNotes = existing.notes || "";
     if (oldNotes.includes(entry))
