@@ -2,6 +2,7 @@ import { pushClient } from "@/lib/mobile/push-client";
 import { type NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, emailShell } from "@/lib/mailer";
+import { pushClient } from "@/lib/mobile/push-client";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -104,7 +105,11 @@ export async function GET(request: NextRequest) {
       p_key:dedupeKey,p_token:claim.token,p_provider:result.ok?result.id:null,p_error:result.ok?null:result.error,
     });
     if(saveError || !saved) return NextResponse.json({error:"Delivery acknowledgement failed",reminded,failed},{status:503});
-    if(result.ok) reminded++; else failed++;
+    if(result.ok) {
+      reminded++;
+      const pushResult=await pushClient(s.client_id,{kind:"session_reminder",title:reminderWindow==="short-notice"?"Training coming up":"Training reminder",body:`Your IMS training session is ${whenStr}.`,sessionId:s.id});
+      if(!pushResult.ok && pushResult.reason!=="no_registered_devices") console.warn("[session-reminders] push failed",s.id,pushResult);
+    } else failed++;
   }
   return NextResponse.json({ok:failed===0,reminded,failed,skipped,total:sessions.length},{status:failed?502:200});
 }
