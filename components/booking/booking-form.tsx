@@ -143,15 +143,9 @@ export function BookingForm() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-cream-dim mb-1.5">Session type</label>
-            <select className={selectCls} value={type} onChange={(e) => setType(e.target.value)}>
-              {SESSION_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+          <div className="rounded-xl border border-divider bg-navy-soft px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-cream-faint">Service</p>
+            <p className="mt-1 text-sm font-semibold text-cream">Personal Training · 60 min</p>
           </div>
 
           <div>
