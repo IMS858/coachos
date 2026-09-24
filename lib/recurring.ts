@@ -66,6 +66,20 @@ function weekdayInPT(ymd: string): number {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
 }
 
+export function buildSeriesOccurrences(opts: { slots: RecurringSlot[]; startDate: string; horizonWeeks?: number; now?: Date }): { occurrences: string[]; generatedUntil: string } {
+  const horizonWeeks = opts.horizonWeeks ?? 8;
+  const todayPT = ymdInPT(opts.now ?? new Date());
+  let day = opts.startDate > todayPT ? opts.startDate : todayPT;
+  const generatedUntil = addDays(todayPT, horizonWeeks * 7);
+  const occurrences: string[] = [];
+  while (day <= generatedUntil) {
+    const wd = weekdayInPT(day);
+    for (const slot of opts.slots) if (slot.weekday === wd) occurrences.push(ptWallClockToUtc(day, slot.time).toISOString());
+    day = addDays(day, 1);
+  }
+  return { occurrences, generatedUntil };
+}
+
 export interface SeriesRow {
   id: string;
   client_id: string;
