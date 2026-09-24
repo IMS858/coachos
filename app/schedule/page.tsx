@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Repeat2, ListChecks } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { PendingRequests } from "@/components/schedule/pending-requests";
@@ -258,7 +258,8 @@ export default async function SchedulePage({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href={`/schedule/agenda?date=${selected}`}><Button variant="secondary">Daily agenda</Button></Link>
+            <Link href={`/schedule/agenda?date=${selected}`}><Button variant="secondary"><ListChecks className="h-4 w-4" /> Daily agenda</Button></Link>
+            <Link href="/schedule/standing"><Button variant="secondary"><Repeat2 className="h-4 w-4" /> Standing bookings</Button></Link>
             <Link href="/sessions/new">
               <Button>
                 <Plus className="h-4 w-4" />
@@ -266,6 +267,13 @@ export default async function SchedulePage({
               </Button>
             </Link>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Today</p><p className="mt-1 text-2xl font-bold text-cream">{daySessions.length}</p><p className="text-xs text-cream-dim">sessions</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{weekSessions.length}</p><p className="text-xs text-cream-dim">scheduled</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Requests</p><p className="mt-1 text-2xl font-bold text-cream">{pendingRequests.length}</p><p className="text-xs text-cream-dim">need review</p></div>
+          <Link href="/schedule/standing" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><p className="text-xs uppercase tracking-wider text-sky">Recurring</p><p className="mt-1 text-sm font-semibold text-cream">Manage standing slots →</p></Link>
         </div>
 
         {/* Week strip */}
