@@ -20,7 +20,7 @@ export default async function ActionCenterPage() {
   fourteenDaysAgo.setUTCDate(fourteenDaysAgo.getUTCDate() - 14);
   const fourteenDaysAgoIso = fourteenDaysAgo.toISOString();
   const [messagesQ, leadsQ, paymentsQ, programsQ, clientsQ, requestsQ, lowBalance] = await Promise.all([
-    svc.from("messages").select("id,client_id,body,created_at,sender_id").is("read_at", null).order("created_at", { ascending: false }).limit(20),
+    svc.from("messages").select("id,client_id,body,created_at,sender_id").is("read_at", null).neq("sender_id", user.id).order("created_at", { ascending: false }).limit(50),
     svc.from("leads").select("id,full_name,interest,source,stage,last_contacted_at,updated_at").in("stage", ["new","contacted","nurturing"]).is("last_contacted_at", null).order("updated_at", { ascending: false }).limit(20),
     svc.from("payments").select("id,client_id,status,amount_cents,description,paid_at").in("status", ["failed","pending"]).order("paid_at", { ascending: false }).limit(20),
     svc.from("programs").select("id,client_id,status,updated_at,data").eq("status", "draft").order("updated_at", { ascending: false }).limit(20),
@@ -30,7 +30,10 @@ export default async function ActionCenterPage() {
   ]);
   if (messagesQ.error || leadsQ.error || paymentsQ.error || programsQ.error || clientsQ.error || requestsQ.error) throw new Error("Owner action center source unavailable");
 
-  const messages=messagesQ.data??[], leads=leadsQ.data??[], payments=paymentsQ.data??[], programs=programsQ.data??[], quiet=clientsQ.data??[], requests=requestsQ.data??[];
+  const { data: messageStates, error: messageStateError } = await svc.from("message_thread_state").select("client_id,archived_at");
+  if (messageStateError) throw new Error("Message archive state unavailable");
+  const archivedMessageClients = new Set((messageStates ?? []).filter((s:any)=>s.archived_at).map((s:any)=>s.client_id));
+  const messages=(messagesQ.data??[]).filter((m:any)=>!archivedMessageClients.has(m.client_id)).slice(0,20), leads=leadsQ.data??[], payments=paymentsQ.data??[], programs=programsQ.data??[], quiet=clientsQ.data??[], requests=requestsQ.data??[];
   const requestIds=[...new Set(requests.map((r:any)=>r.client_id))];
   const {data:requestProfiles}=requestIds.length?await svc.from("profiles").select("id,full_name").in("id",requestIds):{data:[] as any[]};
   const requestNames=new Map((requestProfiles??[]).map((p:any)=>[p.id,p.full_name]));
