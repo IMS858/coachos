@@ -50,22 +50,31 @@ export default async function PlanPage() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // Existing assignments may predate the safety gate. Never surface an
+  // unapproved library demonstration to a client.
+  const assignedIds = [...new Set((homework ?? []).map(h => h.exercise_id).filter((id): id is string => !!id))];
+  const {data: safetyReviews, error: safetyError} = assignedIds.length
+    ? await supabase.from("exercise_reviews").select("exercise_id,safety_status").in("exercise_id",assignedIds)
+    : {data:[],error:null};
+  const approvedIds = new Set((safetyReviews ?? []).filter(r => r.safety_status === "approved").map(r => r.exercise_id));
+  const safeHomework = (homework ?? []).filter(h => !h.exercise_id || (!safetyError && approvedIds.has(h.exercise_id)));
+
   // Sign the posters in one batch so the list renders with real thumbnails
   // rather than fetching each one after mount.
   const homeworkWithPosters = await Promise.all(
-    (homework ?? []).map(async (h: any) => {
+    safeHomework.map(async (h: any) => {
       // A library assignment has no upload of its own — its media lives on the
       // exercise record.
       if (h.exercise_id) {
         const { data: ex } = await supabase
           .from("exercises")
-          .select("video_url, thumbnail_url, coaching_cues")
+          .select("video_url, thumbnail_url, coaching_cues, client_visible")
           .eq("id", h.exercise_id)
           .maybeSingle();
         return {
           ...h,
           poster_url: (ex as any)?.thumbnail_url ?? null,
-          external_url: (ex as any)?.video_url ?? null,
+          external_url: (ex as any)?.client_visible ? (ex as any)?.video_url ?? null : null,
           cues: (ex as any)?.coaching_cues ?? [],
         };
       }
