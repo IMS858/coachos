@@ -19,6 +19,7 @@ export function PasswordInput({
   autoComplete = "current-password",
   required,
   placeholder,
+  inputClassName,
 }: {
   id?: string;
   value: string;
@@ -26,6 +27,7 @@ export function PasswordInput({
   autoComplete?: string;
   required?: boolean;
   placeholder?: string;
+  inputClassName?: string;
 }) {
   const [show, setShow] = useState(false);
 
@@ -39,7 +41,7 @@ export function PasswordInput({
         autoComplete={autoComplete}
         required={required}
         placeholder={placeholder}
-        className="pr-11"
+        className={inputClassName ? `${inputClassName} pr-12` : "pr-11"}
       />
       <button
         type="button"
