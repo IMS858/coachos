@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Users,
   CalendarDays,
-  ClipboardList,
   MoreHorizontal,
   Target,
   Dumbbell,
@@ -30,7 +29,6 @@ const coreItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/schedule", label: "Schedule", icon: CalendarDays },
-  { href: "/assessments", label: "Assess", icon: ClipboardList },
 ];
 
 const moreItems = [
