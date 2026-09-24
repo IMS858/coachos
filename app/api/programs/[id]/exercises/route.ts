@@ -21,7 +21,7 @@ import { createClient } from "@/lib/supabase/server";
  *     notes_client?: string,
  *   }
  *
- * sort_order is auto-computed (max+1 within the chosen block).
+ * position is auto-computed (max+1 within the chosen block).
  */
 export async function POST(
   request: NextRequest,
@@ -62,23 +62,30 @@ export async function POST(
   // Verify the program exists (RLS gates by trainer/owner — if it returns null, they can't access it)
   const { data: program } = await supabase
     .from("programs")
-    .select("id")
+    .select("id, status, trainer_id")
     .eq("id", programId)
     .maybeSingle();
   if (!program) {
     return NextResponse.json({ error: "Program not found" }, { status: 404 });
   }
 
-  // Compute next sort_order
+  if (profile.role !== "owner" && program.trainer_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (program.status !== "draft") {
+    return NextResponse.json({ error: "Only draft programs can be edited" }, { status: 409 });
+  }
+
+  // Compute next position
   const { data: lastInBlock } = await supabase
     .from("program_exercises")
-    .select("sort_order")
+    .select("position")
     .eq("program_id", programId)
     .eq("block", block)
-    .order("sort_order", { ascending: false })
+    .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const nextSortOrder = (lastInBlock?.sort_order ?? -1) + 1;
+  const nextSortOrder = (lastInBlock?.position ?? -1) + 1;
 
   const { data, error } = await supabase
     .from("program_exercises")
@@ -86,15 +93,13 @@ export async function POST(
       program_id: programId,
       exercise_id: body.exercise_id,
       block,
-      sort_order: nextSortOrder,
+      position: nextSortOrder,
       sets: body.sets ?? null,
       reps: body.reps ?? null,
-      load: body.load ?? null,
+      load_prescription: body.load ?? null,
       rest_seconds: body.rest_seconds ?? null,
       tempo: body.tempo ?? null,
-      duration_seconds: body.duration_seconds ?? null,
-      notes_trainer: body.notes_trainer ?? null,
-      notes_client: body.notes_client ?? null,
+      notes: body.notes_client ?? body.notes_trainer ?? null,
     })
     .select("*")
     .single();
