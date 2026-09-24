@@ -13,7 +13,8 @@ import { uploadWithProgress } from "@/lib/video";
  * realistic moment for this is standing in a kitchen looking at an ankle.
  */
 export function SendToCoach() {
-  const inputRef = useRef<HTMLInputElement>(null);\n  const uploadRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [note, setNote] = useState("");
