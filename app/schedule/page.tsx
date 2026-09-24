@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  *
  * Columns = every profile with role owner/trainer (Jason / Gabriel).
  * Rows = 4:30 AM – 7:00 PM, Pacific time.
- * Session blocks are color-coded by session_type and click through to detail.
+ * Training blocks click through to session detail.
  * ?date=YYYY-MM-DD selects the day; arrows move a week at a time.
  */
 
@@ -29,11 +29,7 @@ const DAY_START_HOUR = DAY_START_HALF / 2; // 4.5 (used by time math)
 const PX_PER_30MIN = 36;
 const TOTAL_HALF_HOURS = DAY_END_HALF - DAY_START_HALF;
 
-// Colour encodes WHO OWNS the session, not just what it is — which keeps the
-// AB5 separation visible on the grid at a glance:
-//   brand blue    = the two things IMS sells under its own brand
-//   slate         = IMS-run testing / screening
-//   warm neutral  = independent practitioners renting the space
+// Coach OS scheduling is training-only; use one clear training treatment on the grid.
 const TRAINING_STYLE = "bg-sky/10 border-l-[3px] border-l-sky text-sky-deep";
 
 function todayInPt(): string {
