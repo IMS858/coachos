@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { findLowBalancePackages } from "@/lib/queries/low-balance";
 import { sendEmail, emailShell } from "@/lib/mailer";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/cron/low-balance
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   const lowBalance = await findLowBalancePackages(2);
+  const svc = createServiceClient();
   const depleted = lowBalance.filter((c) => c.state === "depleted");
   const low = lowBalance.filter((c) => c.state === "low");
 
@@ -55,6 +57,13 @@ export async function GET(request: NextRequest) {
       )
       .join("");
 
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
+    const dedupeKey = `owner-low-balance:${day}`;
+    const { data: claim, error: claimError } = await svc.rpc("claim_notification", {
+      p_key: dedupeKey, p_recipient: null, p_template: "owner-low-balance", p_payload: { to: ownerEmail, count: lowBalance.length },
+    });
+    if (claimError) return NextResponse.json({ error: "Notification ledger unavailable" }, { status: 503 });
+    if (!claim) return NextResponse.json({ ran_at: new Date().toISOString(), total_flagged: lowBalance.length, emailed: false, duplicate_suppressed: true });
     const result = await sendEmail({
       to: ownerEmail,
       subject: `${lowBalance.length} client${lowBalance.length === 1 ? "" : "s"} need a package renewal`,
@@ -70,6 +79,8 @@ export async function GET(request: NextRequest) {
         footnote: "Daily automatic scan from IMS Coach OS.",
       }),
     });
+    const { data: saved, error: saveError } = await svc.rpc("finish_notification", { p_key: dedupeKey, p_token: claim.token, p_provider: result.ok ? result.id : null, p_error: result.ok ? null : result.error });
+    if (saveError || !saved) return NextResponse.json({ error: "Delivery acknowledgement failed" }, { status: 503 });
     emailed = result.ok;
   }
 
