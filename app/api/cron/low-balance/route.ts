@@ -57,10 +57,12 @@ export async function GET(request: NextRequest) {
       )
       .join("");
 
+    const { data: owner } = await svc.from("profiles").select("id").eq("role", "owner").limit(1).maybeSingle();
+    if (!owner?.id) return NextResponse.json({ error: "Owner recipient unavailable" }, { status: 503 });
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
     const dedupeKey = `owner-low-balance:${day}`;
     const { data: claim, error: claimError } = await svc.rpc("claim_notification", {
-      p_key: dedupeKey, p_recipient: null, p_template: "owner-low-balance", p_payload: { to: ownerEmail, count: lowBalance.length },
+      p_key: dedupeKey, p_recipient: owner.id, p_template: "owner-low-balance", p_payload: { to: ownerEmail, count: lowBalance.length },
     });
     if (claimError) return NextResponse.json({ error: "Notification ledger unavailable" }, { status: 503 });
     if (!claim) return NextResponse.json({ ran_at: new Date().toISOString(), total_flagged: lowBalance.length, emailed: false, duplicate_suppressed: true });
