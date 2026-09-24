@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { UserRound } from "lucide-react";
 
 /**
  * MobileTopBar — the near-black brand band, mobile only.
@@ -34,6 +35,7 @@ export function MobileTopBar({
             {subtitle ?? "Coach OS"}
           </span>
         </Link>
+        <div className="flex items-center gap-4">
         {title && (
           <span
             className="text-[11px] uppercase"
@@ -42,6 +44,8 @@ export function MobileTopBar({
             {title}
           </span>
         )}
+        <Link href="/account" aria-label="My account" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition hover:bg-white/10 hover:text-white"><UserRound className="h-4 w-4" /></Link>
+        </div>
       </div>
     </header>
   );
