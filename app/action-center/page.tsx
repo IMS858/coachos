@@ -15,13 +15,16 @@ export default async function ActionCenterPage() {
   if (!me || me.role !== "owner" || me.deleted_at) redirect("/dashboard");
 
   const svc = createServiceClient();
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+  const now = new Date();
+  const fourteenDaysAgo = new Date(now);
+  fourteenDaysAgo.setUTCDate(fourteenDaysAgo.getUTCDate() - 14);
+  const fourteenDaysAgoIso = fourteenDaysAgo.toISOString();
   const [messagesQ, leadsQ, paymentsQ, programsQ, clientsQ, lowBalance] = await Promise.all([
     svc.from("messages").select("id,client_id,body,created_at,sender_id").is("read_at", null).order("created_at", { ascending: false }).limit(20),
     svc.from("leads").select("id,full_name,interest,source,stage,last_contacted_at,updated_at").in("stage", ["new","contacted","nurturing"]).is("last_contacted_at", null).order("updated_at", { ascending: false }).limit(20),
     svc.from("payments").select("id,client_id,status,amount_cents,description,paid_at").in("status", ["failed","pending"]).order("paid_at", { ascending: false }).limit(20),
     svc.from("programs").select("id,client_id,status,updated_at,data").eq("status", "draft").order("updated_at", { ascending: false }).limit(20),
-    svc.from("client_billing_summary").select("client_id,full_name,status,last_session_at").eq("status", "active").or(`last_session_at.is.null,last_session_at.lt.${fourteenDaysAgo}`).limit(20),
+    svc.from("client_billing_summary").select("client_id,full_name,status,last_session_at").eq("status", "active").or(`last_session_at.is.null,last_session_at.lt.${fourteenDaysAgoIso}`).limit(20),
     findLowBalancePackages(2),
   ]);
   if (messagesQ.error || leadsQ.error || paymentsQ.error || programsQ.error || clientsQ.error) throw new Error("Owner action center source unavailable");
