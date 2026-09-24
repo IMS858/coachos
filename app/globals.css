@@ -30,7 +30,7 @@
   /* Surfaces. The site can sit on flat white because it has full-bleed photos
      and air between sections; a dense app can't — so the GROUND is tinted and
      CARDS are white, which is what gives a card its edge. */
-  --color-navy: #eef1f4;        /* page ground (tinted) */
+  --color-navy: #e9eef3;        /* page ground (cool IMS tint) */
   --color-navy-soft: #ffffff;   /* cards (lift off it)  */
   --color-navy-elev: #f7f9fb;   /* inputs inside cards  */
   --color-navy-deep: #e4e8ed;   /* recessed panels      */
@@ -39,7 +39,7 @@
 
   --color-surface: #ffffff;
   --color-surface-soft: #f7f9fb;
-  --color-ground: #eef1f4;
+  --color-ground: #e9eef3;
 
   /* Ink */
   --color-cream: #17191c;       /* primary text       */
@@ -248,14 +248,14 @@ h1, h2, h3, h4 {
    survive even if token generation fails. Values mirror @theme; keep in sync.
    ============================================================================= */
 
-html, body { background-color: #eef1f4; color: #17191c; }
+html, body { background-color: #e9eef3; color: #17191c; }
 
-.bg-navy       { background-color: #eef1f4; }
+.bg-navy       { background-color: #e9eef3; }
 .bg-navy-soft  { background-color: #ffffff; }
 .bg-navy-elev  { background-color: #f7f9fb; }
 .bg-navy-deep  { background-color: #e4e8ed; }
 .bg-ghost      { background-color: #e4e8ed; }
-.bg-paper      { background-color: #eef1f4; }
+.bg-paper      { background-color: #e9eef3; }
 .bg-paper-deep { background-color: #ffffff; }
 .bg-sky        { background-color: #1c6a9c; }
 
@@ -336,3 +336,7 @@ html, body { background-color: #eef1f4; color: #17191c; }
 .ims-week-tab { min-height: 44px; padding: .6rem 1rem; border: 1px solid var(--color-divider); border-radius: .6rem; }
 .ims-week-tab-active { background: var(--color-sky); border-color: var(--color-sky); color: white; }
 .ims-exercise-row { border: 1px solid var(--color-divider); border-radius: .75rem; background: var(--color-surface-soft); }
+
+/* IMS visual depth: restrained blue identity without turning operational screens into marketing pages. */
+main > header:not(.band) { border-top: 3px solid var(--color-sky); }
+.card-surface, .bg-navy-soft { border-color: #d2dae2; }
