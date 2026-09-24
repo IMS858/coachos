@@ -53,6 +53,9 @@ export default async function MessagesPage() {
     names = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name]));
   }
 
+  const { data: threadStates } = await supabase.from("message_thread_state").select("client_id, archived_at");
+  const archived = new Set((threadStates ?? []).filter((s) => s.archived_at).map((s) => s.client_id));
+
   // Build conversation summaries
   type Convo = {
     clientId: string;
@@ -77,7 +80,7 @@ export default async function MessagesPage() {
   const totalUnread = Array.from(convoMap.values()).reduce((n, c) => n + c.unread, 0);
   const activeConversations = Array.from(convoMap.values()).filter((c) => c.last).length;
 
-  const convos = Array.from(convoMap.values()).sort((a, b) => {
+  const convos = Array.from(convoMap.values()).filter((c) => !archived.has(c.clientId)).sort((a, b) => {
     if (a.last && !b.last) return -1;
     if (!a.last && b.last) return 1;
     if (a.last && b.last)
