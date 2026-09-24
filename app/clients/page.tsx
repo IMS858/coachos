@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Users, CreditCard, CircleDollarSign, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,7 +83,14 @@ export default async function ClientsPage({
           </Link>
         </div>
 
-        <ClientsFilter initialSearch={search} initialStatus={statusFilter} />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><Users className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.active}</p><p className="text-xs text-cream-faint">Active clients</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><CreditCard className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.withPackage}</p><p className="text-xs text-cream-faint">With packages</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><CircleDollarSign className="h-5 w-5 text-sky" /><p className="mt-3 text-2xl font-bold text-cream">{formatCurrency(totalMrr)}</p><p className="text-xs text-cream-faint">Monthly recurring</p></div>
+          <Link href="/clients?status=all" className="rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><AlertCircle className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.unconfigured}</p><p className="text-xs text-cream-faint">Need a plan</p></Link>
+        </div>
+
+                <ClientsFilter initialSearch={search} initialStatus={statusFilter} />
 
         <Card>
           <CardContent className="p-0">
