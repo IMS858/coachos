@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: clientRow ? "Your account needs a primary coach before requesting sessions." : "Client account required." }, { status: 403 });
   }
 
-  // Cap open requests to prevent spam
+  // Recheck availability server-side; the client picker is advisory and can go stale.\n  const startMs = when.getTime();\n  const { data: conflicts, error: conflictError } = await svc.from("sessions")\n    .select("id,scheduled_at,duration_minutes")\n    .eq("trainer_id", clientRow.primary_trainer_id)\n    .in("status", ["requested","scheduled","confirmed"])\n    .gte("scheduled_at", new Date(startMs - 4 * 3600000).toISOString())\n    .lt("scheduled_at", new Date(startMs + 3600000).toISOString());\n  if (conflictError) return NextResponse.json({ error: "Availability check unavailable." }, { status: 503 });\n  if ((conflicts ?? []).some((other) => {\n    const otherStart = new Date(other.scheduled_at).getTime();\n    const otherEnd = otherStart + (other.duration_minutes ?? 60) * 60000;\n    return otherStart < startMs + 60 * 60000 && otherEnd > startMs;\n  })) return NextResponse.json({ error: "That time was just taken. Choose another available slot." }, { status: 409 });\n\n  // Cap open requests to prevent spam
   const { count, error: countError } = await svc
     .from("sessions")
     .select("id", { count: "exact", head: true })
