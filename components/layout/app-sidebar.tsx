@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   DollarSign,
@@ -73,6 +73,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const items = NAV_BY_ROLE[role];
@@ -80,7 +81,8 @@ export function AppSidebar({ role, fullName, email }: AppSidebarProps) {
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    router.replace("/login");
+    router.refresh();
   }
 
   return (

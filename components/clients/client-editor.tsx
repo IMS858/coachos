@@ -273,7 +273,7 @@ export function ClientEditor({
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-sm text-cream-faint italic">
-                  No active plans. Click "Add plan" to start.
+                  No active plans. Click &quot;Add plan&quot; to start.
                 </p>
               </CardContent>
             </Card>

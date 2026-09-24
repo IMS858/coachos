@@ -196,7 +196,7 @@ export default async function ExercisePage({
                   </p>
                   <p className="text-xs text-cream-faint mt-3 italic">
                     These notes guide trainer decisions. They are not medical advice.
-                    When in doubt, defer to the client's clinical care team.
+                    When in doubt, defer to the client&apos;s clinical care team.
                   </p>
                 </CardContent>
               </Card>

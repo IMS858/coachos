@@ -67,78 +67,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const isCompleted = mode === "log";
-  const billable =
-    body.service_type &&
-    ["training", "massage", "pilates"].includes(body.service_type);
-
-  // For 'log' mode + billable service: increment counter FIRST
-  // (so we can roll back if the session insert fails)
-  let billingPlanId: string | null = null;
-  let counterResult: any = null;
-
-  if (isCompleted && billable) {
-    const { data: result, error: incErr } = await supabase.rpc(
-      "increment_session_counter",
-      {
-        p_client_id: body.client_id,
-        p_service_type: body.service_type,
-      }
-    );
-    if (incErr) {
-      return NextResponse.json(
-        { error: "Counter increment failed", detail: incErr.message },
-        { status: 500 }
-      );
-    }
-    counterResult = result;
-    billingPlanId = result?.plan_id ?? null;
+  if (!Number.isInteger(body.duration_minutes) || body.duration_minutes > 480 ||
+      !Number.isFinite(Date.parse(body.scheduled_at)) ||
+      (body.service_type != null && !["training","massage","pilates"].includes(body.service_type))) {
+    return NextResponse.json({error:"Invalid session details"},{status:400});
   }
-
-  // Build session row
-  const insert: any = {
-    client_id: body.client_id,
-    trainer_id: body.trainer_id ?? user.id,
-    scheduled_at: body.scheduled_at,
-    duration_minutes: body.duration_minutes,
-    session_type: body.session_type,
-    service_type: body.service_type ?? null,
-    status: isCompleted ? "completed" : "scheduled",
-    notes_pre: body.notes_pre ?? null,
-    notes_post: body.notes_post ?? null,
-  };
-
-  if (isCompleted) {
-    insert.completed_at = new Date().toISOString();
-    insert.completed_by = user.id;
-    insert.plan_id = billingPlanId;
+  if (typeof body.request_id !== "string" || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.request_id)) {
+    return NextResponse.json({error:"A session request ID is required. Refresh and try again."},{status:400});
   }
-
-  const { data: session, error: insertErr } = await supabase
-    .from("sessions")
-    .insert(insert)
-    .select("id")
-    .single();
-
-  if (insertErr) {
-    // Roll back the counter if we incremented one
-    if (billingPlanId) {
-      await supabase.rpc("decrement_session_counter", {
-        p_plan_id: billingPlanId,
-      });
-    }
-    return NextResponse.json(
-      { error: "Session insert failed", detail: insertErr.message },
-      { status: 500 }
-    );
-  }
-
-  // The trigger sessions_sync_last_session_at handles clients.last_session_at
-  // automatically when status='completed'.
-
-  return NextResponse.json({
-    ok: true,
-    session_id: session.id,
-    counter: counterResult,
-  });
+  const {data,error}=await supabase.rpc("create_staff_session",{p_id:body.request_id,p_body:{...body,mode}});
+  if(error) return NextResponse.json({error:error.code==="23P01"?"Trainer already has a session at this time.":"Session could not be saved",detail:error.message},
+    {status:error.code==="23P01"||error.code==="22023"?409:error.code==="42501"?403:503});
+  return NextResponse.json(data);
 }

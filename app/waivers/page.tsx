@@ -55,9 +55,10 @@ export default async function WaiversPage() {
     .eq("client_id", user.id)
     .eq("service_type", "massage")
     .limit(1);
+  const now = new Date();
   const dob = (clientRow as any)?.date_of_birth;
   const isMinor = dob
-    ? (Date.now() - new Date(dob).getTime()) / 31557600000 < 18
+    ? (now.getTime() - new Date(dob).getTime()) / 31557600000 < 18
     : false;
   const receivesMassage = ((massagePlans ?? []) as any[]).length > 0;
 

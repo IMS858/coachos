@@ -56,18 +56,18 @@ async function assess(sessionId: string, userId: string, isStaff: boolean) {
   // Which plan is footing this session?
   const { data: plans } = await svc
     .from("plans")
-    .select("id, kind, tier, total_sessions, current_session_number")
+    .select("id, kind, tier, total_sessions, current_session_number, service_type")
     .eq("client_id", s.client_id)
     .eq("status", "active");
 
   const list = (plans ?? []) as any[];
-  const pkg = list.find((p) => p.kind === "package");
+  const pkg = list.find((p) => p.kind === "package" && p.service_type === (s.service_type ?? s.session_type));
   const sub = list.find((p) => p.kind === "subscription");
   const planKind: Verdict["plan_kind"] = pkg ? "package" : sub ? "subscription" : "none";
 
   // Only package clients can lose a session — a member has already paid for
   // the month regardless.
-  const willCharge = isLate && planKind === "package";
+  const willCharge = isLate && planKind === "package" && s.status !== "requested";
 
   const verdict: Verdict = {
     hours_notice: Math.round(hours * 10) / 10,
@@ -129,32 +129,10 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   const reason = String(body.reason ?? "").trim().slice(0, 500);
 
-  const { error: updErr } = await svc
-    .from("sessions")
-    .update({
-      status: verdict.is_late ? "late_cancelled" : "cancelled",
-      cancelled_at: new Date().toISOString(),
-      cancelled_by: user.id,
-      cancellation_reason: reason || null,
-      late_cancel_fee_charged: verdict.will_charge_session,
-    } as never)
-    .eq("id", id);
-
-  if (updErr) {
-    console.error("[cancel]", updErr.message);
-    return NextResponse.json({ error: updErr.message }, { status: 500 });
-  }
-
-  // A late package cancel consumes the session, same as if they'd trained.
-  let charged = false;
-  if (verdict.will_charge_session) {
-    const { data: rpc, error: rpcErr } = await svc.rpc("increment_session_counter", {
-      p_client_id: (session as any).client_id,
-      p_service_type: (session as any).service_type ?? "training",
-    });
-    if (rpcErr) console.error("[cancel] charge failed:", rpcErr.message);
-    else charged = Boolean((rpc as any)?.incremented);
-  }
+  const {data: cancellation,error: cancelError}=await svc.rpc("cancel_session_atomic",{p_id:id,p_actor:user.id,p_reason:reason});
+  if(cancelError) return NextResponse.json({error:"Cancellation could not be saved"},{status:cancelError.code==="42501"?403:cancelError.code==="22023"?409:503});
+  if(cancellation.deduped) return NextResponse.json(cancellation);
+  const charged = Boolean(cancellation.charged);
 
   // Tell Jason. A cancellation he doesn't hear about is a wasted slot.
   try {
@@ -163,6 +141,7 @@ export async function POST(
     const ownerEmail = process.env.OWNER_EMAIL;
     if (ownerEmail) {
       const when = new Date((session as any).scheduled_at).toLocaleString("en-US", {
+        timeZone: "America/Los_Angeles", timeZoneName:"short",
         weekday: "long", month: "short", day: "numeric",
         hour: "numeric", minute: "2-digit",
       });
@@ -193,11 +172,5 @@ export async function POST(
     console.warn("[cancel] notify failed:", err);
   }
 
-  return NextResponse.json({
-    ok: true,
-    is_late: verdict.is_late,
-    charged,
-    can_reschedule: verdict.can_reschedule,
-    plan_kind: verdict.plan_kind,
-  });
+  return NextResponse.json(cancellation);
 }

@@ -38,7 +38,6 @@ export type PlanTier =
 export type BillingType = "membership" | "package" | "unset";
 
 // Loose row type for tables we haven't explicitly typed yet.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LooseRow = Record<string, any>;
 
 interface LooseTable {
@@ -181,9 +180,7 @@ export interface Database {
     };
     Functions: {
       [key: string]: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Args: Record<string, any>;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Returns: any;
       };
     };

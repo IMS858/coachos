@@ -299,8 +299,8 @@ export function AssessmentWizard({
             <div><label className={labelCls}>Current type</label><Input value={g.training_type_current} onChange={(e) => upd((d) => (d.goals.training_type_current = e.target.value))} placeholder="e.g. Peloton, gym, walking" /></div>
           </div>
           <div><label className={labelCls}>Target sessions/week</label><Input type="number" value={g.target_sessions_per_week} onChange={(e) => upd((d) => (d.goals.target_sessions_per_week = Number(e.target.value)))} /></div>
-          <div><label className={labelCls}>What's worked for them before</label><Input value={g.what_worked} onChange={(e) => upd((d) => (d.goals.what_worked = e.target.value))} placeholder="Exercises, programs, modalities" /></div>
-          <div><label className={labelCls}>What hasn't worked / what they dislike</label><Input value={g.what_didnt} onChange={(e) => upd((d) => (d.goals.what_didnt = e.target.value))} placeholder="Exercises that hurt, things they've failed at" /></div>
+          <div><label className={labelCls}>What&apos;s worked for them before</label><Input value={g.what_worked} onChange={(e) => upd((d) => (d.goals.what_worked = e.target.value))} placeholder="Exercises, programs, modalities" /></div>
+          <div><label className={labelCls}>What hasn&apos;t worked / what they dislike</label><Input value={g.what_didnt} onChange={(e) => upd((d) => (d.goals.what_didnt = e.target.value))} placeholder="Exercises that hurt, things they've failed at" /></div>
         </div>
       )}
 
@@ -442,7 +442,7 @@ export function AssessmentWizard({
           <div className="mt-4 pt-4 border-t border-divider">
             <h4 className="text-sm font-medium text-cream mb-2">FRA Priorities — rank your top 3-5</h4>
             <p className="text-xs text-cream-faint mb-3">
-              Format: "Joint Direction Side" (e.g. Hip IR L+R, Shoulder ER Right, Thoracic Extension)
+              Format: &quot;Joint Direction Side&quot; (e.g. Hip IR L+R, Shoulder ER Right, Thoracic Extension)
             </p>
             {[0, 1, 2, 3, 4].map((i) => (
               <Input

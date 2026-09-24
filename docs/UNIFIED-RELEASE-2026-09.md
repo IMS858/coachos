@@ -1,7 +1,7 @@
 # IMS Coach OS unified release
 
 Status: integration candidate; **not approved for production or client migration**.
-Prepared locally 2026-09-24. Public push and draft PR are pending explicit approval after automatic approval review blocked publication. Branch: `release/ims-unified-2026-09`.
+Published with owner approval on 2026-09-24 as [draft PR #18](https://github.com/IMS858/coachos/pull/18). Branch: `release/ims-unified-2026-09`.
 Base: `041d14d69b288a3586aaa56c07900fd984a23e14` (`main` at integration).
 
 This branch is the single review surface for the previously separate Coach OS
@@ -13,8 +13,8 @@ in production. The last production revision observed during the audit was
 
 | PR | Work | Integration decision |
 | --- | --- | --- |
-| #17 | Platform reliability | Combined. Notification ledger migration staged only; reminder retry/window and transactional booking remain open. |
-| #16 | Stripe integrity | Combined; undefined `paymentError` references repaired. Billing replay/refund correctness is still a release gate. |
+| #17 | Platform reliability | Combined. Transactional reminder ledger and trainer exclusion migration staged; live rehearsal remains open. |
+| #16 | Stripe integrity | Combined; undefined `paymentError` references repaired. Transactional replay/refund replacement added in stabilization; Stripe sandbox verification remains a gate. |
 | #15 | Website lead sync | Combined with exact proxy exemption. Shared-secret authentication retained. |
 | #14 / #13 | OAuth, reset and branded login | Combined; duplicate state and input attributes removed. Providers remain configuration-controlled. |
 | #12 | App design system | Chosen as the shared light surface / blue accent / dark navigation design. |
@@ -55,32 +55,16 @@ accepted. No branches were deleted or force-pushed.
 
 ## Verification
 
-Local validation (2026-09-24):
+The first unified commit `fc4942b0f8435d4b5fc7832171ab222adacf9053` passed GitHub
+run `35962375864` and reached Vercel READY as `dpl_GaABgDapxcddAnM3sf6QmWccX198`.
+Production was not promoted. See [STABILIZATION-2026-09.md](STABILIZATION-2026-09.md)
+for the subsequent reliability changes, test evidence and remaining gates.
 
-| Check | Result |
-| --- | --- |
-| Clean locked install | Pass (`npm ci`) |
-| Regression suite under Node 20 | 38/38 pass (25 contracts/device tests + 13 cardio/integration tests) |
-| Production build under Node 20 | Pass, including TypeScript |
-| Standalone TypeScript | Pass |
-| npm dependency audit | 0 known advisories in the locked graph |
-| ESLint | 49 errors and 6 warnings remain across inherited code; tracked in IMS-014 |
-| Authenticated browser / deployed API flows | Not verified; launch gate |
-
-The Supabase dependency emits a Node 20 deprecation warning; runtime upgrade
-verification belongs in IMS-014 before the production release.
-
-The candidate adds
-`npm test`, a checked-in lockfile, `.gitignore`, `npm ci` deployment installs and
-CI production builds in addition to TypeScript and regression tests.
-`npm run lint` now runs ESLint instead of the removed `next lint` command; existing
-lint debt is reported, not hidden or disabled. It is not yet a required CI gate.
-
-Tests use synthetic inputs. Static security-contract tests do not establish
-live RLS isolation. A local production build does not verify provider settings,
-webhook replay, deployed cron delivery, mobile navigation or authenticated journeys.
-The environment's dependency-symlink build failure was resolved with a clean
-`npm ci` in this worktree; no workaround to bypass type checking was introduced.
+The release pipeline now requires locked installation, database/regression tests,
+zero-warning lint, a production build and standalone TypeScript validation.
+The isolated CI database uses synthetic data; no test connects to production.
+Static contract tests and isolated database tests do not establish complete live
+RLS isolation or provider configuration. Authenticated role journeys remain open.
 
 ## Launch gates and next work
 
@@ -90,10 +74,10 @@ public repository. “Implemented, verify” means code exists here but the orig
 acceptance criteria are not yet fully satisfied.
 
 1. **R0 — stabilize.** Reconcile all migration histories; test clean-database replay;
-   make Stripe processing/refunds and session balance changes atomic; establish
-   trainer conflict exclusion and reliable reminder retry/window behavior. Review
+   rehearse the new transactional billing, session and trainer-conflict migrations;
+   verify reminder scheduling and delivery. Review
    public seed-data provenance. Run authenticated owner/trainer/client isolation
-   and Stripe sandbox failure/replay tests. Resolve lint baseline and confirm a
+   and Stripe sandbox failure/replay tests. Confirm a
    successful Vercel preview for this exact commit.
 2. **R1 — staff pilot.** Exercise both coaches' schedules, recurring changes,
    package usage/undo, requests, assessment save/resume, PDF regeneration,

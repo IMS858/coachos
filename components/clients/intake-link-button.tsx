@@ -182,18 +182,18 @@ export function IntakeLinkButton({
           )}
           {sendState === "skipped" && (
             <p className="text-sm text-status-moderate">
-              Email isn't configured yet (RESEND_API_KEY). The link still works —
+              Email isn&apos;t configured yet (RESEND_API_KEY). The link still works —
               copy and send it manually for now.
             </p>
           )}
           {sendState === "failed" && (
             <p className="text-sm text-status-limited">
-              Couldn't send the email. Copy the link and send it manually.
+              Couldn&apos;t send the email. Copy the link and send it manually.
             </p>
           )}
           <p className="text-xs text-cream-faint">
             Tip: the same link stays valid for 14 days, so you can resend it if
-            they don't finish right away.
+            they don&apos;t finish right away.
           </p>
         </div>
       )}

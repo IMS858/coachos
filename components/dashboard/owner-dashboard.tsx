@@ -237,7 +237,7 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
                 {atRisk.map((c: any) => {
                   const daysOut = c.lastSeen
                     ? Math.round(
-                        (Date.now() - new Date(c.lastSeen).getTime()) /
+                        (now.getTime() - new Date(c.lastSeen).getTime()) /
                           (1000 * 60 * 60 * 24)
                       )
                     : null;
@@ -261,7 +261,7 @@ export async function OwnerDashboard({ fullName }: { fullName: string }) {
               </ul>
             ) : (
               <p className="text-sm text-cream-faint italic">
-                Everyone's been seen recently. Nice.
+                Everyone&apos;s been seen recently. Nice.
               </p>
             )}
           </CardContent>

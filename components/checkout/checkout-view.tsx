@@ -57,7 +57,7 @@ export function CheckoutView({
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
-        window.location.href = data.url; // → Stripe Checkout
+        window.location.assign(data.url); // → Stripe Checkout
         return;
       }
       setError(data.detail || data.error || "Couldn't start checkout.");

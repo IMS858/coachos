@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PACIFIC, pacificWeek, pacificDate, addCalendarDays, sessionDayLabel } from "@/lib/time/pacific";
 import {
   Calendar,
   TrendingUp,
@@ -27,13 +28,8 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
 
   // Time bounds for the week
   const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const week = pacificWeek(now);
+  const {start: startOfWeek, end: endOfWeek} = week;
 
   const [
     { data: nextSession },
@@ -79,7 +75,7 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
       .from("mobility_completions")
       .select("id, completed_on")
       .eq("client_id", user.id)
-      .gte("completed_on", startOfWeek.toISOString().slice(0, 10)),
+      .gte("completed_on", week.startDate),
     // Latest body comp
     supabase
       .from("body_comp_records")
@@ -111,15 +107,14 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
 
   // Build the week strip
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const today = now.getDay();
+  const today = week.weekday;
   const weekStrip = dayLabels.map((label, idx) => {
-    const dayDate = new Date(startOfWeek);
-    dayDate.setDate(startOfWeek.getDate() + idx);
+    const dayDate = addCalendarDays(week.startDate,idx);
     const isPast = idx < today;
     const isToday = idx === today;
     const sessionsThatDay = (weekSessions ?? []).filter((s: any) => {
       const sd = new Date(s.scheduled_at);
-      return sd.toDateString() === dayDate.toDateString();
+      return pacificDate(sd) === dayDate;
     });
     const hasSession = sessionsThatDay.length > 0;
     const isComplete = sessionsThatDay.some(
@@ -149,7 +144,7 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
       ? Number(latestBodyComp.body_fat_pct) - Number(oldestBodyComp.body_fat_pct)
       : null;
 
-  const hour = now.getHours();
+  const hour = Number(new Intl.DateTimeFormat("en-US",{timeZone:PACIFIC,hour:"numeric",hourCycle:"h23"}).format(now));
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -159,7 +154,7 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
     (s: any) => s.status === "completed"
   ).length;
   const headline = nextSession
-    ? `You're training ${formatSessionDate(new Date(nextSession.scheduled_at)).toLowerCase()}.`
+    ? `You're training ${sessionDayLabel(new Date(nextSession.scheduled_at),now).toLowerCase()}.`
     : completedThisWeek > 0
       ? `${completedThisWeek} session${completedThisWeek === 1 ? "" : "s"} in this week. Book your next one.`
       : "Nothing on the books yet — let's get you in.";
@@ -214,8 +209,10 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
                 Next Session
               </div>
               <div className="mt-1.5 text-xl font-semibold">
-                {formatSessionDate(new Date(nextSession.scheduled_at))} ·{" "}
+                {sessionDayLabel(new Date(nextSession.scheduled_at),now)} ·{" "}
                 {new Date(nextSession.scheduled_at).toLocaleTimeString("en-US", {
+                  timeZone: PACIFIC,
+                  timeZoneName: "short",
                   hour: "numeric",
                   minute: "2-digit",
                 })}
@@ -372,7 +369,7 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
             <Activity className="h-4 w-4 text-ink/40" />
           </div>
           <p className="text-sm text-ink/60 italic">
-            Your coach hasn't assigned mobility homework yet.
+            Your coach hasn&apos;t assigned mobility homework yet.
           </p>
         </div>
       )}
@@ -418,21 +415,4 @@ export async function ClientDashboard({ fullName }: { fullName: string }) {
       )}
     </div>
   );
-}
-
-function formatSessionDate(date: Date): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const sessionDay = new Date(date);
-  sessionDay.setHours(0, 0, 0, 0);
-
-  if (sessionDay.getTime() === today.getTime()) return "Today";
-  if (sessionDay.getTime() === tomorrow.getTime()) return "Tomorrow";
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 }

@@ -124,8 +124,8 @@ export default async function FinancialsPage() {
         <RentersPanel renters={rentersList ?? []} />
 
         <p className="text-xs text-cream-faint">
-          "Delivered" package revenue recognizes a package's per-session value as
-          each session is completed. "Packages sold" is cash booked when a
+          &quot;Delivered&quot; package revenue recognizes a package&apos;s per-session value as
+          each session is completed. &quot;Packages sold&quot; is cash booked when a
           package is purchased. Recurring = memberships + renter rent.
         </p>
       </div>

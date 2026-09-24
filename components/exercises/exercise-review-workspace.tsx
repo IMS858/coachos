@@ -86,7 +86,7 @@ export function ExerciseReviewWorkspace({ exercises, reviews }: { exercises: Exe
           <label className="block text-xs text-cream-dim">Safety decision<select value={draft.safety_status} onChange={e=>setDraft({...draft,safety_status:e.target.value})} className="mt-2 min-h-11 w-full rounded-lg border border-divider bg-navy px-3 text-sm text-cream"><option value="pending">Pending</option><option value="approved">Approve after verification</option><option value="rejected">Reject</option></select></label>
           <div className="rounded-xl border border-divider bg-navy p-3 space-y-2">
             <p className="text-sm font-semibold text-cream">Substitution candidates</p>
-            <p className="text-xs text-cream-faint">Shows reviewed entries with the same movement pattern. Never automatic clearance for a client's restrictions.</p>
+            <p className="text-xs text-cream-faint">Shows reviewed entries with the same movement pattern. Never automatic clearance for a client&apos;s restrictions.</p>
             <button type="button" onClick={findAlternatives} className="min-h-10 rounded-lg border border-sky/40 px-3 text-xs font-semibold text-sky">Find reviewed candidates</button>
             {alternativeError && <p role="alert" className="text-xs text-status-limited">{alternativeError}</p>}
             {alternatives && (alternatives.length ? <ul className="space-y-2">{alternatives.map(a=><li key={a.id} className="rounded-lg border border-divider p-2 text-xs text-cream">{a.name}<span className="block text-cream-faint">{a.primary_joints?.join(", ") || "Joints not tagged"} · Coach must verify suitability</span></li>)}</ul> : <p className="text-xs text-cream-faint">No approved candidates yet. Keep this substitution on hold.</p>)}
