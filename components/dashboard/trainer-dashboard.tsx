@@ -48,7 +48,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   const [
     { data: todaySessions },
     { data: draftPrograms },
-    { data: unreadMessages },
+    unreadMessages,
   ] = await Promise.all([
     supabase
       .from("sessions")
