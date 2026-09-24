@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Dumbbell, Calendar, ChevronRight } from "lucide-react";
+import { Dumbbell, Calendar, ChevronRight, FileDown, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { HomeworkList } from "@/components/media/homework-list";
 import { AppShell } from "@/components/layout/app-shell";
@@ -24,7 +24,7 @@ export default async function PlanPage() {
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, name, weeks, start_date, end_date, status")
+    .select("id, name, weeks, start_date, end_date, status, pdf_client_url")
     .eq("client_id", user.id)
     .in("status", ["active", "published"])
     .order("created_at", { ascending: false })
@@ -88,7 +88,7 @@ export default async function PlanPage() {
     }).format(new Date(iso));
   }
 
-  if (!program && (!upcoming || upcoming.length === 0)) {
+  if (!program && (!upcoming || upcoming.length === 0) && homeworkWithPosters.length === 0) {
     return (
       <AppShell>
         <ComingSoon
@@ -116,9 +116,9 @@ export default async function PlanPage() {
 
         {homeworkWithPosters.length > 0 && (
           <div className="flex flex-col gap-2">
-            <div className="eyebrow">Homework</div>
+            <div className="flex items-center gap-2"><PlayCircle className="h-5 w-5 text-sky" /><div className="eyebrow">My exercise videos</div></div>
             <p className="prose-ims text-sm text-cream-dim -mt-1 mb-1">
-              Videos from Jason. Work these between sessions.
+              Your assigned exercise demonstrations and coaching videos.
             </p>
             <HomeworkList items={homeworkWithPosters as never} />
           </div>
@@ -134,6 +134,10 @@ export default async function PlanPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-5 flex flex-wrap gap-3">
+                <Link href={"/programs/" + program.id} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-navy">Open my workouts <ChevronRight className="h-4 w-4" /></Link>
+                {program.pdf_client_url && <a href={"/api/programs/" + program.id + "/pdf"} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-divider px-4 py-3 text-sm font-semibold text-cream"><FileDown className="h-4 w-4" />Download my PDF</a>}
+              </div>
               <div className="flex flex-wrap gap-4 text-sm text-cream-faint">
                 <span>{program.weeks}-week program</span>
                 {program.start_date && (
