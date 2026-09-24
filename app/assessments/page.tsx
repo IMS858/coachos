@@ -65,7 +65,7 @@ export default async function AssessmentsPage() {
               Assessments
             </h1>
             <p className="text-sm text-cream-dim mt-1">
-              The IMS assessment wizard — every client starts here.
+              Structured in-gym assessment for clients who need current movement, strength and training findings.
             </p>
           </div>
           <Link href="/assessments/new">
@@ -88,9 +88,7 @@ export default async function AssessmentsPage() {
                     No assessments yet.
                   </p>
                   <p className="text-sm text-cream-faint max-w-sm">
-                    Run your first one — goals, health history, movement
-                    screen, strength baseline, and your recommendation, all
-                    saved as you go.
+                    Use assessments when current in-gym findings should drive the program. Familiar, former and remote clients can also be programmed directly from the Exercise Library.
                   </p>
                   <Link href="/assessments/new" className="mt-1">
                     <Button>
