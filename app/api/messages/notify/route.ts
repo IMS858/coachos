@@ -1,3 +1,4 @@
+import { pushClient } from "@/lib/mobile/push-client";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, emailShell } from "@/lib/mailer";
@@ -108,7 +109,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.ok) return NextResponse.json({ ok: false, notified: false, error: "Notification delivery failed" }, { status: 503 });
-    return NextResponse.json({ ok: true, notified: true });
+    if (m.sender_id !== m.client_id) { const pushResult = await pushClient(m.client_id,{kind:"coach_message",title:"New message from IMS",body:m.body.slice(0,120),clientId:m.client_id}); if(!pushResult.ok && pushResult.reason!=="no_registered_devices") console.warn("[messages/notify] push failed:",pushResult); }
+        return NextResponse.json({ ok: true, notified: true });
   } catch (err) {
     console.warn("[messages/notify]", err);
     return NextResponse.json({ ok: false, notified: false }, { status: 503 });
