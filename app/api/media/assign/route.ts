@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const category = ["mobility", "strength", "conditioning", "general"].includes(b.category)
     ? b.category : "mobility";
 
-  if (!clientId || exerciseIds.length === 0) {
+  if (!/^[0-9a-f-]{36}$/i.test(clientId) || exerciseIds.length === 0 || exerciseIds.length > 30 || exerciseIds.some(id => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))) {
     return NextResponse.json(
       { error: "Pick at least one exercise." },
       { status: 400 }
@@ -41,9 +41,11 @@ export async function POST(request: NextRequest) {
 
   const svc = createServiceClient();
 
+  const {data: client, error: clientError} = await svc.from("profiles").select("id,role").eq("id",clientId).maybeSingle();
+  if (clientError || !client || client.role !== "client") return NextResponse.json({error:"Client not found"},{status:404});
   const { data: exercises } = await svc
     .from("exercises")
-    .select("id, name, ims_label")
+    .select("id, name, ims_label, video_url, client_visible")
     .in("id", exerciseIds);
 
   if (!exercises || exercises.length === 0) {
@@ -51,6 +53,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Don't assign the same drill twice — re-assigning should feel idempotent.
+  const {data: reviews,error: reviewError} = await svc.from("exercise_reviews")
+    .select("exercise_id,safety_status").in("exercise_id",exerciseIds);
+  const approved = new Set((reviews ?? []).filter(r => r.safety_status === "approved").map(r => r.exercise_id));
+  if (reviewError || exercises.length !== new Set(exerciseIds).size ||
+    exercises.some(ex => !ex.client_visible || !ex.video_url || !approved.has(ex.id))) {
+    return NextResponse.json({error:"Every exercise needs approved safety review, client visibility and a playable video."},{status:409});
+  }
   const { data: existing } = await svc
     .from("client_media")
     .select("exercise_id")
