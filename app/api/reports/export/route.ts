@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
 
   function toCsv(headers: string[], rows: (string | number | null)[][]): string {
     const esc = (v: string | number | null) => {
-      const s = v == null ? "" : String(v);
+      let s = v == null ? "" : String(v);
+      // Prevent spreadsheet formula execution when an owner opens an export.
+      if (/^[=+@\-\t\r]/.test(s)) s = `\'${s}`;
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     return [headers.join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
