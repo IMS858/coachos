@@ -54,7 +54,7 @@ export function SendVideoPanel({
   const [meta, setMeta] = useState<{ duration: number } | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [poster, setPoster] = useState<Blob | null>(null);
-  const [shrink, setShrink] = useState(true);
+  const [shrink, setShrink] = useState(false);
   const [quality, setQuality] = useState<QualityKey>("standard");
   const [saved, setSaved] = useState<{ from: number; to: number } | null>(null);
   const [done, setDone] = useState<null | "sent" | "sent-notified">(null);
@@ -347,7 +347,7 @@ export function SendVideoPanel({
                   className="mt-0.5"
                 />
                 <span className="text-sm text-cream">
-                  Shrink before sending
+                  Optimize before sending
                   <span className="block text-xs text-cream-faint mt-0.5">
                     Clients watch on a phone, so this costs nothing visible and
                     loads far faster. Takes about as long as the clip runs
