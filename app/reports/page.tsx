@@ -12,8 +12,8 @@ const REPORTS = [
   },
   {
     href: "/reports/leads",
-    title: "Lead Pipeline & Conversion",
-    desc: "Open pipeline, follow-up health, booked prospects and conversion by source.",
+    title: "New Business & Conversion",
+    desc: "Current inquiries, first-contact health, booked prospects and conversion by source. Historical contacts are excluded.",
     icon: Target,
   },
   {
@@ -24,8 +24,8 @@ const REPORTS = [
   },
   {
     href: "/reports/usage",
-    title: "App Usage",
-    desc: "Who's opening the app, who's watching their homework, and who's gone quiet.",
+    title: "Client Engagement",
+    desc: "App activity, assigned media engagement and clients who may be going quiet.",
     icon: Activity,
   },
   {
