@@ -139,7 +139,7 @@ export function ProgramExercises({ programId, grouped, isStaff }: Props) {
                         )}
                       </div>
 
-                      {a.notes_client && (
+                      {a.exercises.video_id && <div className="mt-2"><Link href={`/library/${a.exercises.slug}`} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-divider px-3 text-xs font-semibold text-sky">Video demo <ExternalLink className="h-3 w-3"/></Link></div>}\n\n                      {a.notes_client && (
                         <div className="mt-2 text-xs text-cream-dim italic">
                           {a.notes_client}
                         </div>
