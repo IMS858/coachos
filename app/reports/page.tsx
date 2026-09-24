@@ -1,9 +1,15 @@
 import Link from "next/link";
-import { ChevronRight, TrendingUp, DollarSign, Users, FileSpreadsheet, Activity, Target } from "lucide-react";
+import { ChevronRight, TrendingUp, DollarSign, Users, FileSpreadsheet, Activity, Target, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 
 const REPORTS = [
+  {
+    href: "/reports/operations",
+    title: "Operations Health",
+    desc: "Package renewals, payment exceptions, no-shows and client setup gaps that need attention.",
+    icon: ShieldCheck,
+  },
   {
     href: "/reports/leads",
     title: "Lead Pipeline & Conversion",
