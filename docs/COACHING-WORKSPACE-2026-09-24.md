@@ -13,12 +13,19 @@ The full source library is paged, not capped at the prior 200 displayed exercise
 
 New business is classified from explicit inquiry sources or preserved website inquiry evidence. Historical import source labels remain unchanged. Research candidates are isolated from the active sales pipeline. The Research Desk exports an agent brief and accepts bounded, source-linked organization research; it does NOT yet run an autonomous research agent, verify source claims or send outreach.
 
+Owner Dashboard, Action Center, Communications and Lead Reports use the same source-aware inquiry classification. Current inquiry metrics no longer count historical imports as prospects. Exercise selections are excluded from program-completion queues. Incoming messages are defined by client sender, unread state and archive timestamp; outgoing replies from any staff member are excluded.
+
 Services edits have explicit error states and validated fields. Catalog visibility does not authorize a new booking type or change Stripe prices.
 
 Also fixes the actual repeated build failure in `sessions/[id]/respond`: duplicate `pushClient` import AND duplicate delivery call. Regression tests detect duplicate import bindings before the production build.
 
+## Verification
+- First integrated checkpoint `9c954df131bab7cef68bff508f0717e738751727`: GitHub PR quality run `36062529680` SUCCESS, 140 regression tests, zero-warning lint, production build and TypeScript.
+- Subsequent cross-screen integration must pass its own quality run before acceptance. The prior success is not evidence for a newer head.
+- Test data are synthetic; no real clients, source exercise approvals, service flags or historical lead records were changed by this development pass.
+
 ## Still open
-- Align every legacy dashboard inquiry KPI with the new source-aware pipeline model.
+- Authenticated owner/trainer UI acceptance for selection save/reopen and new lead/service views.
 - Connect a chosen research execution provider and review/qualification flow; no autonomous sends.
 - Translate a selected exercise collection into a fully prescribed, reviewable program.
 - Native iOS authentication, Xcode build and APNs delivery acceptance remain separate unfinished work.

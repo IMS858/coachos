@@ -2,71 +2,63 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Inbox, Target, CreditCard, PackageSearch, Dumbbell, UserRoundCheck, ArrowRight, CalendarCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { findLowBalancePackages } from "@/lib/queries/low-balance";
-
+import { loadLeadWorkspace } from "@/lib/leads/queries";
+import { loadStaffUnreadMessages } from "@/lib/messages/actionable";
 export const dynamic = "force-dynamic";
 
 export default async function ActionCenterPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login?next=/action-center");
-  const { data: me } = await supabase.from("profiles").select("role, deleted_at").eq("id", user.id).maybeSingle();
-  if (!me || me.role !== "owner" || me.deleted_at) redirect("/dashboard");
-
-  const svc = createServiceClient();
+  const { data: me, error: profileError } = await db.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
+  if (profileError || !me || me.role !== "owner" || me.deleted_at) redirect("/dashboard");
   const now = new Date();
-  const fourteenDaysAgo = new Date(now);
-  fourteenDaysAgo.setUTCDate(fourteenDaysAgo.getUTCDate() - 14);
-  const fourteenDaysAgoIso = fourteenDaysAgo.toISOString();
-  const [messagesQ, leadsQ, paymentsQ, programsQ, clientsQ, requestsQ, lowBalance] = await Promise.all([
-    svc.from("messages").select("id,client_id,body,created_at,sender_id").is("read_at", null).neq("sender_id", user.id).order("created_at", { ascending: false }).limit(50),
-    svc.from("leads").select("id,full_name,interest,source,stage,last_contacted_at,updated_at").in("stage", ["new","contacted","nurturing"]).is("last_contacted_at", null).order("updated_at", { ascending: false }).limit(20),
-    svc.from("payments").select("id,client_id,status,amount_cents,description,paid_at").in("status", ["failed","pending"]).order("paid_at", { ascending: false }).limit(20),
-    svc.from("programs").select("id,client_id,status,updated_at,data").eq("status", "draft").order("updated_at", { ascending: false }).limit(20),
-    svc.from("client_billing_summary").select("client_id,full_name,status,last_session_at").eq("status", "active").or(`last_session_at.is.null,last_session_at.lt.${fourteenDaysAgoIso}`).limit(20),
-    svc.from("sessions").select("id,client_id,scheduled_at,session_type,notes_pre").eq("status","requested").order("scheduled_at",{ascending:true}).limit(20),
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 86400000).toISOString();
+  const [unread, growth, paymentsQ, programsQ, clientsQ, requestsQ, packages] = await Promise.all([
+    loadStaffUnreadMessages(db), loadLeadWorkspace(db),
+    db.from("payments").select("id,client_id,status,description").in("status", ["failed","pending"]).order("paid_at", { ascending: false }).limit(20),
+    db.from("programs").select("id,name,client_id,status").eq("status", "draft").or("data->>source.is.null,data->>source.neq.ims_exercise_set").order("updated_at", { ascending: false }).limit(20),
+    db.from("client_billing_summary").select("client_id,full_name,status,last_session_at").eq("status", "active").or(`last_session_at.is.null,last_session_at.lt.${fourteenDaysAgo}`).order("client_id").limit(20),
+    db.from("sessions").select("id,client_id,scheduled_at,session_type").eq("status", "requested").order("scheduled_at").limit(20),
     findLowBalancePackages(2),
   ]);
-  if (messagesQ.error || leadsQ.error || paymentsQ.error || programsQ.error || clientsQ.error || requestsQ.error) throw new Error("Owner action center source unavailable");
-
-  const { data: messageStates, error: messageStateError } = await svc.from("message_thread_state").select("client_id,archived_at");
-  if (messageStateError) throw new Error("Message archive state unavailable");
-  const archivedMessageClients = new Set((messageStates ?? []).filter((s:any)=>s.archived_at).map((s:any)=>s.client_id));
-  const messages=(messagesQ.data??[]).filter((m:any)=>!archivedMessageClients.has(m.client_id)).slice(0,20), leads=leadsQ.data??[], payments=paymentsQ.data??[], programs=programsQ.data??[], quiet=clientsQ.data??[], requests=requestsQ.data??[];
-  const requestIds=[...new Set(requests.map((r:any)=>r.client_id))];
-  const {data:requestProfiles}=requestIds.length?await svc.from("profiles").select("id,full_name").in("id",requestIds):{data:[] as any[]};
-  const requestNames=new Map((requestProfiles??[]).map((p:any)=>[p.id,p.full_name]));
-  const total=messages.length+leads.length+payments.length+programs.length+quiet.length+lowBalance.length+requests.length;
-
-  return <AppShell expectedRole="owner"><div className="mx-auto flex max-w-6xl flex-col gap-5 py-6">
-    <div className="rounded-3xl bg-band px-6 py-7 text-white shadow-lg"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Owner action center</p><div className="mt-2 flex items-end justify-between gap-4"><div><h1 className="text-4xl font-bold">What needs attention</h1><p className="mt-2 text-sm text-white/75">Signals from across IMS, routed to the place where you resolve them.</p></div><div className="hidden text-right sm:block"><p className="text-4xl font-bold">{total}</p><p className="text-xs text-white/60">loaded actions</p></div></div></div>
-
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-      {[
-        ["/schedule","Booking requests",requests.length,CalendarCheck],
-        ["/messages","Unread",messages.length,Inbox],
-        ["/leads","First touch",leads.length,Target],
-        ["/reports/operations","Payments",payments.length,CreditCard],
-        ["/clients","Renewals",lowBalance.length,PackageSearch],
-        ["/programs","Draft programs",programs.length,Dumbbell],
-        ["/clients","Quiet clients",quiet.length,UserRoundCheck],
-      ].map(([href,label,count,Icon]:any)=><Link key={label} href={href} className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><Icon className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{count}</p><p className="text-xs text-cream-faint">{label}</p></Link>)}
-    </div>
-
+  if ([paymentsQ,programsQ,clientsQ,requestsQ].some(result => result.error)) throw new Error("Owner action center is unavailable. Please refresh.");
+  const messages = unread.slice(0,20);
+  const leads = growth.untouched.slice(0,20);
+  const payments = paymentsQ.data ?? [], programs = programsQ.data ?? [], quiet = clientsQ.data ?? [], requests = requestsQ.data ?? [];
+  const lowBalance = packages.slice(0,20);
+  const ids = [...new Set([...requests.map(row => row.client_id), ...messages.map(row => row.client_id)])];
+  const namesQ = ids.length ? await db.from("profiles").select("id,full_name").in("id",ids) : { data: [], error: null };
+  if (namesQ.error) throw new Error("Client names could not be loaded.");
+  const names = new Map((namesQ.data ?? []).map(row => [row.id,row.full_name]));
+  const total = messages.length + leads.length + payments.length + programs.length + quiet.length + lowBalance.length + requests.length;
+  const cards = [
+    { href:"/schedule",label:"Booking requests",count:requests.length,icon:CalendarCheck },
+    { href:"/messages",label:"Incoming unread",count:messages.length,icon:Inbox },
+    { href:"/leads",label:"First contact",count:leads.length,icon:Target },
+    { href:"/reports/operations",label:"Payments",count:payments.length,icon:CreditCard },
+    { href:"/clients",label:"Renewals",count:lowBalance.length,icon:PackageSearch },
+    { href:"/programs",label:"Draft programs",count:programs.length,icon:Dumbbell },
+    { href:"/clients",label:"Quiet clients",count:quiet.length,icon:UserRoundCheck },
+  ];
+  const date = (value: string) => new Intl.DateTimeFormat("en-US", { timeZone:"America/Los_Angeles",month:"short",day:"numeric",hour:"numeric",minute:"2-digit" }).format(new Date(value));
+  return <AppShell expectedRole="owner"><main className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
+    <header className="rounded-3xl bg-band px-6 py-7 text-white shadow-lg"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/65">Owner action center</p><div className="mt-2 flex items-end justify-between gap-4"><div><h1 className="text-4xl font-bold">What needs attention</h1><p className="mt-2 text-sm text-white/80">Current client work and real inquiries, connected to their next action.</p></div><div className="hidden text-right sm:block"><p className="text-4xl font-bold">{total}</p><p className="text-xs text-white/65">loaded actions</p></div></div></header>
+    <section aria-label="Action queues" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">{cards.map(card => { const Icon = card.icon; return <Link key={card.label} href={card.href} className="rounded-2xl border border-divider bg-white p-4 transition hover:border-sky/50"><Icon className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold text-cream">{card.count}</p><p className="text-xs text-cream-faint">{card.label}</p></Link>; })}</section>
     <div className="grid gap-4 lg:grid-cols-2">
-      <Queue title="Booking requests" href="/schedule" empty="No pending session requests." rows={requests.map((r:any)=>({key:r.id,title:requestNames.get(r.client_id)??"Client",meta:`${new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(r.scheduled_at))} · ${String(r.session_type).replaceAll("_"," ")}`,href:"/schedule"}))}/>
-      <Queue title="Unread communications" href="/messages" empty="Inbox is clear." rows={messages.map((m:any)=>({key:m.id,title:(m.body||"New client message").slice(0,72),meta:new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(m.created_at)),href:`/messages/${m.client_id}`}))}/>
-      <Queue title="Leads needing first touch" href="/leads" empty="No untouched leads." rows={leads.map((l:any)=>({key:l.id,title:l.full_name,meta:(l.interest||l.source||"Inquiry").replaceAll("_"," "),href:"/leads"}))}/>
-      <Queue title="Package renewals" href="/clients" empty="No packages at two sessions or fewer." rows={lowBalance.slice(0,20).map((p:any)=>({key:p.clientId,title:p.name,meta:p.state==="depleted"?"Depleted":`${p.remaining} sessions left`,href:`/clients/${p.clientId}`}))}/>
-      <Queue title="Payment exceptions" href="/reports/operations" empty="No failed or pending payments." rows={payments.map((p:any)=>({key:p.id,title:p.description||"IMS payment",meta:p.status,href:`/clients/${p.client_id}`}))}/>
-      <Queue title="Programs awaiting work" href="/programs" empty="No draft programs." rows={programs.map((p:any)=>({key:p.id,title:p.data?.client_name||"Draft program",meta:p.data?.review_status ? String(p.data.review_status).replaceAll("_"," ") : "Draft",href:`/programs/${p.id}`}))}/>
-      <Queue title="Clients going quiet" href="/clients" empty="No active clients are currently flagged." rows={quiet.map((q:any)=>({key:q.client_id,title:q.full_name,meta:q.last_session_at?"14+ days since session":"No completed session recorded",href:`/clients/${q.client_id}`}))}/>
+      <Queue title="Booking requests" href="/schedule" empty="No pending training requests." rows={requests.map(row => ({key:row.id,title:names.get(row.client_id) ?? "Client",meta:date(row.scheduled_at),href:"/schedule"}))}/>
+      <Queue title="Unread communications" href="/messages" empty="No incoming messages need attention." rows={messages.map(row => ({key:row.id,title:names.get(row.client_id) ?? "Client message",meta:row.body.slice(0,90),href:`/messages/${row.client_id}`}))}/>
+      <Queue title="New inquiries needing first contact" href="/leads" empty="No current inquiries need first contact. Historical contacts are separate." rows={leads.map(row => ({key:row.id,title:row.full_name,meta:row.interest ?? "Current inquiry",href:"/leads"}))}/>
+      <Queue title="Package renewals" href="/clients" empty="No packages currently flagged as low." rows={lowBalance.map((row,index) => ({key:`${row.clientId}:${index}`,title:row.name,meta:row.state === "depleted" ? "Depleted" : `${row.remaining} sessions left`,href:`/clients/${row.clientId}`}))}/>
+      <Queue title="Payment exceptions" href="/reports/operations" empty="No failed or pending payments." rows={payments.map(row => ({key:row.id,title:row.description || "IMS payment",meta:row.status,href:row.client_id ? `/clients/${row.client_id}` : "/reports/operations"}))}/>
+      <Queue title="Programs awaiting work" href="/programs" empty="No draft programs. Exercise sets remain on client profiles, not in this completion queue." rows={programs.map(row => ({key:row.id,title:row.name || "Draft program",meta:"Draft",href:`/programs/${row.id}`}))}/>
+      <Queue title="Clients going quiet" href="/clients" empty="No active clients currently flagged." rows={quiet.map(row => ({key:row.client_id,title:row.full_name,meta:row.last_session_at ? "14+ days since recorded session" : "No completed session recorded",href:`/clients/${row.client_id}`}))}/>
     </div>
-    <p className="text-xs text-cream-faint">Action Center is an operational queue, not a historical report. Each section is intentionally capped at 20 records; Reports remains the place for analysis.</p>
-  </div></AppShell>;
+    <p className="text-xs leading-5 text-cream-faint">Each queue displays at most 20 records. Historical contacts, unqualified research and saved exercise selections do not inflate these action counts. <Link href="/contacts" className="font-semibold text-sky">Contacts</Link> · <Link href="/leads/research" className="font-semibold text-sky">Research desk</Link></p>
+  </main></AppShell>;
 }
-
 function Queue({title,href,empty,rows}:{title:string;href:string;empty:string;rows:{key:string;title:string;meta:string;href:string}[]}) {
-  return <section className="overflow-hidden rounded-2xl border border-divider bg-white shadow-sm"><div className="flex items-center justify-between border-b border-divider px-5 py-4"><h2 className="font-semibold text-cream">{title}</h2><Link href={href} className="inline-flex items-center gap-1 text-xs font-semibold text-sky">View all <ArrowRight className="h-3 w-3"/></Link></div>{rows.length===0?<p className="p-5 text-sm text-cream-faint">{empty}</p>:<div className="divide-y divide-divider">{rows.map(r=><Link key={r.key} href={r.href} className="flex items-center justify-between gap-4 px-5 py-3 transition hover:bg-navy-elev"><p className="min-w-0 truncate text-sm font-medium text-cream">{r.title}</p><p className="shrink-0 text-xs capitalize text-cream-faint">{r.meta}</p></Link>)}</div>}</section>;
+  return <section className="overflow-hidden rounded-2xl border border-divider bg-white shadow-sm"><div className="flex items-center justify-between gap-3 border-b border-divider px-5 py-4"><h2 className="font-semibold text-cream">{title}</h2><Link href={href} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-sky">View all <ArrowRight className="h-3 w-3"/></Link></div>{rows.length ? <div className="divide-y divide-divider">{rows.map(row => <Link key={row.key} href={row.href} className="block px-5 py-3 transition hover:bg-surface"><p className="truncate text-sm font-semibold text-cream">{row.title}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-cream-dim">{row.meta}</p></Link>)}</div> : <p className="p-5 text-sm leading-6 text-cream-dim">{empty}</p>}</section>;
 }
