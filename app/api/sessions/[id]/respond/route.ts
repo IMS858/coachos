@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, emailShell } from "@/lib/mailer";
 import { pushClient } from "@/lib/mobile/push-client";
+import { pushClient } from "@/lib/mobile/push-client";
 
 /**
  * POST /api/sessions/[id]/respond
@@ -131,6 +132,8 @@ export async function POST(
 
   const pushResult = await pushClient(session.client_id, action === "approve" ? { kind: "booking_confirmed", title: "Training confirmed", body: "Your IMS training session is confirmed.", sessionId: session.id } : { kind: "booking_declined", title: "Training request update", body: "Your coach sent an update about your training request.", sessionId: session.id });
   if (!pushResult.ok && pushResult.reason !== "no_registered_devices") console.warn("[sessions/respond] client push failed:", pushResult);
+
+  await pushClient(session.client_id, action === "approve" ? { kind: "booking_confirmed", title: "Training confirmed", body: "Your IMS training session is confirmed.", sessionId: session.id } : { kind: "booking_declined", title: "Training request update", body: "Your coach sent an update about your training request.", sessionId: session.id });
 
   return NextResponse.json({ ok: true, status: newStatus });
 }
