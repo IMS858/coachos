@@ -47,18 +47,18 @@ function LoginForm() {
   }
 
   return (
-    <Card className="overflow-hidden rounded-3xl border border-divider bg-white shadow-xl">
+    <Card className="overflow-hidden rounded-3xl border border-[#e7ebf0] bg-white shadow-[0_20px_65px_rgba(20,36,50,0.09)]">
       <div className="h-1.5 bg-sky" />
       <CardHeader className="pt-7">
         <div className="flex items-center justify-center mb-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[240px] object-contain" />
+          <img src="/ims-logo.png" alt="IMS — Innovative Movement Solutions" className="h-auto w-full max-w-[230px] object-contain" />
         </div>
         <CardTitle className="text-center text-3xl font-bold">
           Welcome back
         </CardTitle>
         <CardDescription className="text-center">
-          Sign in to your IMS training and coaching hub.
+          Your training, programs and progress.
         </CardDescription>
       </CardHeader>
 
@@ -116,7 +116,7 @@ function LoginForm() {
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="mt-2 min-h-12 rounded-xl text-base font-semibold">
+          <Button type="submit" disabled={loading} className="mt-2 min-h-12 rounded-xl bg-[#1876b4] text-base font-semibold text-white hover:bg-[#125f95]">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
           </Button>
 
@@ -134,15 +134,5 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  return (
-    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#eef1f4] px-4 py-10">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[#17191c]" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-[#2e83b8]" />
-      <div className="relative z-10 w-full max-w-md">
-        <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-white/75">IMS Coach OS</p>
-        <Suspense fallback={null}><LoginForm /></Suspense>
-        <p className="mt-5 text-center text-xs text-cream-faint">Secure access for IMS clients and coaches</p>
-      </div>
-    </div>
-  );
+  return <Suspense fallback={null}><LoginForm /></Suspense>;
 }
