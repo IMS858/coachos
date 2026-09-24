@@ -25,22 +25,6 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
-  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
-  const appleEnabled = process.env.NEXT_PUBLIC_APPLE_AUTH_ENABLED === "true";
-
-  async function handleOAuth(provider: "google" | "apple") {
-    setError(null);
-    setOauthLoading(provider);
-    const supabase = createClient();
-    const callback = new URL("/api/auth/callback", window.location.origin);
-    callback.searchParams.set("next", next);
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: callback.toString() },
-    });
-    if (oauthError) { setError(oauthError.message); setOauthLoading(null); }
-  }
   const [socialLoading, setSocialLoading] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,13 +163,6 @@ function LoginForm() {
                 {socialLoading === "apple" ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continue with Apple
               </Button>
             )}
-          </div>
-        )}
-        {(googleEnabled || appleEnabled) && (
-          <div className="mt-6 space-y-3 border-t border-divider pt-5">
-            <p className="text-center text-xs uppercase tracking-widest text-[#7c8794]">Or continue with</p>
-            {googleEnabled && <Button type="button" variant="outline" disabled={loading || oauthLoading !== null} onClick={() => void handleOAuth("google")} className="min-h-12 w-full rounded-xl border-[#d6dfe8] bg-white text-base text-[#17191c] hover:bg-[#f3f6f8]">{oauthLoading === "google" ? "Connecting…" : "Continue with Google"}</Button>}
-            {appleEnabled && <Button type="button" variant="outline" disabled={loading || oauthLoading !== null} onClick={() => void handleOAuth("apple")} className="min-h-12 w-full rounded-xl border-[#d6dfe8] bg-white text-base text-[#17191c] hover:bg-[#f3f6f8]">{oauthLoading === "apple" ? "Connecting…" : "Continue with Apple"}</Button>}
           </div>
         )}
         <p className="mt-6 border-t border-divider pt-5 text-center text-xs text-cream-faint">Innovative Movement Solutions · Train smarter. Move better.</p>
