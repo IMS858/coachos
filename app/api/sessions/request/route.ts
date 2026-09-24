@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   let sessionType = String(body.session_type ?? "training");
   const serviceId = typeof body.service_id === "string" ? body.service_id : null;
   const note = String(body.note ?? "").slice(0, 500);
-  const allowedSessionTypes = new Set(["training", "mobility", "pilates", "massage", "recovery", "body_comp"]);
+  const allowedSessionTypes = new Set(["training"]);
   if (!allowedSessionTypes.has(sessionType)) {
     return NextResponse.json({ error: "Choose a valid session type." }, { status: 400 });
   }
