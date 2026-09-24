@@ -11,6 +11,8 @@ interface RequestRow {
   session_type: string;
   notes_pre: string | null;
   client_name: string;
+  package_label: string | null;
+  sessions_remaining: number | null;
 }
 
 export function PendingRequests({ requests }: { requests: RequestRow[] }) {
@@ -69,6 +71,7 @@ export function PendingRequests({ requests }: { requests: RequestRow[] }) {
                 })}
                 {r.notes_pre && <span> · &quot;{r.notes_pre}&quot;</span>}
               </div>
+              <div className="mt-1 text-[11px] text-cream-faint">{r.package_label ? `${r.package_label} · ${r.sessions_remaining ?? "—"} left` : "No active session package found"}</div>
             </div>
             <div className="flex flex-col items-end gap-1"><div className="flex gap-2">
               <Button
