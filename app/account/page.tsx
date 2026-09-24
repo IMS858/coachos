@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { User, CreditCard, FileCheck, LogOut, Smartphone, CalendarPlus, MessageCircle, AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { createClient } from "@/lib/supabase/server";
@@ -61,8 +62,8 @@ export default async function AccountPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <a href="/book" className="flex min-h-20 items-center gap-3 rounded-2xl border border-sky/20 bg-sky/5 p-4 text-cream transition hover:border-sky/50"><CalendarPlus className="h-5 w-5 text-sky" /><span className="text-sm font-semibold">Book a session</span></a>
-          <a href="/messages" className="flex min-h-20 items-center gap-3 rounded-2xl border border-divider bg-white p-4 text-cream transition hover:border-sky/50"><MessageCircle className="h-5 w-5 text-sky" /><span className="text-sm font-semibold">Message coach</span></a>
+          <Link href="/book" className="flex min-h-20 items-center gap-3 rounded-2xl border border-sky/20 bg-sky/5 p-4 text-cream transition hover:border-sky/50"><CalendarPlus className="h-5 w-5 text-sky" /><span className="text-sm font-semibold">Book a session</span></Link>
+          <Link href="/messages" className="flex min-h-20 items-center gap-3 rounded-2xl border border-divider bg-white p-4 text-cream transition hover:border-sky/50"><MessageCircle className="h-5 w-5 text-sky" /><span className="text-sm font-semibold">Message coach</span></Link>
         </div>
 
         {/* Details — editable */}
