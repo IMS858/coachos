@@ -131,8 +131,8 @@ export default async function SchedulePage({
   const monday = mondayOf(selected);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
-  // Session-type filter. Massage/bodywork lives under "recovery" in the enum.
-  const validTypes = ["training", "pilates", "recovery", "mobility", "body_comp"];
+  // Coach OS self-booking is training-only. Keep the staff calendar focused on training.
+  const validTypes = ["training"];
   const typeFilter = validTypes.includes(params.type ?? "")
     ? (params.type as string)
     : "all";
@@ -269,7 +269,7 @@ export default async function SchedulePage({
             <Link href="/sessions/new">
               <Button>
                 <Plus className="h-4 w-4" />
-                New session
+                New training session
               </Button>
             </Link>
           </div>
@@ -341,36 +341,6 @@ export default async function SchedulePage({
                 <span className="sr-only">
                   {count > 0 ? `${count} session${count === 1 ? "" : "s"}` : "no sessions"}
                 </span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Type filter bar */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            { key: "all", label: "All" },
-            { key: "training", label: "Training" },
-            { key: "pilates", label: "Pilates" },
-            { key: "recovery", label: "Massage / Recovery" },
-            { key: "mobility", label: "Mobility" },
-          ].map((t) => {
-            const active = typeFilter === t.key;
-            const href =
-              t.key === "all"
-                ? `/schedule?date=${selected}`
-                : `/schedule?date=${selected}&type=${t.key}`;
-            return (
-              <Link
-                key={t.key}
-                href={href}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-sky text-white"
-                    : "bg-navy-soft text-cream-faint hover:text-cream border border-divider"
-                }`}
-              >
-                {t.label}
               </Link>
             );
           })}
