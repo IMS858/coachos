@@ -34,6 +34,8 @@ import { findLowBalancePackages } from "@/lib/queries/low-balance";
 export async function OwnerDashboard({ fullName }: { fullName: string }) {
   const firstName = fullName.split(" ")[0];
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
