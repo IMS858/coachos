@@ -5,6 +5,7 @@ const path=require('node:path');
 const root=path.join(__dirname,'..');
 const owner='11111111-1111-4111-8111-111111111111',client='22222222-2222-4222-8222-222222222222',sid='33333333-3333-4333-8333-333333333333',pid='44444444-4444-4444-8444-444444444444';
 let db;
+let preservedLegacyNotes;
 const live=process.env.IMS_TEST_DATABASE_URL;
 before(async()=>{
  if(live){
@@ -13,15 +14,18 @@ before(async()=>{
   const {Client}=require('pg');const pg=new Client({connectionString:live});await pg.connect();db={exec:s=>pg.query(s),query:(s,p)=>pg.query(s,p),close:()=>pg.end()};
  }else{const {PGlite}=await import('@electric-sql/pglite');db=new PGlite();}
  await db.exec(fs.readFileSync(path.join(__dirname,'fixtures/billing-schema.sql'),'utf8'));
+ await db.exec(fs.readFileSync(path.join(__dirname,'fixtures/client-access-schema.sql'),'utf8'));
+ await db.exec("insert into public.clients(id,notes_internal) values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Synthetic legacy note')");
  const file=fs.readdirSync(path.join(root,'supabase/migrations')).find(x=>x.endsWith('_atomic_billing_and_completion.sql'));
  await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',file),'utf8'));
- for(const suffix of ['_reliable_notification_delivery.sql',...(live?['_trainer_booking_exclusion.sql']:[])]){const migration=fs.readdirSync(path.join(root,'supabase/migrations')).find(x=>x.endsWith(suffix));await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',migration),'utf8'));}
+ for(const suffix of ['_reliable_notification_delivery.sql','_close_direct_client_write_bypasses.sql',...(live?['_trainer_booking_exclusion.sql']:[])]){const migration=fs.readdirSync(path.join(root,'supabase/migrations')).find(x=>x.endsWith(suffix));await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',migration),'utf8'));}
+ preservedLegacyNotes=(await db.query("select c.notes_internal,n.notes from public.clients c join public.client_coach_notes n on n.client_id=c.id where c.id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'")).rows[0];
 });
 after(async()=>{await db?.close()});
 beforeEach(async()=>{
- await db.exec(`reset role; truncate public.notification_deliveries,auth.users,public.sessions,public.payments,public.plans,public.clients,public.profiles,public.stripe_events cascade;
+ await db.exec(`reset role; select set_config('request.jwt.claim.sub','${owner}',false); truncate public.client_coach_notes,public.messages,public.notification_deliveries,auth.users,public.sessions,public.payments,public.plans,public.clients,public.profiles,public.stripe_events cascade;
  insert into auth.users values('${client}');
- insert into public.profiles values('${owner}','owner',null),('${client}','client',null);
+ insert into public.profiles(id,role,deleted_at) values('${owner}','owner',null),('${client}','client',null);
  insert into public.clients(id,stripe_customer_id) values('${client}','cus_test');
  insert into public.plans(id,client_id,kind,tier,service_type,status,current_session_number,total_sessions,sessions_used) values('${pid}','${client}','package','package_12','training','active',0,12,0);
  insert into public.sessions(id,client_id,status) values('${sid}','${client}','scheduled');`);
@@ -43,7 +47,7 @@ test('session write failure rolls back its package debit',async()=>{
 });
 test('clients and deleted staff cannot change completion',async()=>{
  await role('authenticated',client);await assert.rejects(completion(),/Staff authorization/);
- await db.exec(`reset role;update public.profiles set deleted_at=now() where id='${owner}';`);await role();await assert.rejects(completion(),/Staff authorization/);
+ await db.exec(`set role service_role;update public.profiles set deleted_at=now() where id='${owner}';`);await role();await assert.rejects(completion(),/Staff authorization/);
 });
 test('cancelled sessions cannot consume package usage; overrun remains visible',async()=>{
  await db.exec(`update public.sessions set status='cancelled';`);await role();await assert.rejects(completion(),/Only scheduled/);
@@ -156,3 +160,50 @@ test('two PostgreSQL webhook workers for one checkout create one payment',{skip:
  assert.equal((await rows("select * from public.plans where stripe_checkout_id='cs_test'")).length,1);
  }finally{await Promise.all(peers.map(c=>c.end()));}
 });
+test('client can edit contact details but cannot modify billing, assignment or staff notes',async()=>{
+ await role('authenticated',client);
+ await db.query('update public.clients set emergency_contact_name=$1 where id=$2',['Synthetic contact',client]);
+ for(const sql of ["billing_type='membership'","stripe_customer_id='cus_forged'","notes_internal='forged'",`primary_trainer_id='${client}'`]){
+ await assert.rejects(db.query(`update public.clients set ${sql} where id=$1`,[client]),/staff-managed/);
+ }
+});
+test('client profile name edit works but identity, email and role escalation are blocked',async()=>{
+ await role('authenticated',client);await db.query("update public.profiles set full_name='Test Client' where id=$1",[client]);
+ for(const sql of ["email='forged@example.invalid'","role='owner'","deleted_at=now()"]){await assert.rejects(db.query(`update public.profiles set ${sql} where id=$1`,[client]),/Only an IMS owner/);}
+});
+test('client session feedback works but direct cancellation and package rewrites are blocked',async()=>{
+ await role('authenticated',client);await db.query("update public.sessions set client_notes='Test feedback',client_rpe=5 where id=$1",[sid]);
+ for(const sql of ["status='cancelled',cancelled_at=now()","scheduled_at=now()"]){
+ await assert.rejects(db.query(`update public.sessions set ${sql} where id=$1`,[sid]),/authorized session action/);
+ }
+ await assert.rejects(db.query('update public.sessions set plan_id=$1 where id=$2',[pid,sid]),/authorized session action/);
+});
+test('message sender and content are immutable while incoming read receipt works',async()=>{
+ await role();const inserted=await db.query('insert into public.messages(client_id,sender_id,body) values($1,$2,$3) returning id',[client,owner,'Synthetic coach message']);const id=inserted.rows[0].id;
+ await role('authenticated',client);
+ await assert.rejects(db.query("update public.messages set body='forged' where id=$1",[id]),/immutable/);
+ await assert.rejects(db.query('update public.messages set sender_id=$1 where id=$2',[client,id]),/immutable/);
+ await db.query('update public.messages set read_at=now() where id=$1',[id]);
+ await db.query('insert into public.messages(client_id,sender_id,body) values($1,$1,$2)',[client,'Synthetic reply']);
+ await assert.rejects(db.query('insert into public.messages(client_id,sender_id,body) values($1,$2,$3)',[client,owner,'Forged sender']),/Invalid message sender|row-level security/);
+});
+test('client A cannot read or change client B, and trainer retains shared operational access',async()=>{
+ const other='88888888-8888-4888-8888-888888888888',trainer='99999999-9999-4999-8999-999999999999';
+ await db.exec(`insert into public.profiles(id,role) values('${other}','client'),('${trainer}','trainer');insert into public.clients(id) values('${other}');insert into public.messages(client_id,sender_id,body) values('${other}','${owner}','Private fixture');`);
+ await role('authenticated',client);assert.equal((await db.query('select id from public.clients where id=$1',[other])).rows.length,0);assert.equal((await db.query('select id from public.messages where client_id=$1',[other])).rows.length,0);
+ assert.equal((await db.query('update public.clients set emergency_contact_name=$1 where id=$2 returning id',['Forbidden',other])).rows.length,0);
+ await role('authenticated',trainer);assert.equal((await db.query('select id from public.clients')).rows.length,2);await db.query("update public.clients set status='active' where id=$1",[other]);
+ await db.exec(`set role service_role;update public.profiles set deleted_at=now() where id='${trainer}'`);await role('authenticated',trainer);assert.equal((await db.query('select id from public.clients')).rows.length,0);
+});
+test('anonymous callers cannot read clients or messages',async()=>{
+ await role('anon','');await assert.rejects(db.query('select * from public.clients'),/permission denied/);await assert.rejects(db.query('select * from public.messages'),/permission denied/);
+});
+test('staff notes are isolated from both clients and anonymous callers',async()=>{
+ await role();await db.query('insert into public.client_coach_notes(client_id,notes) values($1,$2)',[client,'Synthetic private coach note']);
+ await role('authenticated',client);assert.equal((await db.query('select * from public.client_coach_notes')).rows.length,0);
+ await assert.rejects(db.query('insert into public.client_coach_notes(client_id,notes) values($1,$2)',[client,'Forged']),/row-level security/);
+ await role('anon','');await assert.rejects(db.query('select * from public.client_coach_notes'),/permission denied/);
+ await role();assert.equal((await db.query('select notes from public.client_coach_notes')).rows[0].notes,'Synthetic private coach note');
+});
+
+test('migration preserves legacy private notes and clears the client-readable field',()=>{assert.deepEqual(preservedLegacyNotes,{notes_internal:null,notes:'Synthetic legacy note'});});

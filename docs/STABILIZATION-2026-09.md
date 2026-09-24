@@ -55,6 +55,7 @@ scheduled/confirmed trainer pairs. Re-run these checks immediately before migrat
    - `20260924060916_atomic_billing_and_completion.sql`
    - `20260924060925_reliable_notification_delivery.sql`
    - `20260924061853_trainer_booking_exclusion.sql`
+   - `20260924114602_close_direct_client_write_bypasses.sql`
 4. Re-run replay, failure, concurrent booking and role-isolation tests against staging.
    Exercise actual Stripe test-mode signatures, event order and partial refunds.
    Verify email retry with a controlled test recipient and provider logs.
@@ -103,3 +104,44 @@ verify it remains the rollback target before rollout.
 
 Track acceptance and ownership in [RELEASE-BACKLOG.csv](RELEASE-BACKLOG.csv). No item
 is marked complete merely because a branch exists or a public page responds.
+
+## Access-control rehearsal follow-up
+
+Read-only inspection found no IMS development branch. The migration ledger contains
+24 timestamped entries, beginning with private-artifact changes rather than the
+initial application schema. Hosted branch creation cannot by itself establish a
+clean, reproducible application baseline. Full schema replay remains open.
+
+The focused synthetic access fixture now mirrors the inspected profile, client,
+message and session policy predicates plus role-helper semantics. New database tests
+exercise owner/trainer/client A/client B/anonymous access, deleted-trainer scope,
+account privilege changes, message integrity, client record edits, session feedback
+and staff-only notes. This is database-role coverage, not browser-session evidence.
+
+The new staged migration closes direct client writes around server billing and
+cancellation rules; preserves message identity/content; protects account email; and
+moves existing internal client notes to an RLS-protected staff-only table. Legacy
+note contents are copied before clearing the client-readable column. A constraint
+prevents reintroducing private text there. The application has no current writer of
+that legacy field. Staff note access is through `client_coach_notes`; no new client
+surface exposes it. Tests verify note preservation and denied client access.
+
+Before this migration, export the client ID/note mapping privately. To reverse the
+note migration, first remove client read access from the legacy table, then restore
+notes from `client_coach_notes` after removing the null-only constraint. Do not copy
+private notes back into a client-readable column. Retain the staff-only table until
+restoration and access rules are verified.
+
+**Hosted staging is not provisioned yet.** Supabase requires billing organization
+and cost confirmation before creating a branch. Proposed branch: `ims-release-qa`,
+under the existing IMS Coach OS project. Use synthetic accounts only, disable
+outbound cron/email and Stripe live mode, and do not merge its schema into production
+until full migration and role acceptance checks are complete.
+
+The read-only live security advisor also reports [public-schema extension placement](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),
+[four executable definer functions](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+(two role predicates and two legacy counter routines), and
+[leaked-password protection disabled](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+Review the legacy counter grants and password configuration during hosted staging
+setup. The [intake-token table with no RLS policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+is intentionally service-only; do not add client access merely to clear that notice.
