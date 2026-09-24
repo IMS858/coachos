@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
+  ListChecks,
   DollarSign,
   CreditCard,
   Users,
@@ -33,6 +34,7 @@ interface NavItem {
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   owner: [
     { href: "/dashboard", label: "Today", icon: LayoutDashboard },
+    { href: "/action-center", label: "Action Center", icon: ListChecks },
     { href: "/dashboard?view=owner", label: "Business Overview", icon: BarChart3 },
     { href: "/clients", label: "Clients", icon: Users },
     { href: "/leads", label: "Leads", icon: Target },
@@ -42,7 +44,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/financials", label: "Financials", icon: DollarSign },
     { href: "/checkout", label: "Checkout", icon: CreditCard },
-    { href: "/messages", label: "Messages", icon: MessageCircle },
+    { href: "/messages", label: "Communications", icon: MessageCircle },
     { href: "/settings/services", label: "Services", icon: Settings },
   { href: "/settings/email", label: "Logins", icon: Mail },
   ],
