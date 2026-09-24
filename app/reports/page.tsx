@@ -30,8 +30,8 @@ const REPORTS = [
   },
   {
     href: "/reports/financials",
-    title: "Monthly P&L / Revenue",
-    desc: "Revenue, MRR, package income, and renter rent for the month. Print-ready.",
+    title: "Monthly Revenue",
+    desc: "Recurring plan value, package activity, renter rent and delivered sessions. Not a P&L.",
     icon: DollarSign,
   },
   {
@@ -48,8 +48,8 @@ const REPORTS = [
   },
   {
     href: "/reports/tax",
-    title: "Tax Summary",
-    desc: "Yearly payments by month and source — hand it to your accountant.",
+    title: "Accountant Payment Summary",
+    desc: "Succeeded payment ledger summarized by month and source. Not a tax return.",
     icon: DollarSign,
   },
   {
