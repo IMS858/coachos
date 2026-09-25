@@ -38,3 +38,10 @@ test("trainer Today surfaces session-prep evidence without owner finance data",(
  assert.match(today,/sessionPrepSummary/);assert.match(today,/prepPlansQ/);
  assert.doesNotMatch(today,/growth_campaigns|trainer_compensation_rules|payment exceptions/i);
 });
+
+test("client app stays coaching-first instead of exposing the staff operating system",()=>{
+ const nav=readFileSync("components/layout/client-bottom-nav.tsx","utf8"),today=readFileSync("components/dashboard/client-dashboard.tsx","utf8");
+ for(const label of ["Today","Train","Progress","Coach","Book"]) assert.match(nav,new RegExp(`label: "${label}"`));
+ assert.doesNotMatch(nav,/Growth Center|Payroll|Financials|Owner Settings|IMS OS/);
+ assert.match(today,/>Train →</);assert.match(today,/>Progress →</);assert.match(today,/>Coach →</);assert.match(today,/>Book →</);
+});
