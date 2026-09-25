@@ -8,12 +8,12 @@ const coreItems = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/schedule", label: "Schedule", icon: CalendarDays },
-  { href: "/library", label: "Library", icon: Dumbbell },
+  { href: "/action-center", label: "Actions", icon: ListChecks },
 ];
 const moreItems = [
-  { href: "/action-center", label: "Action Center", icon: ListChecks },
   { href: "/leads", label: "New business", icon: Target },
   { href: "/contacts", label: "Contacts", icon: Users },
+  { href: "/library", label: "Exercise Library", icon: Dumbbell },
   { href: "/programs", label: "Programs", icon: Dumbbell },
   { href: "/messages", label: "Communications", icon: MessageCircle },
   { href: "/checkout", label: "Checkout", icon: CreditCard },
