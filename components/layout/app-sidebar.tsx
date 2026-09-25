@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { LayoutDashboard, ListChecks, DollarSign, CreditCard, Users, Target, Search, ClipboardList, CalendarDays, Dumbbell, Activity, MessageCircle, BarChart3, Settings, Mail, LogOut, BookOpen, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, ListChecks, DollarSign, CreditCard, Users, Target, Search, ClipboardList, CalendarDays, Dumbbell, Activity, MessageCircle, BarChart3, Settings, Mail, LogOut, BookOpen, GraduationCap, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +22,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/library", label: "Exercise Library", icon: Dumbbell },
     { href: "/programs", label: "Programs", icon: ClipboardList },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
+    { href: "/classes/manage", label: "Classes", icon: GraduationCap },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/financials", label: "Financials", icon: DollarSign },
     { href: "/checkout", label: "Checkout", icon: CreditCard },
