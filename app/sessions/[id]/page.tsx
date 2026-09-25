@@ -4,6 +4,7 @@ import {createClient} from "@/lib/supabase/server";
 import {AppShell} from "@/components/layout/app-shell";
 import {SessionDetail} from "@/components/sessions/session-detail";
 import {SessionCoachPrep} from "@/components/sessions/session-coach-prep";
+import {SessionLastDebrief} from "@/components/sessions/session-last-debrief";
 import {SessionTrainingExecution} from "@/components/sessions/session-training-execution";
 import {SessionWorkspace} from "@/components/sessions/session-workspace";
 export const dynamic="force-dynamic";
@@ -25,8 +26,9 @@ export default async function SessionPage({params}:{params:Promise<{id:string}>}
  const asOf=new Date().toISOString();
  return <AppShell><SessionWorkspace asOf={asOf}><main className="mx-auto w-full max-w-5xl space-y-5 pb-12"><Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">← Today</Link>
  <header className="rounded-3xl bg-band p-5 text-white"><p className="text-xs uppercase tracking-widest text-white/60">IMS / Coaching session</p><h1 className="mt-2 text-3xl font-bold">{person.full_name}</h1><p className="mt-2 text-sm text-white/75">{new Date(session.scheduled_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})} · {session.duration_minutes} min · {session.status.replaceAll("_"," ")}</p></header>
+ {session.status==="completed"&&session.session_type==="training"&&!session.plan_id&&<p role="alert" className="rounded-xl border border-status-moderate/30 bg-white p-4 text-sm">This training session is completed without a linked package. Review billing evidence; completion is not proof of payment.</p>}
  <nav aria-label="Session workflow" className="grid grid-cols-3 gap-2">{[["#session-prep","1 · Prepare"],["#session-training","2 · Train"],["#session-close","3 · Review & close"]].map(([href,label])=><a key={href} href={href} className="flex min-h-12 items-center justify-center rounded-xl border border-divider bg-white px-2 text-center text-sm font-semibold text-sky">{label}</a>)}</nav>
- <section id="session-prep" className="scroll-mt-24"><SessionCoachPrep clientId={session.client_id} scheduledAt={session.scheduled_at}/></section>
+ <section id="session-prep" className="scroll-mt-24 space-y-3"><SessionCoachPrep clientId={session.client_id} scheduledAt={session.scheduled_at}/><SessionLastDebrief sessionId={session.id}/></section>
  <SessionTrainingExecution sessionId={session.id} asOf={asOf}/>
  <SessionDetail key={session.id+session.status} session={{...session,client:person,trainer:trainer??null}} activePlans={plansQ.data??[]}/>
  </main></SessionWorkspace></AppShell>;
