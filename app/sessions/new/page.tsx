@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  *   ?client_id=<uuid> pre-selects a client
  *
  * Loads all active clients with their active plans so the form can show
- * "Will tick training counter from #24 → #25" inline as soon as a client is picked.
+ * "Shows the training package impact before a completed log is saved" inline as soon as a client is picked.
  */
 export default async function NewSessionPage({
   searchParams,

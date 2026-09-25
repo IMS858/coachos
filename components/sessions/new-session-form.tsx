@@ -58,9 +58,6 @@ interface Props {
 
 const SERVICE_TYPES = [
   { value: "training", label: "Training", billable: true },
-  { value: "massage", label: "Massage", billable: true },
-  { value: "pilates", label: "Pilates", billable: true },
-  { value: "recovery", label: "Recovery", billable: false },
   { value: "assessment", label: "Assessment", billable: false },
 ] as const;
 
@@ -73,7 +70,7 @@ export function NewSessionForm({
 }: Props) {
   const router = useRouter();
 
-  const requestId = useRef<string | null>(null);
+  const requestRef = useRef<{id:string;fingerprint:string}|null>(null);
   const [mode, setMode] = useState<"schedule" | "log">(initialMode);
   const [clientId, setClientId] = useState(initialClientId ?? "");
   const [trainerId, setTrainerId] = useState(currentUserId);
@@ -81,9 +78,7 @@ export function NewSessionForm({
     initialMode === "log" ? defaultLogTime() : defaultScheduleTime()
   );
   const [duration, setDuration] = useState(60);
-  const [serviceType, setServiceType] = useState<
-    "training" | "massage" | "pilates" | "recovery" | "assessment"
-  >("training");
+  const [serviceType, setServiceType] = useState<"training" | "assessment">("training");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +94,7 @@ export function NewSessionForm({
   const targetPackage = useMemo(() => {
     if (mode !== "log") return null;
     if (!selectedClient) return null;
-    if (!["training", "massage", "pilates"].includes(serviceType)) return null;
+    if (serviceType !== "training") return null;
     return (
       selectedClient.active_plans.find(
         (p) => p.kind === "package" && p.service_type === serviceType
@@ -170,11 +165,12 @@ export function NewSessionForm({
       return;
     }
 
-    const isPackageBilled = ["training", "massage", "pilates"].includes(serviceType);
+    const isPackageBilled = serviceType === "training";
 
-    requestId.current ??= crypto.randomUUID();
+    const fingerprint = JSON.stringify({mode,clientId,trainerId,scheduledAt:sessionInstant.toISOString(),duration,serviceType,notes});
+    if (!requestRef.current || requestRef.current.fingerprint !== fingerprint) requestRef.current={id:crypto.randomUUID(),fingerprint};
     const payload = {
-      request_id: requestId.current,
+      request_id: requestRef.current.id,
       mode,
       client_id: clientId,
       trainer_id: trainerId,
@@ -260,7 +256,7 @@ export function NewSessionForm({
           {/* Service type */}
           <div>
             <Label>Service type</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {SERVICE_TYPES.map((st) => {
                 const hasPackage =
                   st.billable &&
@@ -690,7 +686,7 @@ function CounterPreview({
   clientName: string;
 }) {
   // Non-billable services
-  if (!["training", "massage", "pilates"].includes(serviceType)) {
+  if (serviceType !== "training") {
     return (
       <div className="mt-3 rounded-md border border-divider bg-navy-deep px-3 py-2 text-xs text-cream-dim">
         <Clock className="inline h-3 w-3 mr-1" />
