@@ -17,6 +17,12 @@ const REPORTS = [
     icon: Target,
   },
   {
+    href: "/reports/outcomes",
+    title: "Client Outcomes & Evidence",
+    desc: "Assessment, reassessment, body-composition and progression evidence coverage across active clients.",
+    icon: Activity,
+  },
+  {
     href: "/reports/progress",
     title: "Client Progress Report",
     desc: "Printable progress summary for a client — movement, strength, body comp. Hand it to them.",
