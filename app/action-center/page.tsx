@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Inbox, Target, CreditCard, PackageSearch, Dumbbell, UserRoundCheck, ArrowRight, CalendarCheck, ClipboardCheck } from "lucide-react";
+import { Inbox, Target, CreditCard, PackageSearch, Dumbbell, UserRoundCheck, ArrowRight, CalendarCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import { findLowBalancePackages } from "@/lib/queries/low-balance";
