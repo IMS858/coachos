@@ -15,7 +15,7 @@ export default async function OutcomesReport(){
   db.from("body_comp_records").select("client_id,recorded_at"),
   db.from("v_progression_signals").select("client_id,pattern,sessions_considered,last_recorded"),
   db.from("sessions").select("id,client_id",{count:"exact"}).eq("status","completed").gte("completed_at",thirty),
-  db.from("programs").select("client_id,status,published_at").eq("status","active"),
+  db.from("programs").select("client_id,status,published_at").in("status",["published","active"]),
   db.from("v_assessment_staleness").select("client_id,staleness,days_since"),
  ]);
  if([clientsQ,assessQ,bodyQ,signalsQ,sessionsQ,programsQ,staleQ].some(q=>q.error))throw new Error("Outcome evidence report could not be loaded.");
