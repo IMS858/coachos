@@ -108,6 +108,13 @@ begin
     or new.created_at is distinct from old.created_at then
       raise exception 'Session exercise identity and prescription evidence are immutable' using errcode='42501';
   end if;
+  if not exists(
+    select 1 from public.sessions s
+    where s.id=old.session_id and s.client_id=old.client_id and s.program_id=old.program_id
+      and s.status::text not in ('cancelled','late_cancelled','no_show')
+  ) then
+    raise exception 'Missed or cancelled sessions cannot change exercise performance' using errcode='42501';
+  end if;
   new.updated_at=clock_timestamp();
   return new;
 end $$;
