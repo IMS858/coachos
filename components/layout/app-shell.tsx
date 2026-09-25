@@ -68,7 +68,7 @@ export async function AppShell({
           {children}
         </div>
       </main>
-      <StaffBottomNav />
+      <StaffBottomNav role={role} />
     </div>
   );
 }
