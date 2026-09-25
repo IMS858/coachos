@@ -1,3 +1,27 @@
-import {NextResponse,type NextRequest} from "next/server";import {createClient,createServiceClient} from "@/lib/supabase/server";import {CAPTURE_UUID} from "@/lib/exercises/capture";import {recordAudit} from "@/lib/audit";
-const reply=(b:unknown,s=200)=>NextResponse.json(b,{status:s,headers:{"Cache-Control":"private, no-store"}});
-export async function POST(request:NextRequest){const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return reply({error:"Unauthorized"},401);const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error)return reply({error:"Authorization unavailable"},503);if(!me.data||me.data.deleted_at||!["owner","trainer"].includes(me.data.role))return reply({error:"Staff only"},403);const origin=request.headers.get("origin");if(origin&&origin!==request.nextUrl.origin)return reply({error:"Invalid request origin"},403);const b=await request.json().catch(()=>null),id=b&&typeof b.enrollment_id==="string"&&CAPTURE_UUID.test(b.enrollment_id)?b.enrollment_id:null,status=b?.status;if(!id||!["attended","no_show"].includes(status))return reply({error:"Valid attendance record required."},400);const svc=createServiceClient();const enrollment=await svc.from("class_enrollments").select("id,occurrence_id,status").eq("id",id).maybeSingle();if(enrollment.error||!enrollment.data)return reply({error:"Enrollment not found."},404);const occurrence=await svc.from("class_occurrences").select("id,trainer_id,status").eq("id",enrollment.data.occurrence_id).maybeSingle();if(occurrence.error||!occurrence.data)return reply({error:"Class occurrence unavailable."},503);if(me.data.role==="trainer"&&occurrence.data.trainer_id!==user.id)return reply({error:"Only the assigned coach or owner may mark this roster."},403);if(occurrence.data.status==="cancelled")return reply({error:"Cancelled classes cannot receive attendance."},409);if(!["booked","attended","no_show"].includes(enrollment.data.status))return reply({error:"Only booked roster entries can receive attendance."},409);const saved=await svc.from("class_enrollments").update({status,attendance_marked_at:new Date().toISOString(),attendance_marked_by:user.id,updated_at:new Date().toISOString()}).eq("id",id).select("id").single();if(saved.error||!saved.data)return reply({error:"Attendance was not confirmed saved."},503);await recordAudit({actorId:user.id,action:"class.attendance_marked",entityType:"class_enrollment",entityId:id,changes:{status,occurrence_id:occurrence.data.id}});return reply({ok:true,id});}
+import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+const reply = (body: unknown, status: number) => NextResponse.json(body, {
+  status, headers: { "Cache-Control": "private, no-store" },
+});
+
+/** Attendance release must use the audited database command, not service-role table writes. */
+export async function POST(request: NextRequest) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return reply({ error: "Unauthorized" }, 401);
+  const me = await db.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
+  if (me.error) return reply({ error: "Authorization unavailable." }, 503);
+  if (!me.data || me.data.deleted_at || !["owner", "trainer"].includes(me.data.role)) {
+    return reply({ error: "Active staff account required." }, 403);
+  }
+  if (request.headers.get("origin") !== request.nextUrl.origin) {
+    return reply({ error: "Invalid request origin." }, 403);
+  }
+  // mark_class_attendance is implemented and regression-tested, but intentionally ungranted.
+  // Remove this hold only in the reviewed launch that also activates the scoped atomic command.
+  return reply({
+    error: "Class attendance is in prelaunch. No attendance record was changed. Review the existing roster without editing it.",
+    code: "CLASS_PRELAUNCH",
+  }, 409);
+}

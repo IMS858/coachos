@@ -1,5 +1,23 @@
-"use client";import {useState} from "react";import {useRouter} from "next/navigation";import {Check,Loader2,X} from "lucide-react";
-type Row={id:string;client_id:string;name:string;status:string};
-export function ClassRoster({rows}:{rows:Row[]}){const router=useRouter(),[busy,setBusy]=useState<string|null>(null),[error,setError]=useState<string|null>(null);
-async function mark(id:string,status:"attended"|"no_show"){setBusy(id);setError(null);try{const r=await fetch("/api/classes/attendance",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enrollment_id:id,status})});const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||"Attendance was not confirmed.");router.refresh();}catch(e){setError(e instanceof Error?e.message:"Could not mark attendance.");}finally{setBusy(null);}}
-return <section className="rounded-3xl border border-divider bg-white p-5"><h2 className="text-lg font-semibold text-cream">Roster</h2>{error&&<p role="alert" className="mt-3 text-sm text-status-limited">{error}</p>}<div className="mt-4 divide-y divide-divider">{rows.map(row=><div key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold text-cream">{row.name}</p><p className="mt-1 text-xs capitalize text-cream-dim">{row.status}</p></div>{["booked","attended","no_show"].includes(row.status)&&<div className="flex gap-2"><button disabled={busy===row.id} onClick={()=>void mark(row.id,"attended")} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-divider px-3 text-xs font-semibold text-cream">{busy===row.id?<Loader2 className="h-4 w-4 animate-spin"/>:<Check className="h-4 w-4 text-status-optimal"/>}Attended</button><button disabled={busy===row.id} onClick={()=>void mark(row.id,"no_show")} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-divider px-3 text-xs font-semibold text-cream"><X className="h-4 w-4 text-status-limited"/>No-show</button></div>}</div>)}</div>{rows.length===0&&<p className="mt-4 text-sm text-cream-dim">No booked clients yet.</p>}</section>}
+import Link from "next/link";
+
+type Row = { id: string; client_id: string; name: string; status: string };
+
+export function ClassRoster({ rows }: { rows: Row[] }) {
+  return <section className="rounded-3xl border border-divider bg-white p-5">
+    <h2 className="text-xl font-semibold text-cream">Class roster evidence</h2>
+    <p className="mt-2 text-sm leading-6 text-cream-dim">
+      Attendance editing is not launched. A reservation or waitlist entry is not proof that a client attended.
+      The reviewed launch will use the scoped, audited attendance command rather than overwrite records directly.
+    </p>
+    <div className="mt-4 divide-y divide-divider">{rows.map(row =>
+      <article key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+        <div>
+          <Link href={`/clients/${row.client_id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">{row.name} →</Link>
+          <p className="mt-1 text-xs text-cream-dim">Recorded status: {row.status.replaceAll("_", " ")}</p>
+        </div>
+        <span className="rounded-full bg-surface-soft px-3 py-2 text-xs font-semibold text-cream-faint">Read-only · Prelaunch</span>
+      </article>
+    )}</div>
+    {rows.length === 0 && <p className="mt-4 text-sm text-cream-dim">No roster records in this view.</p>}
+  </section>;
+}
