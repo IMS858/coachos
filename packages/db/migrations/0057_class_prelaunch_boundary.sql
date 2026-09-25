@@ -18,6 +18,8 @@ drop policy if exists "clients read own class access" on public.client_class_acc
 create policy "active clients read own class access" on public.client_class_access for select to authenticated using(
  client_id=auth.uid() and exists(select 1 from public.profiles p where p.id=auth.uid() and p.role='client' and p.deleted_at is null)
 );
+-- PostgreSQL permissive read policies OR together; remove the exact original name.
+drop policy if exists "clients read own class ledger" on public.class_credit_ledger;
 drop policy if exists "clients read own class credit ledger" on public.class_credit_ledger;
 create policy "active clients read own class credit ledger" on public.class_credit_ledger for select to authenticated using(
  client_id=auth.uid() and exists(select 1 from public.profiles p where p.id=auth.uid() and p.role='client' and p.deleted_at is null)
