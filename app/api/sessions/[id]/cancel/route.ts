@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, emailShell } from "@/lib/mailer";
+import { recordAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,7 @@ export async function POST(
   if(cancelError) return NextResponse.json({error:"Cancellation could not be saved"},{status:cancelError.code==="42501"?403:cancelError.code==="22023"?409:503});
   if(cancellation.deduped) return NextResponse.json(cancellation);
   const charged = Boolean(cancellation.charged);
+  await recordAudit({actorId:user.id,action:"session.cancelled",entityType:"session",entityId:id,changes:{late:verdict.is_late,charged,plan_kind:verdict.plan_kind,reason_present:Boolean(reason)}});
 
   // Tell Jason. A cancellation he doesn't hear about is a wasted slot.
   try {
