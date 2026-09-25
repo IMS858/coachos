@@ -19,6 +19,7 @@ const moreItems = [
   { href: "/checkout", label: "Checkout", icon: CreditCard },
   { href: "/financials", label: "Financials", icon: DollarSign },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/settings", label: "Owner Settings", icon: Settings },
   { href: "/settings/services", label: "Services", icon: Settings },
   { href: "/settings/email", label: "Logins", icon: Mail },
 ];
