@@ -17,3 +17,5 @@ test("client progress counts recorded class attendance without inventing outcome
 test("owner operating system includes group coaching without merging class finance into PT",()=>{const page=readFileSync("app/operating-system/page.tsx","utf8");assert.match(page,/Group coaching loop/);assert.match(page,/class_occurrences/);assert.match(page,/Credits and payroll remain separate/);});
 
 test("class growth attribution remains explicit rather than inferred",()=>{const migration=readFileSync("packages/db/migrations/0055_class_growth_attribution.sql","utf8"),booking=readFileSync("app/api/classes/book/route.ts","utf8");assert.match(migration,/Source is null unless an explicit, auditable workflow sets it later/);assert.doesNotMatch(booking,/source_type|source_reference|campaign_id/);});
+
+test("trainer Today includes assigned group coaching without owner finance noise",()=>{const today=readFileSync("components/dashboard/trainer-dashboard.tsx","utf8");assert.match(today,/Group coaching today/);assert.match(today,/class_occurrences/);assert.match(today,/Open class/);assert.doesNotMatch(today,/class_compensation_rules|class_credit_ledger|payments/);});
