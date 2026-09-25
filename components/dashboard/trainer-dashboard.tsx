@@ -84,7 +84,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   const actionableMessages = scopedUnread.slice(0,5);
 
   const sessions = todaySessions ?? [];
-  const todayStart=new Date();todayStart.setHours(0,0,0,0);const todayEnd=new Date(todayStart);todayEnd.setDate(todayEnd.getDate()+1);const classesQ=await supabase.from("class_occurrences").select("id,starts_at,ends_at,capacity,status,class_templates(name,category)").eq("trainer_id",userId).gte("starts_at",todayStart.toISOString()).lt("starts_at",todayEnd.toISOString()).neq("status","cancelled").order("starts_at");
+const classesQ=await supabase.from("class_occurrences").select("id,starts_at,ends_at,capacity,status,class_templates(name,category)").eq("trainer_id",user.id).gte("starts_at",startOfDay.toISOString()).lte("starts_at",endOfDay.toISOString()).neq("status","cancelled").order("starts_at");
   const todayClientIds = [...new Set(sessions.flatMap((row: any) => row.clients?.id ? [row.clients.id as string] : []))];
   const [prepPlansQ, prepAssessQ, prepProgramsQ] = todayClientIds.length ? await Promise.all([
     supabase.from("plans").select("client_id,kind,total_sessions,sessions_used,status").in("client_id",todayClientIds).eq("status","active"),
@@ -148,6 +148,8 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
         </div>
       </div>
 
+      {(classesQ.data??[]).length>0&&<Card><CardHeader><CardTitle>Group coaching today</CardTitle><CardDescription>Assigned classes are part of today’s coaching workload.</CardDescription></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2">{(classesQ.data??[]).map((row:any)=><Link key={row.id} href={"/classes/manage/"+row.id} className="flex min-h-16 items-center justify-between rounded-xl border border-divider p-3 transition hover:border-sky/50"><div><p className="text-sm font-semibold text-cream">{row.class_templates?.name??"Class"}</p><p className="mt-1 text-xs text-cream-dim">{new Date(row.starts_at).toLocaleTimeString("en-US",{timeZone:"America/Los_Angeles",hour:"numeric",minute:"2-digit"})} · capacity {row.capacity}</p></div><span className="text-xs font-semibold text-sky">Open class →</span></Link>)}</CardContent></Card>}
+      {classesQ.error&&<p role="alert" className="rounded-xl border border-status-limited/30 bg-white p-3 text-sm text-status-limited">Assigned class schedule is unavailable. No zero-class state was inferred.</p>}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader>
