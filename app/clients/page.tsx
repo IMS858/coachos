@@ -62,7 +62,7 @@ export default async function ClientsPage({
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
+        <div className="rounded-3xl border border-sky/15 bg-gradient-to-br from-white via-white to-sky/5 p-5 shadow-sm sm:p-6"><div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
             <p className="text-sm text-cream-dim mt-1">
@@ -141,12 +141,12 @@ export default async function ClientsPage({
                   {allClients.map((c: any) => (
                     <tr
                       key={c.client_id}
-                      className="hover:bg-navy-elev transition-colors"
+                      className="transition-colors hover:bg-sky/[0.035]"
                     >
                       <td className="px-6 py-3">
                         <Link
                           href={`/clients/${c.client_id}`}
-                          className="flex items-center gap-3 font-medium text-cream hover:text-sky-light"
+                          className="flex items-center gap-3 font-semibold text-cream hover:text-sky"
                         >
                           <Avatar name={c.full_name} size="sm" />
                           {c.full_name}
@@ -222,7 +222,7 @@ function PlansCell({ row }: { row: any }) {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  if (status === "active") return <Badge tone="optimal">Active</Badge>;
+  if (status === "active") return <Badge tone="sky">Active</Badge>;
   if (status === "lead") return <Badge tone="moderate">Lead</Badge>;
   if (status === "paused") return <Badge tone="moderate">Paused</Badge>;
   if (status === "churned") return <Badge tone="limited">Churned</Badge>;
