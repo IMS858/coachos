@@ -4,8 +4,8 @@ import Link from "next/link";
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return <main className="min-h-[100dvh] bg-[#f4f6f8] lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(420px,.9fr)]">
     <section className="relative hidden min-h-[100dvh] overflow-hidden bg-[#111418] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-      <Image src="/login-action.jpg" alt="" fill priority className="object-cover opacity-55"/>
-      <div className="absolute inset-0 bg-gradient-to-br from-[#101317]/95 via-[#101317]/72 to-[#101317]/28"/>
+      <Image src="/login-action.jpg" alt="" fill priority className="object-cover opacity-55 motion-safe:animate-[imsAuthDrift_18s_ease-in-out_infinite_alternate]"/>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#101317]/95 via-[#101317]/72 to-[#101317]/28"/><div className="absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-[#2b8bc6]/15 blur-3xl motion-safe:animate-pulse"/>
       <div className="relative z-10"><Image src="/ims-logo.png" alt="Innovative Movement Solutions" width={230} height={80} priority className="h-auto w-[210px] brightness-0 invert"/></div>
       <div className="relative z-10 max-w-xl pb-6"><p className="mb-4 text-xs font-semibold uppercase tracking-[.24em] text-[#72b8e4]">IMS Fitness · Scripps Ranch</p><h1 className="text-5xl font-bold leading-[.98] text-white xl:text-6xl">Train smarter.<br/>Move better.<br/><span className="text-[#72b8e4]">Perform for life.</span></h1><p className="mt-6 max-w-md text-base leading-7 text-white/70">Training, programs, progress and direct access to your coach—all in one place.</p></div>
     </section>
