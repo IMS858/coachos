@@ -207,33 +207,8 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
 
         <div className="flex flex-col gap-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Pending Tasks</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {tasks.length > 0 ? (
-                tasks.map((task, i) => (
-                  <Link
-                    key={i}
-                    href={task.href}
-                    className="flex items-start gap-2 text-sm hover:bg-navy-elev rounded-md -mx-2 px-2 py-1 transition-colors"
-                  >
-                    {task.urgent ? (
-                      <CircleDot className="h-4 w-4 text-status-limited shrink-0 mt-0.5" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4 text-cream-faint shrink-0 mt-0.5" />
-                    )}
-                    <span className={task.urgent ? "text-cream" : "text-cream-dim"}>
-                      {task.label}
-                    </span>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-sm text-cream-faint italic">
-                  Nothing pending. Inbox zero.
-                </p>
-              )}
-            </CardContent>
+            <CardHeader><CardTitle>Action Center</CardTitle><CardDescription>Follow-up work stays separate from today’s coaching schedule.</CardDescription></CardHeader>
+            <CardContent><Link href="/action-center" className="flex min-h-11 items-center justify-between rounded-xl border border-divider px-3 text-sm font-semibold text-cream transition hover:border-sky/50"><span>${actionCount} coaching action${actionCount===1?"":"s"}</span><ChevronRight className="h-4 w-4 text-sky"/></Link></CardContent>
           </Card>
 
           <Card>
@@ -260,7 +235,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
                       </div>
                     </div>
                     <span className="text-xs text-cream-faint shrink-0">
-                      {humanAgo(new Date(msg.created_at))}
+                      {new Date(msg.created_at).toLocaleDateString("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric"})}
                     </span>
                   </Link>
                 ))
@@ -286,10 +261,3 @@ function SessionStatusBadge({ status }: { status: string }) {
   return <Badge tone="neutral">{status}</Badge>;
 }
 
-function humanAgo(date: Date): string {
-  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
