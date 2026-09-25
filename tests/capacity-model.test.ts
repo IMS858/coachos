@@ -12,3 +12,9 @@ test("capacity page states its evidence boundary and connects to the IMS OS",()=
  const page=readFileSync("app/capacity/page.tsx","utf8"),os=readFileSync("app/operating-system/page.tsx","utf8");
  assert.match(page,/not a staffing recommendation or revenue forecast/);assert.match(page,/does not estimate demand/);assert.match(os,/href="\/capacity"/);
 });
+
+test("continuity UI uses factual schedule/package gaps rather than a churn score",()=>{
+ const page=readFileSync("app/capacity/page.tsx","utf8");
+ assert.match(page,/No session booked in next 60d/);assert.match(page,/Package depleted/);assert.match(page,/not churn predictions/);
+ assert.doesNotMatch(page,/churn probability|retention score|at risk score/i);
+});
