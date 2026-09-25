@@ -1,10 +1,11 @@
-import Link from "next/link";import {redirect} from "next/navigation";import {createClient} from "@/lib/supabase/server";import {Users,ShieldCheck,Mail,SlidersHorizontal,BrainCircuit,Video,Palette,History,ArrowRight} from "lucide-react";
+import Link from "next/link";import {redirect} from "next/navigation";import {createClient} from "@/lib/supabase/server";import {Users,ShieldCheck,Mail,SlidersHorizontal,BrainCircuit,Video,Palette,History,ArrowRight,BadgeDollarSign} from "lucide-react";
 export const dynamic="force-dynamic";
 const sections=[
  {href:"/settings/services",title:"Services & pricing",copy:"Training services, packages and what clients can purchase.",icon:SlidersHorizontal},
  {href:"/settings/email",title:"Access & logins",copy:"Client invitations, account access and email diagnostics.",icon:Mail},
  {href:"/clients",title:"People & coaching",copy:"Client relationships, programming paths and account status.",icon:Users},
  {href:"/action-center",title:"Operations",copy:"Follow-ups, reviews and work that needs owner attention.",icon:ShieldCheck},
+ {href:"/reports/payroll",title:"Payroll Prep",copy:"Trainer hours, completed sessions and exportable payroll evidence.",icon:BadgeDollarSign},
  {href:"/leads?tab=research",title:"AI & Research",copy:"Research Desk workflow. Budget controls arrive with paid AI connection.",icon:BrainCircuit},
  {href:"/library",title:"Video & exercise library",copy:"Exercise approvals, client visibility and reusable coaching media.",icon:Video},
  {href:"/reports",title:"Audit & reporting",copy:"Operational, financial and engagement reporting.",icon:History},
