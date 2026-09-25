@@ -3,12 +3,25 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const ts = require("typescript");
-function load(file, overrides = {}) {
-  const exports = {};
-  const source = fs.readFileSync(path.join(__dirname, "..", file), "utf8");
+function load(file, overrides = {}, cache = new Map()) {
+  const filename = path.resolve(__dirname, "..", file);
+  if (cache.has(filename)) return cache.get(filename).exports;
+  const module = { exports: {} };
+  cache.set(filename, module);
+  const source = fs.readFileSync(filename, "utf8");
   const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
-  new Function("require", "module", "exports", result.outputText)((name) => name in overrides ? overrides[name] : require(name), { exports }, exports);
-  return exports;
+  const localRequire = require("node:module").createRequire(filename);
+  function resolve(name) {
+    if (Object.hasOwn(overrides, name)) return overrides[name];
+    if (name.startsWith(".")) {
+      const candidate = path.resolve(path.dirname(filename), name);
+      const typed = [candidate + ".ts", candidate + ".tsx", path.join(candidate, "index.ts")].find(p => fs.existsSync(p));
+      if (typed) return load(typed, overrides, cache);
+    }
+    return localRequire(name);
+  }
+  new Function("require", "module", "exports", result.outputText)(resolve, module, module.exports);
+  return module.exports;
 }
 const capture = load("lib/exercises/capture.ts");
 const server = load("lib/exercises/capture-server.ts");
