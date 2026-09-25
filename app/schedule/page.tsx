@@ -193,7 +193,7 @@ export default async function SchedulePage({
   // Pending client session requests (any date)
   const { data: requestRows } = await supabase
     .from("sessions")
-    .select("id, scheduled_at, session_type, notes_pre, client_id")
+    .select("id, scheduled_at, session_type, notes_pre, client_id, trainer_id")
     .eq("status", "requested")
     .order("scheduled_at")
     .limit(20);
@@ -206,7 +206,8 @@ export default async function SchedulePage({
   const { data: requestPlans } = requestPlanIds.length ? await supabase.from("plans").select("client_id,tier,custom_label,total_sessions,sessions_used,kind,status").in("client_id",requestPlanIds).eq("status","active") : { data: [] as any[] };
   const packageByClient = new Map<string, any>();
   for (const p of requestPlans ?? []) if (p.kind === "package" && !packageByClient.has(p.client_id)) packageByClient.set(p.client_id,p);
-  const pendingRequests = (requestRows ?? []).map((r: any) => { const plan=packageByClient.get(r.client_id); const remaining=plan?.total_sessions == null ? null : Math.max(0,Number(plan.total_sessions)-Number(plan.sessions_used??0)); return ({
+  const scopedRequestRows = selectedTrainerId === "all" ? (requestRows ?? []) : (requestRows ?? []).filter((r:any) => r.trainer_id === selectedTrainerId);
+  const pendingRequests = scopedRequestRows.map((r: any) => { const plan=packageByClient.get(r.client_id); const remaining=plan?.total_sessions == null ? null : Math.max(0,Number(plan.total_sessions)-Number(plan.sessions_used??0)); return ({
     id: r.id,
     scheduled_at: r.scheduled_at,
     session_type: r.session_type,
@@ -377,7 +378,7 @@ export default async function SchedulePage({
             <div
               className="grid"
               style={{
-                gridTemplateColumns: `64px repeat(${Math.max(trainers.length, 1)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `64px repeat(${Math.max(visibleTrainers.length, 1)}, minmax(0, 1fr))`,
               }}
             >
               {/* Gutter */}
