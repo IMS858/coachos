@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { sessionPrepSummary } from "@/lib/coaching/intelligence";
+import { isExerciseSet } from "@/lib/exercises/catalog";
 
 /**
  * Trainer Dashboard — "Today" view.
@@ -82,6 +84,22 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   const actionableMessages = scopedUnread.slice(0,5);
 
   const sessions = todaySessions ?? [];
+  const todayClientIds = [...new Set(sessions.flatMap((row: any) => row.clients?.id ? [row.clients.id as string] : []))];
+  const [prepPlansQ, prepAssessQ, prepProgramsQ] = todayClientIds.length ? await Promise.all([
+    supabase.from("plans").select("client_id,kind,total_sessions,sessions_used,status").in("client_id",todayClientIds).eq("status","active"),
+    supabase.from("assessments").select("client_id,status,assessment_date").in("client_id",todayClientIds).order("assessment_date",{ascending:false}),
+    supabase.from("programs").select("client_id,status,data").in("client_id",todayClientIds).order("updated_at",{ascending:false}).limit(500),
+  ]) : [{data:[],error:null},{data:[],error:null},{data:[],error:null}];
+  const prepUnavailable = [prepPlansQ,prepAssessQ,prepProgramsQ].some(q=>q.error);
+  const packageRemaining = new Map<string,number>();
+  if(!prepUnavailable) for(const clientId of todayClientIds){
+    const packages=(prepPlansQ.data??[]).filter((p:any)=>p.client_id===clientId&&p.kind==="package");
+    if(packages.length) packageRemaining.set(clientId,Math.min(...packages.map((p:any)=>Math.max(0,Number(p.total_sessions??0)-Number(p.sessions_used??0)))));
+  }
+  const latestAssessment = new Map<string,string>();
+  if(!prepUnavailable) for(const a of prepAssessQ.data??[]) if(a.status==="complete"&&!latestAssessment.has(a.client_id)) latestAssessment.set(a.client_id,a.assessment_date);
+  const activeProgramCount = new Map<string,number>();
+  if(!prepUnavailable) for(const p of prepProgramsQ.data??[]){if(isExerciseSet(p.data)||!["published","active"].includes(p.status))continue;activeProgramCount.set(p.client_id,(activeProgramCount.get(p.client_id)??0)+1);}
   const completed = sessions.filter((s: any) => s.status === "completed").length;
   const remaining = sessions.length - completed;
   const actionCount = (draftPrograms ?? []).length + scopedUnread.length + (bookingRequests ?? []).length;
@@ -135,7 +153,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
             <CardTitle>Schedule</CardTitle>
             <CardDescription>Tap a card to log the session</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2">{prepUnavailable && <p role="alert" className="rounded-xl border border-status-limited/30 bg-status-limited/5 p-3 text-xs text-status-limited">Session prep evidence could not be loaded. Schedule data is still shown, but package/program/assessment context is unavailable.</p>}
             {sessions.length > 0 ? (
               sessions.map((session: any) => {
                 const time = new Date(session.scheduled_at).toLocaleTimeString(
@@ -179,6 +197,10 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
                             Note: {session.notes_pre}
                           </div>
                         )}
+                        {!prepUnavailable && session.clients?.id && (() => {
+                          const prep=sessionPrepSummary({now:new Date().toISOString(),packageRemaining:packageRemaining.get(session.clients.id)??null,latestAssessmentAt:latestAssessment.get(session.clients.id)??null,activePrograms:activeProgramCount.get(session.clients.id)??0});
+                          return prep.length ? <div className="mt-2 flex flex-wrap gap-1.5">{prep.map((item:string)=><span key={item} className="rounded-full bg-white/8 px-2 py-1 text-[11px] text-cream-dim">{item}</span>)}</div> : null;
+                        })()}
                       </div>
                       <ChevronRight className="h-4 w-4 text-cream-faint shrink-0 mt-1 group-hover:text-cream-dim" />
                     </div>
