@@ -25,7 +25,7 @@ test("session workflow links program prescription to performed exercise evidence
 test("client history shows coached performed evidence without exposing edit controls",()=>{
  const page=readFileSync("app/workouts/page.tsx","utf8");
  assert.match(page,/session_exercise_performance/);assert.match(page,/What you actually performed with your coach/);assert.match(page,/original program prescription stays intact/);
- assert.doesNotMatch(page,/\\.update\\(|\\.insert\\(|Save performed result/);
+ assert.equal(page.includes(".update("),false);assert.equal(page.includes(".insert("),false);assert.doesNotMatch(page,/Save performed result/);
 });
 
 test("coach client profile compares repeated performed exercise evidence without auto-progressing",()=>{
