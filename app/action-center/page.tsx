@@ -31,18 +31,20 @@ export default async function ActionCenterPage() {
   const assignedClientsQ = isOwner
     ? db.from("clients").select("id,primary_trainer_id,status,last_session_at")
     : db.from("clients").select("id,primary_trainer_id,status,last_session_at").eq("primary_trainer_id", user.id);
-  const [assignedClients, unread, programsQ, requestsQ] = await Promise.all([
+  const [assignedClients, unread, programsQ, requestsQ, classesQ] = await Promise.all([
     assignedClientsQ,
     loadStaffUnreadMessages(db),
     db.from("programs").select("id,name,client_id,status,trainer_id,data,updated_at").eq("status","draft").or("data->>source.is.null,data->>source.neq.ims_exercise_set").order("updated_at",{ascending:false}).limit(100),
     db.from("sessions").select("id,client_id,trainer_id,scheduled_at,session_type").eq("status","requested").order("scheduled_at").limit(100),
+    db.from("class_occurrences").select("id,trainer_id,starts_at,status,class_program_id").gte("starts_at",now.toISOString()).lte("starts_at",new Date(now.getTime()+7*86400000).toISOString()).neq("status","cancelled").order("starts_at").limit(100),
   ]);
-  if (assignedClients.error || programsQ.error || requestsQ.error) throw new Error("Action Center is unavailable. Refresh to retry.");
+  if (assignedClients.error || programsQ.error || requestsQ.error || classesQ.error) throw new Error("Action Center is unavailable. Refresh to retry.");
 
   const clientIds = new Set((assignedClients.data ?? []).map(row => row.id));
   const messages = unread.filter(row => isOwner || clientIds.has(row.client_id)).slice(0,20);
   const programs = (programsQ.data ?? []).filter(row => isOwner || row.trainer_id === user.id || clientIds.has(row.client_id)).slice(0,20);
   const requests = (requestsQ.data ?? []).filter(row => isOwner || row.trainer_id === user.id || clientIds.has(row.client_id)).slice(0,20);
+  const classPrep=(classesQ.data??[]).filter(row=>(isOwner||row.trainer_id===user.id)&&!row.class_program_id).slice(0,20);
   const quietRows = (assignedClients.data ?? []).filter(row => row.status === "active" && (!row.last_session_at || row.last_session_at < fourteenDaysAgo)).slice(0,20);
 
   const nameIds = [...new Set([...requests.map(row => row.client_id), ...messages.map(row => row.client_id), ...programs.map(row => row.client_id), ...quietRows.map(row => row.id)])];
@@ -52,12 +54,13 @@ export default async function ActionCenterPage() {
   const date = (value:string) => new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(value));
 
   if (!isOwner) {
-    const total = messages.length + programs.length + requests.length + quietRows.length;
+    const total = messages.length + programs.length + requests.length + quietRows.length + classPrep.length;
     const cards = [
       {href:"/schedule",label:"Booking requests",count:requests.length,icon:CalendarCheck},
       {href:"/messages",label:"Unread messages",count:messages.length,icon:Inbox},
       {href:"/programs",label:"Draft programs",count:programs.length,icon:Dumbbell},
       {href:"/clients",label:"Quiet clients",count:quietRows.length,icon:UserRoundCheck},
+      {href:"/classes/manage",label:"Classes needing plans",count:classPrep.length,icon:CalendarCheck},
     ];
     return <AppShell><main className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
       <header className="rounded-3xl bg-band px-6 py-7 text-white shadow-lg"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/65">Coach action center</p><div className="mt-2 flex items-end justify-between gap-4"><div><h1 className="text-4xl font-bold">What needs handling</h1><p className="mt-2 text-sm text-white/80">Your clients, your programs, your messages and training requests—without owner finance noise.</p></div><div className="hidden text-right sm:block"><p className="text-4xl font-bold">{total}</p><p className="text-xs text-white/65">coaching actions</p></div></div></header>
@@ -66,7 +69,9 @@ export default async function ActionCenterPage() {
         <Queue title="Booking requests" href="/schedule" empty="No pending training requests for your clients." rows={requests.map(row=>({key:row.id,title:names.get(row.client_id)??"Client",meta:date(row.scheduled_at),href:"/schedule"}))}/>
         <Queue title="Unread communications" href="/messages" empty="No incoming messages need your attention." rows={messages.map(row=>({key:row.id,title:names.get(row.client_id)??"Client message",meta:row.body.slice(0,90),href:`/messages/${row.client_id}`}))}/>
         <Queue title="Programs awaiting work" href="/programs" empty="No draft programs need your attention." rows={programs.map(row=>({key:row.id,title:row.name||"Draft program",meta:names.get(row.client_id)??"Client",href:`/programs/${row.id}`}))}/>
-        <Queue title="Clients going quiet" href="/clients" empty="No assigned active clients are currently flagged." rows={quietRows.map(row=>({key:row.id,title:names.get(row.id)??"Client",meta:row.last_session_at?"14+ days since recorded session":"No completed session recorded",href:`/clients/${row.id}`}))}/>
+<Queue title="Classes needing a delivery plan" href="/classes/manage" empty="Your next 7 days of assigned classes have structured plans." rows={classPrep.map(row=>({key:row.id,title:"Class plan not assigned",meta:date(row.starts_at),href:`/classes/manage/${row.id}`}))}/>
+  <Queue title="Classes needing a delivery plan" href="/classes/manage" empty="Upcoming classes in the loaded 7-day window have structured plans." rows={classPrep.map(row=>({key:row.id,title:"Class plan not assigned",meta:date(row.starts_at),href:`/classes/manage/${row.id}`}))}/>
+      <Queue title="Clients going quiet" href="/clients" empty="No assigned active clients are currently flagged." rows={quietRows.map(row=>({key:row.id,title:names.get(row.id)??"Client",meta:row.last_session_at?"14+ days since recorded session":"No completed session recorded",href:`/clients/${row.id}`}))}/>
       </div>
     </main></AppShell>;
   }
@@ -78,7 +83,7 @@ export default async function ActionCenterPage() {
   ]);
   if (paymentsQ.error) throw new Error("Owner billing actions are unavailable. Refresh to retry.");
   const leads = growth.untouched.slice(0,20), payments = paymentsQ.data ?? [], lowBalance = packages.slice(0,20);
-  const total = messages.length + leads.length + payments.length + programs.length + quietRows.length + lowBalance.length + requests.length;
+  const total = messages.length + leads.length + payments.length + programs.length + quietRows.length + lowBalance.length + requests.length + classPrep.length;
   const cards = [
     {href:"/schedule",label:"Booking requests",count:requests.length,icon:CalendarCheck},
     {href:"/messages",label:"Incoming unread",count:messages.length,icon:Inbox},
@@ -87,6 +92,7 @@ export default async function ActionCenterPage() {
     {href:"/clients",label:"Renewals",count:lowBalance.length,icon:PackageSearch},
     {href:"/programs",label:"Draft programs",count:programs.length,icon:Dumbbell},
     {href:"/clients",label:"Quiet clients",count:quietRows.length,icon:UserRoundCheck},
+    {href:"/classes/manage",label:"Class prep",count:classPrep.length,icon:CalendarCheck},
   ];
   return <AppShell expectedRole="owner"><main className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
     <header className="rounded-3xl bg-band px-6 py-7 text-white shadow-lg"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/65">Owner action center</p><div className="mt-2 flex items-end justify-between gap-4"><div><h1 className="text-4xl font-bold">What needs attention</h1><p className="mt-2 text-sm text-white/80">Current client work and real business exceptions, connected to their next action.</p></div><div className="hidden text-right sm:block"><p className="text-4xl font-bold">{total}</p><p className="text-xs text-white/65">loaded actions</p></div></div></header>
