@@ -7,11 +7,15 @@ import {SessionCoachPrep} from "@/components/sessions/session-coach-prep";
 import {SessionLastDebrief} from "@/components/sessions/session-last-debrief";
 import {SessionTrainingExecution} from "@/components/sessions/session-training-execution";
 import {SessionWorkspace} from "@/components/sessions/session-workspace";
+import {ClientSessionSummary} from "@/components/sessions/client-session-summary";
+import {CAPTURE_UUID} from "@/lib/exercises/capture";
 export const dynamic="force-dynamic";
 export default async function SessionPage({params}:{params:Promise<{id:string}>}){
- const {id}=await params,db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+ const {id}=await params;if(!CAPTURE_UUID.test(id))notFound();const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
  const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();
- if(me.error)throw new Error("Session authorization unavailable.");if(!me.data||me.data.deleted_at||!["owner","trainer"].includes(me.data.role))redirect("/dashboard");
+ if(me.error)throw new Error("Session authorization unavailable.");if(!me.data||me.data.deleted_at)redirect("/dashboard");
+ if(me.data.role==="client")return <ClientSessionSummary sessionId={id} clientId={user.id}/>;
+ if(!["owner","trainer"].includes(me.data.role))redirect("/dashboard");
  const result=await db.from("sessions").select("id,scheduled_at,duration_minutes,session_type,service_type,status,notes_pre,notes_post,completed_at,plan_id,client_id,trainer_id").eq("id",id).maybeSingle();
  if(result.error)throw new Error("Session could not be loaded.");if(!result.data)notFound();const session=result.data;
  const client=await db.from("clients").select("primary_trainer_id").eq("id",session.client_id).maybeSingle();
