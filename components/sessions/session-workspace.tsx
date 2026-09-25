@@ -2,8 +2,9 @@
 import {createContext,useCallback,useContext,useEffect,useRef,useState,type ReactNode} from "react";
 import type {ResultsSaveReceipt} from "@/lib/coaching/session-close";
 type ResultsController={save:()=>Promise<ResultsSaveReceipt>};
+type SessionWorkspaceState={hasUnsavedResults:boolean;hasUnsavedNotes:boolean;isClosing:boolean;setUnsavedResults:(value:boolean)=>void;setUnsavedNotes:(value:boolean)=>void;registerResults:(controller:ResultsController)=>()=>void;saveEditedResults:()=>Promise<ResultsSaveReceipt>;beginClose:()=>boolean;endClose:()=>void;asOf:string};
 const unavailable=async():Promise<ResultsSaveReceipt>=>({ok:false,saved:0,failed:0,error:"Exercise workspace is unavailable or still loading. Completion was not attempted."});
-const SessionContext=createContext({hasUnsavedResults:false,hasUnsavedNotes:false,isClosing:false,setUnsavedResults:(_value:boolean)=>{},setUnsavedNotes:(_value:boolean)=>{},registerResults:(_controller:ResultsController)=>(()=>{}),saveEditedResults:unavailable,beginClose:()=>false,endClose:()=>{},asOf:""});
+const SessionContext=createContext<SessionWorkspaceState>({hasUnsavedResults:false,hasUnsavedNotes:false,isClosing:false,setUnsavedResults:(_value:boolean)=>{},setUnsavedNotes:(_value:boolean)=>{},registerResults:(_controller:ResultsController)=>(()=>{}),saveEditedResults:unavailable,beginClose:()=>false,endClose:()=>{},asOf:""});
 export const useSessionWorkspace=()=>useContext(SessionContext);
 export function SessionWorkspace({children,asOf}:{children:ReactNode;asOf:string}){
  const [hasUnsavedResults,setUnsavedResults]=useState(false),[hasUnsavedNotes,setUnsavedNotes]=useState(false),[isClosing,setClosing]=useState(false);
