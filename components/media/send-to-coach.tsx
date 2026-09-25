@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { Video, Upload, Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,20 +18,14 @@ export function SendToCoach() {
   const [pct, setPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  useEffect(() => {
-    if (!file) { setPreview(null); return; }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
   function pick(value?: File) {
     if (!value || busy) return;
     if (!/^(video\/(mp4|quicktime|webm)|image\/(jpeg|png|webp))$/.test(value.type) || value.size <= 0 || value.size > 200 * 1024 * 1024) {
       setError("Choose an MP4, MOV, WebM, JPG, PNG or WebP under 200 MB."); return;
     }
-    setFile(value); uploaded.current = null; setPct(0); setError(null); setDone(null);
+    if (preview) URL.revokeObjectURL(preview); setFile(value); setPreview(URL.createObjectURL(value)); uploaded.current = null; setPct(0); setError(null); setDone(null);
   }
-  function clear() { setFile(null); uploaded.current = null; setPct(0); if (camera.current) camera.current.value = ""; if (library.current) library.current.value = ""; }
+  function clear() { if (preview) URL.revokeObjectURL(preview); setPreview(null); setFile(null); uploaded.current = null; setPct(0); if (camera.current) camera.current.value = ""; if (library.current) library.current.value = ""; }
   async function send() {
     if (!file || lock.current) return;
     lock.current = true; setBusy(true); setError(null); setDone(null);
