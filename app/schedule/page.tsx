@@ -90,7 +90,7 @@ function fmtTime(iso: string): string {
 export default async function SchedulePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; type?: string }>;
+  searchParams: Promise<{ date?: string; trainer?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -115,7 +115,6 @@ export default async function SchedulePage({
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
   // Coach OS self-booking is training-only. Keep the staff calendar focused on training.
-  const typeQS = "";
 
   // Trainers = staff profiles (owner coaches too)
   const { data: staff } = await supabase
@@ -125,6 +124,16 @@ export default async function SchedulePage({
     .order("role", { ascending: false }) // owner first
     .order("full_name");
   const trainers = staff ?? [];
+  const requestedTrainer = params.trainer ?? "";
+  const selectedTrainerId = requestedTrainer === "all"
+    ? "all"
+    : trainers.some((t) => t.id === requestedTrainer)
+      ? requestedTrainer
+      : viewer.role === "trainer" && trainers.some((t) => t.id === user.id)
+        ? user.id
+        : "all";
+  const visibleTrainers = selectedTrainerId === "all" ? trainers : trainers.filter((t) => t.id === selectedTrainerId);
+  const trainerQS = `&trainer=${selectedTrainerId}`;
 
   // Fetch the whole visible week of sessions (powers day-strip counts too)
   const weekStart = `${monday}T00:00:00${ptOffset(monday)}`;
@@ -156,15 +165,14 @@ export default async function SchedulePage({
   }
 
   const trainingWeekSessions = weekSessions.filter((s) => s.session_type === "training");
+  const scopedWeekSessions = selectedTrainerId === "all" ? trainingWeekSessions : trainingWeekSessions.filter((s) => s.trainer_id === selectedTrainerId);
   const dayCounts: Record<string, number> = {};
-  for (const s of trainingWeekSessions) {
+  for (const s of scopedWeekSessions) {
     const d = ptDateOf(s.scheduled_at);
     dayCounts[d] = (dayCounts[d] ?? 0) + 1;
   }
 
-  const daySessions = weekSessions.filter(
-    (s) => ptDateOf(s.scheduled_at) === selected && s.session_type === "training"
-  );
+  const daySessions = scopedWeekSessions.filter((s) => ptDateOf(s.scheduled_at) === selected);
 
   // Whole-hour labels within the range. With a 4:30 start, the first whole
   // hour label is 5:00; the half-hour lead-in still renders as grid space.
@@ -226,18 +234,18 @@ export default async function SchedulePage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/schedule?date=${addDays(selected, -7)}${typeQS}`}>
+            <Link href={`/schedule?date=${addDays(selected, -7)}${trainerQS}`}>
               <Button variant="ghost" size="icon" title="Previous week">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href={`/schedule?date=${today}${typeQS}`}>
+            <Link href={`/schedule?date=${today}${trainerQS}`}>
               <Button variant="secondary">
                 <CalendarDays className="h-4 w-4" />
                 Today
               </Button>
             </Link>
-            <Link href={`/schedule?date=${addDays(selected, 7)}${typeQS}`}>
+            <Link href={`/schedule?date=${addDays(selected, 7)}${trainerQS}`}>
               <Button variant="ghost" size="icon" title="Next week">
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -253,9 +261,11 @@ export default async function SchedulePage({
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider bg-white p-3 shadow-sm"><Link href={`/schedule?date=${selected}&trainer=all`} className={`inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold ${selectedTrainerId === "all" ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}>All trainers</Link>{trainers.map((trainer) => <Link key={trainer.id} href={`/schedule?date=${selected}&trainer=${trainer.id}`} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${selectedTrainerId === trainer.id ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}><Avatar name={trainer.full_name} size="sm"/><span>{trainer.id === user.id ? "My schedule" : trainer.full_name}</span></Link>)}</div>
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Today</p><p className="mt-1 text-2xl font-bold text-cream">{daySessions.length}</p><p className="text-xs text-cream-dim">sessions</p></div>
-          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{trainingWeekSessions.length}</p><p className="text-xs text-cream-dim">training sessions</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{scopedWeekSessions.length}</p><p className="text-xs text-cream-dim">training sessions</p></div>
           <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Requests</p><p className="mt-1 text-2xl font-bold text-cream">{pendingRequests.length}</p><p className="text-xs text-cream-dim">need review</p></div>
           <Link href="/schedule/standing" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><p className="text-xs uppercase tracking-wider text-sky">Recurring</p><p className="mt-1 text-sm font-semibold text-cream">Manage standing slots →</p></Link>
         </div>
@@ -273,7 +283,7 @@ export default async function SchedulePage({
             return (
               <Link
                 key={d}
-                href={`/schedule?date=${d}${typeQS}`}
+                href={`/schedule?date=${d}${trainerQS}`}
                 className={`rounded-lg border px-2 py-2.5 text-center transition-colors ${
                   isSelected
                     ? "border-sky bg-sky shadow-sm"
@@ -331,11 +341,11 @@ export default async function SchedulePage({
             <div
               className="grid border-b border-divider"
               style={{
-                gridTemplateColumns: `64px repeat(${Math.max(trainers.length, 1)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `64px repeat(${Math.max(visibleTrainers.length, 1)}, minmax(0, 1fr))`,
               }}
             >
               <div />
-              {trainers.map((t) => {
+              {visibleTrainers.map((t) => {
                 const n = daySessions.filter(
                   (s) => s.trainer_id === t.id
                 ).length;
@@ -356,7 +366,7 @@ export default async function SchedulePage({
                   </div>
                 );
               })}
-              {trainers.length === 0 && (
+              {visibleTrainers.length === 0 && (
                 <div className="px-4 py-3 text-sm text-cream-faint border-l border-divider">
                   No staff profiles yet.
                 </div>
@@ -448,7 +458,7 @@ export default async function SchedulePage({
                     })}
                 </div>
               ))}
-              {trainers.length === 0 && (
+              {visibleTrainers.length === 0 && (
                 <div
                   className="border-l border-divider"
                   style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
