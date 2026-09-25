@@ -28,11 +28,14 @@ export default async function AssessmentsPage() {
     .single();
   if (!viewer || viewer.role === "client") redirect("/dashboard");
 
-  const { data: rows } = await supabase
+  let assessmentQuery = supabase
     .from("assessments")
     .select("id, client_id, trainer_id, assessment_date, status, updated_at")
     .order("updated_at", { ascending: false })
     .limit(100);
+  if (viewer.role === "trainer") assessmentQuery = assessmentQuery.eq("trainer_id", user.id);
+  const { data: rows, error: assessmentsError } = await assessmentQuery;
+  if (assessmentsError) throw new Error("Assessments could not be loaded.");
   const assessments = rows ?? [];
 
   // Resolve names (clients + trainers) in one query
@@ -59,7 +62,7 @@ export default async function AssessmentsPage() {
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-3xl border border-sky/15 bg-gradient-to-br from-white via-white to-sky/5 p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               Assessments
@@ -74,7 +77,9 @@ export default async function AssessmentsPage() {
               New assessment
             </Button>
           </Link>
-        </div>
+        </div></div>
+
+        <div className="grid grid-cols-3 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-3xl font-bold text-cream">{assessments.length}</p><p className="text-xs text-cream-faint">{viewer.role === "trainer" ? "My assessments" : "Assessments loaded"}</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-3xl font-bold text-cream">{assessments.filter(a=>a.status==="in_progress").length}</p><p className="text-xs text-cream-faint">In progress</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-3xl font-bold text-cream">{assessments.filter(a=>a.status==="complete").length}</p><p className="text-xs text-cream-faint">Complete</p></div></div>
 
         <Card>
           <CardContent className="p-0">
