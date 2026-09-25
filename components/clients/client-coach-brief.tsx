@@ -16,14 +16,15 @@ export async function ClientCoachBrief({clientId}:{clientId:string}){
  const viewer=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();
  if(viewer.error||!viewer.data||viewer.data.deleted_at||!["owner","trainer"].includes(viewer.data.role))return null;
  const now=new Date().toISOString();
- const [plansQ,nextQ,lastQ,assessQ,programsQ]=await Promise.all([
+ const [plansQ,nextQ,lastQ,assessQ,programsQ,remoteQ]=await Promise.all([
   db.from("plans").select("kind,total_sessions,sessions_used,status").eq("client_id",clientId).eq("status","active"),
   db.from("sessions").select("id,scheduled_at").eq("client_id",clientId).in("status",["scheduled","confirmed"]).gte("scheduled_at",now).order("scheduled_at").limit(1).maybeSingle(),
   db.from("sessions").select("id,scheduled_at,completed_at").eq("client_id",clientId).eq("status","completed").order("scheduled_at",{ascending:false}).limit(1).maybeSingle(),
   db.from("assessments").select("id,status,assessment_date").eq("client_id",clientId).order("assessment_date",{ascending:false}).limit(1).maybeSingle(),
   db.from("programs").select("id,status,data").eq("client_id",clientId).order("updated_at",{ascending:false}).limit(200),
+  db.from("client_media").select("id").eq("client_id",clientId).eq("uploaded_by",clientId).limit(1),
  ]);
- if([plansQ,nextQ,lastQ,assessQ,programsQ].some(q=>q.error))return <section className="rounded-3xl border border-status-limited/30 bg-white p-5"><h2 className="font-semibold text-cream">Coach brief</h2><p role="alert" className="mt-2 text-sm text-status-limited">Coaching priorities could not be loaded. No action state was inferred.</p></section>;
+ if([plansQ,nextQ,lastQ,assessQ,programsQ,remoteQ].some(q=>q.error))return <section className="rounded-3xl border border-status-limited/30 bg-white p-5"><h2 className="font-semibold text-cream">Coach brief</h2><p role="alert" className="mt-2 text-sm text-status-limited">Coaching priorities could not be loaded. No action state was inferred.</p></section>;
  const packages=(plansQ.data??[]).filter(p=>p.kind==="package");
  const packageRemaining=packages.length?Math.min(...packages.map(p=>Math.max(0,Number(p.total_sessions??0)-Number(p.sessions_used??0)))):null;
  const programs=programsQ.data??[],sets=programs.filter(p=>isExerciseSet(p.data)),realPrograms=programs.filter(p=>!isExerciseSet(p.data));
@@ -37,6 +38,7 @@ export async function ClientCoachBrief({clientId}:{clientId:string}){
   draftPrograms:realPrograms.filter(p=>p.status==="draft").length,
   activePrograms:realPrograms.filter(p=>["published","active"].includes(p.status)).length,
   savedExerciseSets:sets.length,
+  remoteCoachingEvidence:(remoteQ.data??[]).length>0,
  };
  const actions=buildCoachActions(clientId,input),mode=coachingMode(input);
  const facts=[
