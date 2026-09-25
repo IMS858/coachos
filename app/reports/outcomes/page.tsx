@@ -1,0 +1,35 @@
+import Link from "next/link";
+import {redirect} from "next/navigation";
+import {Activity,ClipboardCheck,Scale,TrendingUp,Dumbbell,CalendarCheck,ArrowRight} from "lucide-react";
+import {createClient} from "@/lib/supabase/server";
+import {AppShell} from "@/components/layout/app-shell";
+
+export const dynamic="force-dynamic";
+export default async function OutcomesReport(){
+ const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login?next=/reports/outcomes");
+ const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error||me.data?.role!=="owner"||me.data.deleted_at)redirect("/dashboard");
+ const thirty=new Date(Date.now()-30*86400000).toISOString();
+ const [clientsQ,assessQ,bodyQ,signalsQ,sessionsQ,programsQ,staleQ]=await Promise.all([
+  db.from("clients").select("id").eq("status","active"),
+  db.from("assessments").select("client_id,assessment_date,status").eq("status","complete"),
+  db.from("body_comp_records").select("client_id,recorded_at"),
+  db.from("v_progression_signals").select("client_id,pattern,sessions_considered,last_recorded"),
+  db.from("sessions").select("id,client_id",{count:"exact"}).eq("status","completed").gte("completed_at",thirty),
+  db.from("programs").select("client_id,status,published_at").eq("status","active"),
+  db.from("v_assessment_staleness").select("client_id,staleness,days_since"),
+ ]);
+ if([clientsQ,assessQ,bodyQ,signalsQ,sessionsQ,programsQ,staleQ].some(q=>q.error))throw new Error("Outcome evidence report could not be loaded.");
+ const activeIds=new Set((clientsQ.data??[]).map(r=>r.id));const active=(clientsQ.data??[]).length;
+ const countBy=(rows:{client_id:string}[])=>{const m=new Map<string,number>();for(const r of rows)if(activeIds.has(r.client_id))m.set(r.client_id,(m.get(r.client_id)??0)+1);return m;};
+ const assessments=countBy(assessQ.data??[]),body=countBy(bodyQ.data??[]),signals=countBy(signalsQ.data??[]),programs=countBy(programsQ.data??[]);
+ const assessed=[...assessments.values()].filter(n=>n>=1).length,reassessed=[...assessments.values()].filter(n=>n>=2).length,bodyTrend=[...body.values()].filter(n=>n>=2).length,signalClients=[...signals.values()].filter(n=>n>=1).length,programmed=[...programs.values()].filter(n=>n>=1).length;
+ const staleness=new Map<string,number>();for(const r of staleQ.data??[])if(activeIds.has(r.client_id))staleness.set(r.staleness,(staleness.get(r.staleness)??0)+1);
+ const coverage=(n:number)=>active?Math.round(n/active*100):0;
+ return <AppShell expectedRole="owner"><main className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
+  <header className="rounded-3xl bg-band p-6 text-white sm:p-8"><p className="text-xs font-semibold uppercase tracking-[.2em] text-white/60">Owner intelligence</p><h1 className="mt-2 text-4xl font-bold">Client Outcomes & Evidence</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-white/75">Measures how much objective coaching evidence IMS has captured. This reports data coverage—not claims of improvement when the underlying evidence is insufficient.</p></header>
+  <section className="grid grid-cols-2 gap-3 lg:grid-cols-6"><div className="rounded-2xl border border-divider bg-white p-4"><Activity className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold">{active}</p><p className="text-xs text-cream-faint">active clients</p></div><div className="rounded-2xl border border-divider bg-white p-4"><ClipboardCheck className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold">{assessed}</p><p className="text-xs text-cream-faint">with assessment</p></div><div className="rounded-2xl border border-divider bg-white p-4"><TrendingUp className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold">{reassessed}</p><p className="text-xs text-cream-faint">with reassessment</p></div><div className="rounded-2xl border border-divider bg-white p-4"><Scale className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold">{bodyTrend}</p><p className="text-xs text-cream-faint">body-comp trend ready</p></div><div className="rounded-2xl border border-divider bg-white p-4"><Dumbbell className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold">{programmed}</p><p className="text-xs text-cream-faint">active program</p></div><div className="rounded-2xl border border-divider bg-white p-4"><CalendarCheck className="h-5 w-5 text-sky"/><p className="mt-3 text-3xl font-bold">{sessionsQ.count??0}</p><p className="text-xs text-cream-faint">sessions completed · 30d</p></div></section>
+  <section className="grid gap-4 md:grid-cols-2"><div className="rounded-2xl border border-divider bg-white p-5 shadow-sm"><h2 className="font-semibold text-cream">Evidence coverage</h2><div className="mt-4 space-y-4">{[["Initial assessment",assessed],["Reassessment / trend",reassessed],["Body composition trend",bodyTrend],["Progression signal",signalClients],["Published active program",programmed]].map(([label,n])=><div key={String(label)}><div className="flex justify-between text-sm"><span className="text-cream-dim">{label}</span><span className="font-semibold text-cream">{n}/{active} · {coverage(Number(n))}%</span></div><div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-soft"><div className="h-full bg-sky" style={{width:coverage(Number(n))+"%"}}/></div></div>)}</div></div>
+  <div className="rounded-2xl border border-divider bg-white p-5 shadow-sm"><h2 className="font-semibold text-cream">Assessment freshness</h2><p className="mt-1 text-sm text-cream-dim">Current status from the assessment staleness view.</p><div className="mt-4 grid grid-cols-2 gap-3">{[...staleness.entries()].map(([label,n])=><div key={label} className="rounded-xl bg-surface-soft p-3"><p className="text-2xl font-bold text-cream">{n}</p><p className="text-xs capitalize text-cream-faint">{label.replaceAll("_"," ")}</p></div>)}{staleness.size===0&&<p className="col-span-2 text-sm text-cream-dim">No assessment freshness data yet.</p>}</div><Link href="/assessments" className="mt-4 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-sky">Open assessments <ArrowRight className="h-4 w-4"/></Link></div></section>
+  <section className="rounded-2xl border border-sky/20 bg-sky/5 p-5"><h2 className="font-semibold text-cream">Why this matters operationally</h2><p className="mt-2 text-sm leading-6 text-cream-dim">A future coach, operator or buyer should be able to see what IMS measured, when it was measured, which program was delivered and whether follow-up evidence exists. This screen highlights where that evidence is strong and where the system still needs consistent capture.</p></section>
+ </main></AppShell>;
+}
