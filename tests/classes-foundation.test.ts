@@ -12,7 +12,7 @@ test("class credit ledger is immutable and not yet an automatic charge path",()=
 
 test("class compensation can never be inferred from class pricing",()=>{const migration=readFileSync("packages/db/migrations/0053_class_compensation_rules.sql","utf8");assert.match(migration,/flat_class/);assert.match(migration,/per_attendee/);assert.match(migration,/owner reads class compensation rules/);assert.match(migration,/Calculation\/submission is intentionally absent/);assert.doesNotMatch(migration,/payments|price_cents|class_access_products/);});
 
-test("client progress counts recorded class attendance without inventing outcomes",()=>{const page=readFileSync("app/progress/page.tsx","utf8");assert.match(page,/class_enrollments/);assert.match(page,/status","attended/);assert.match(page,/classes attended · recorded attendance only/);assert.doesNotMatch(page,/calories|strength gained|mobility improved|class progress score/i);});
+test("client progress counts recorded class attendance without inventing outcomes",()=>{const page=readFileSync("app/progress/page.tsx","utf8");assert.match(page,/class_enrollments/);assert.match(page,/\.eq\("status","attended"\)/);assert.match(page,/classes attended · recorded attendance only/);assert.doesNotMatch(page,/calories|strength gained|mobility improved|class progress score/i);});
 
 test("owner operating system includes group coaching without merging class finance into PT",()=>{const page=readFileSync("app/operating-system/page.tsx","utf8");assert.match(page,/Group coaching loop/);assert.match(page,/class_occurrences/);assert.match(page,/Credits and payroll remain separate/);});
 
