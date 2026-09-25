@@ -1,62 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendEmail, emailShell } from "@/lib/mailer";
-import { pushClient } from "@/lib/mobile/push-client";
-
-/** Staff booking decisions; notification failures never reverse a saved decision. */
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: me, error: profileError } = await supabase.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
-  if (profileError) return NextResponse.json({ error: "Staff authorization unavailable" }, { status: 503 });
-  if (!me || me.deleted_at || !["owner", "trainer"].includes(me.role)) return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  const body = await request.json().catch(() => ({}));
-  const action = body.action === "approve" ? "approve" : body.action === "decline" ? "decline" : null;
-  if (!action) return NextResponse.json({ error: "action must be approve or decline" }, { status: 400 });
-  const svc = createServiceClient();
-  const { data: session, error: sessionError } = await svc.from("sessions").select("id, client_id, scheduled_at, session_type, status").eq("id", id).maybeSingle();
-  if (sessionError) return NextResponse.json({ error: "Session lookup unavailable" }, { status: 503 });
-  if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (session.status !== "requested") return NextResponse.json({ error: "This request was already handled." }, { status: 409 });
-  const newStatus = action === "approve" ? "scheduled" : "cancelled";
-  const assignedTrainer = body.trainer_id ?? user.id;
-  if (action === "approve") {
-    const start = new Date(session.scheduled_at).getTime();
-    const { data: conflicts, error: conflictError } = await svc.from("sessions").select("id, scheduled_at, duration_minutes")
-      .eq("trainer_id", assignedTrainer).in("status", ["scheduled", "confirmed"])
-      .gte("scheduled_at", new Date(start - 4 * 60 * 60 * 1000).toISOString())
-      .lt("scheduled_at", new Date(start + 60 * 60 * 1000).toISOString());
-    if (conflictError) return NextResponse.json({ error: "Availability check failed" }, { status: 503 });
-    if ((conflicts ?? []).some(other => new Date(other.scheduled_at).getTime() < start + 60 * 60 * 1000 && new Date(other.scheduled_at).getTime() + (other.duration_minutes ?? 60) * 60000 > start)) return NextResponse.json({ error: "Trainer already has a session at this time." }, { status: 409 });
-  }
-  const updates: Record<string, unknown> = { status: newStatus };
-  if (action === "approve") updates.trainer_id = assignedTrainer;
-  else { updates.cancelled_at = new Date().toISOString(); updates.cancelled_by = user.id; updates.cancellation_reason = "declined_by_staff"; }
-  const { data: updated, error } = await svc.from("sessions").update(updates as never).eq("id", id).eq("status", "requested").select("id").maybeSingle();
-  if (!error && !updated) return NextResponse.json({ error: "This request was already handled." }, { status: 409 });
-  if (error?.code === "40P01") return NextResponse.json({ error: "Another booking changed at the same time. Refresh availability and retry." }, { status: 409 });
-  if (error?.code === "23P01") return NextResponse.json({ error: "Trainer already has a session at this time." }, { status: 409 });
-  if (error) return NextResponse.json({ error: "Update failed" }, { status: 500 });
-
-  try {
-    const { data: clientProfile } = await svc.from("profiles").select("full_name,email").eq("id", session.client_id).maybeSingle();
-    if (clientProfile?.email) {
-      const whenStr = new Date(session.scheduled_at).toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" });
-      const escape = (value: string) => value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-      const firstName = escape((clientProfile.full_name ?? "").split(" ")[0] || "there");
-      await sendEmail({
-        to: clientProfile.email, idempotencyKey: `session-response/${session.id}/${action}`,
-        subject: action === "approve" ? `Confirmed — your IMS session on ${whenStr}` : "About your IMS session request",
-        html: emailShell({ heading: action === "approve" ? "Your training is confirmed" : "Let's find another time",
-          bodyHtml: action === "approve" ? `<p>Hi ${firstName},</p><p>Your ${escape(session.session_type)} session is confirmed for <strong>${whenStr}</strong>.</p><p>We're at 10625 Scripps Ranch Blvd, Suite D. See you then!</p><p>Need to reschedule? Contact IMS at (619) 937-1434.</p>` : `<p>Hi ${firstName},</p><p>We couldn't fit your requested slot on <strong>${whenStr}</strong>.</p><p>Request another time in the app, or call/text us at (619) 937-1434.</p>` }),
-      });
-    }
-  } catch { console.warn("[sessions/respond] client email failed"); }
-  try {
-    const result = await pushClient(session.client_id, action === "approve" ? { kind: "booking_confirmed", title: "Training confirmed", body: "Your IMS training session is confirmed.", sessionId: session.id } : { kind: "booking_declined", title: "Training request update", body: "Your coach sent an update about your training request.", sessionId: session.id });
-    if (!result.ok) console.warn("[sessions/respond] push delivery unavailable");
-  } catch { console.warn("[sessions/respond] push delivery unavailable"); }
-  return NextResponse.json({ ok: true, status: newStatus });
-}
+import {type NextRequest,NextResponse} from "next/server";
+import {createClient,createServiceClient} from "@/lib/supabase/server";
+import {sendEmail,emailShell} from "@/lib/mailer";import {pushClient} from "@/lib/mobile/push-client";import {CAPTURE_UUID} from "@/lib/exercises/capture";import {smallJson} from "@/lib/media/request";
+const reply=(b:unknown,s=200)=>NextResponse.json(b,{status:s,headers:{"Cache-Control":"private, no-store"}});
+export async function POST(request:NextRequest,{params}:{params:Promise<{id:string}>}){const {id}=await params;if(!CAPTURE_UUID.test(id))return reply({error:"Invalid session"},400);const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return reply({error:"Unauthorized"},401);if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin"},403);const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error)return reply({error:"Staff authorization unavailable"},503);if(!me.data||me.data.deleted_at||!["owner","trainer"].includes(me.data.role))return reply({error:"Staff only"},403);const raw=await smallJson(request,2048).catch(()=>null);if(!raw||typeof raw!=="object"||Array.isArray(raw))return reply({error:"Invalid decision"},400);const body=raw as Record<string,unknown>;if(Object.keys(body).some(k=>!["action","trainer_id"].includes(k)))return reply({error:"Unsupported decision fields"},400);const action=body.action==="approve"?"approve":body.action==="decline"?"decline":null;if(!action)return reply({error:"action must be approve or decline"},400);const svc=createServiceClient();const session=await svc.from("sessions").select("id,client_id,trainer_id,scheduled_at,duration_minutes,session_type,status").eq("id",id).maybeSingle();if(session.error)return reply({error:"Session lookup unavailable"},503);if(!session.data)return reply({error:"Not found"},404);if(session.data.status!=="requested")return reply({error:"This request was already handled."},409);if(session.data.session_type!=="training")return reply({error:"Coach OS booking requests are training only."},409);if(me.data.role==="trainer"&&session.data.trainer_id!==user.id)return reply({error:"Only the requested trainer or owner may handle this request."},403);const assignedTrainer=typeof body.trainer_id==="string"&&CAPTURE_UUID.test(body.trainer_id)?body.trainer_id:session.data.trainer_id??user.id;if(me.data.role==="trainer"&&assignedTrainer!==user.id)return reply({error:"Trainers cannot reassign booking requests."},403);if(action==="approve"){const start=Date.parse(session.data.scheduled_at),end=start+Number(session.data.duration_minutes||60)*60000,windowStart=new Date(start-4*3600000).toISOString(),windowEnd=new Date(end+4*3600000).toISOString();const [sessionsQ,classesQ,blocksQ]=await Promise.all([svc.from("sessions").select("id,scheduled_at,duration_minutes").eq("trainer_id",assignedTrainer).in("status",["scheduled","confirmed"]).gte("scheduled_at",windowStart).lt("scheduled_at",windowEnd),svc.from("class_occurrences").select("id,starts_at,ends_at").eq("trainer_id",assignedTrainer).neq("status","cancelled").gte("starts_at",windowStart).lt("starts_at",windowEnd),svc.from("trainer_time_blocks").select("id,starts_at,ends_at").eq("trainer_id",assignedTrainer).lt("starts_at",new Date(end).toISOString()).gt("ends_at",new Date(start).toISOString())]);if(sessionsQ.error||classesQ.error||blocksQ.error)return reply({error:"Availability check failed"},503);const overlap=(a:number,b:number)=>a<end&&b>start;if((sessionsQ.data??[]).some(x=>x.id!==id&&overlap(Date.parse(x.scheduled_at),Date.parse(x.scheduled_at)+Number(x.duration_minutes||60)*60000))||(classesQ.data??[]).some(x=>overlap(Date.parse(x.starts_at),Date.parse(x.ends_at)))||(blocksQ.data??[]).length)return reply({error:"Trainer is unavailable at this time."},409);}
+const updates:Record<string,unknown>=action==="approve"?{status:"scheduled",trainer_id:assignedTrainer}:{status:"cancelled",cancelled_at:new Date().toISOString(),cancelled_by:user.id,cancellation_reason:"declined_by_staff"};const saved=await svc.from("sessions").update(updates as never).eq("id",id).eq("status","requested").select("id").maybeSingle();if(saved.error?.code==="23P01"||saved.error?.code==="40P01")return reply({error:"Another booking changed at the same time. Refresh availability and retry."},409);if(saved.error)return reply({error:"Booking decision was not confirmed."},503);if(!saved.data)return reply({error:"This request was already handled."},409);
+try{const client=await svc.from("profiles").select("full_name,email").eq("id",session.data.client_id).maybeSingle();if(client.data?.email){const when=new Date(session.data.scheduled_at).toLocaleString("en-US",{weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"America/Los_Angeles"}),escape=(v:string)=>v.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!)),first=escape((client.data.full_name??"").split(" ")[0]||"there");await sendEmail({to:client.data.email,idempotencyKey:`session-response/${id}/${action}`,subject:action==="approve"?`Confirmed — your IMS training on ${when}`:"About your IMS training request",html:emailShell({heading:action==="approve"?"Your training is confirmed":"Let's find another time",bodyHtml:action==="approve"?`<p>Hi ${first},</p><p>Your training session is confirmed for <strong>${when}</strong>.</p>`:`<p>Hi ${first},</p><p>We couldn't fit your requested training slot on <strong>${when}</strong>.</p>`})});}}catch{console.warn("[sessions/respond] email unavailable");}try{await pushClient(session.data.client_id,action==="approve"?{kind:"booking_confirmed",title:"Training confirmed",body:"Your IMS training session is confirmed.",sessionId:id}:{kind:"booking_declined",title:"Training request update",body:"Your coach sent an update about your training request.",sessionId:id});}catch{console.warn("[sessions/respond] push unavailable");}return reply({ok:true,status:updates.status});}
