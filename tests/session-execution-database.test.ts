@@ -22,7 +22,7 @@ test("session exercise performance migration keeps prescription identity immutab
   await assert.rejects(db.query("delete from public.session_exercise_performance where id=$1",[rowId]),/permission denied/);
   await asActor(other);assert.equal((await db.query("select id from public.session_exercise_performance")).rows.length,0);await assert.rejects(db.query("insert into public.session_exercise_performance(id,session_id,client_id,program_id,prescription_key,exercise_name,recorded_by) values($1,$2,$3,$4,'x','Unauthorized',$5)",[randomUUID(),session,client,program,other]),/row-level security/);
   await asActor(client);assert.equal((await db.query("select id from public.session_exercise_performance")).rows.length,0);
-  await asActor(owner);assert.equal((await db.query("select rpe_actual from public.session_exercise_performance")).rows[0].rpe_actual,"7.5");await db.query("update public.session_exercise_performance set coach_note='Owner corrected observation' where id=$1",[rowId]);
+  await asActor(owner);assert.equal(Number((await db.query("select rpe_actual from public.session_exercise_performance")).rows[0].rpe_actual),7.5);await db.query("update public.session_exercise_performance set coach_note='Owner corrected observation' where id=$1",[rowId]);
   await db.exec("reset role; update public.sessions set status='cancelled' where id='"+session+"'");await asActor(trainer);await assert.rejects(db.query("update public.session_exercise_performance set coach_note='Should fail' where id=$1",[rowId]),/row-level security/);
  }finally{await db.close();}
 });
