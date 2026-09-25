@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { SessionDetail } from "@/components/sessions/session-detail";
+import { SessionCoachPrep } from "@/components/sessions/session-coach-prep";
 
 export default async function SessionPage({
   params,
@@ -59,6 +60,7 @@ export default async function SessionPage({
           Today
         </Link>
 
+        <SessionCoachPrep clientId={session.client_id} scheduledAt={session.scheduled_at}/>
         <SessionDetail
           session={session as any}
           activePlans={activePlans ?? []}
