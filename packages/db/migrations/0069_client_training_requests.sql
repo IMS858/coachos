@@ -24,8 +24,8 @@ begin
   if p_when is null or not isfinite(p_when) then return false; end if;
   if p_when<now()+interval '60 minutes' or p_when>now()+interval '60 days' then return false; end if;
   if v_weekday=0 or extract(second from local_start)<>0 or extract(minute from local_start)::integer not in (0,30)
-    or local_end::date<>local_start::date or start_min<case when v_weekday=6 then 480 else 360 end
-    or end_min>case when v_weekday=6 then 780 else 1140 end then return false; end if;
+    or local_end::date<>local_start::date or start_min<(case when v_weekday=6 then 480 else 360 end)
+    or end_min>(case when v_weekday=6 then 780 else 1140 end) then return false; end if;
   if exists(select 1 from public.trainer_availability_rules where trainer_id=p_trainer and active)
     and not exists(select 1 from public.trainer_availability_rules r where r.trainer_id=p_trainer and r.active and r.weekday=v_weekday
       and local_start::time>=r.start_time and local_end::time<=r.end_time) then return false; end if;
