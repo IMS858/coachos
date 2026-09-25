@@ -21,3 +21,9 @@ test("session workflow links program prescription to performed exercise evidence
  assert.match(route,/session_exercise_performance/);assert.match(route,/prescription_snapshot/);assert.match(route,/recordAudit/);
  assert.doesNotMatch(route,/programs"\)\.update|program_exercises"\)\.update/);
 });
+
+test("client history shows coached performed evidence without exposing edit controls",()=>{
+ const page=readFileSync("app/workouts/page.tsx","utf8");
+ assert.match(page,/session_exercise_performance/);assert.match(page,/What you actually performed with your coach/);assert.match(page,/original program prescription stays intact/);
+ assert.doesNotMatch(page,/\\.update\\(|\\.insert\\(|Save performed result/);
+});
