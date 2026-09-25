@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * PATCH /api/plans/[id]
@@ -93,6 +94,7 @@ export async function PATCH(
     }
   }
 
+  await recordAudit({actorId:user.id,action:"client.plan_updated",entityType:"plan",entityId:id,changes:{fields:Object.keys(allowed),status:body.status}});
   return NextResponse.json({ ok: true });
 }
 
@@ -148,6 +150,7 @@ export async function DELETE(
   if (plan?.client_id) {
     await recomputeBillingType(supabase, plan.client_id);
   }
+  await recordAudit({actorId:user.id,action:"client.plan_cancelled",entityType:"plan",entityId:id,changes:{client_id:plan?.client_id??null}});
 
   return NextResponse.json({ ok: true });
 }
