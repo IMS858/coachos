@@ -11,6 +11,7 @@ import { sendEmail, emailShell } from "@/lib/mailer";
  * Staff approve or decline via /api/sessions/[id]/respond.
  */
 export async function POST(request: NextRequest) {
+  if (request.headers.get("origin") !== request.nextUrl.origin) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   const supabase = await createClient();
   const {
     data: { user },
@@ -79,7 +80,10 @@ export async function POST(request: NextRequest) {
   if (when < serviceNoticeBoundary) return NextResponse.json({ error: `This service requires ${minimumNoticeMinutes} minutes notice.` }, { status: 400 });
   if (when > horizonBoundary) return NextResponse.json({ error: `This service can be booked up to ${horizonDays} days ahead.` }, { status: 400 });
 
-  // Recheck availability server-side; the client picker is advisory and can go stale.\n  const startMs = when.getTime();\n  const { data: conflicts, error: conflictError } = await svc.from("sessions")\n    .select("id,scheduled_at,duration_minutes")\n    .eq("trainer_id", clientRow.primary_trainer_id)\n    .in("status", ["requested","scheduled","confirmed"])\n    .gte("scheduled_at", new Date(startMs - 4 * 3600000).toISOString())\n    .lt("scheduled_at", new Date(startMs + 3600000).toISOString());\n  if (conflictError) return NextResponse.json({ error: "Availability check unavailable." }, { status: 503 });\n  if ((conflicts ?? []).some((other) => {\n    const otherStart = new Date(other.scheduled_at).getTime();\n    const otherEnd = otherStart + (other.duration_minutes ?? 60) * 60000;\n    return otherStart < startMs + duration * 60000 && otherEnd > startMs;\n  })) return NextResponse.json({ error: "That time was just taken. Choose another available slot." }, { status: 409 });\n\n  // Cap open requests to prevent spam
+  // Recheck availability server-side; the client picker is advisory and can go stale.\n  const startMs = when.getTime();\n  const { data: conflicts, error: conflictError } = await svc.from("sessions")\n    .select("id,scheduled_at,duration_minutes")\n    .eq("trainer_id", clientRow.primary_trainer_id)\n    .in("status", ["requested","scheduled","confirmed"])\n    .gte("scheduled_at", new Date(startMs - 4 * 3600000).toISOString())\n    .lt("scheduled_at", new Date(startMs + 3600000).toISOString());\n  if (conflictError) return NextResponse.json({ error: "Availability check unavailable." }, { status: 503 });
+  const { data: classConflicts, error: classConflictError } = await svc.from("class_occurrences").select("id,starts_at,ends_at").eq("trainer_id",clientRow.primary_trainer_id).neq("status","cancelled").lt("starts_at",new Date(startMs+duration*60000).toISOString()).gt("ends_at",when.toISOString());
+  if (classConflictError) return NextResponse.json({ error: "Class availability check unavailable." }, { status: 503 });
+  if ((classConflicts ?? []).length) return NextResponse.json({ error: "That time overlaps your coach’s class schedule. Choose another available slot." }, { status: 409 });\n  if ((conflicts ?? []).some((other) => {\n    const otherStart = new Date(other.scheduled_at).getTime();\n    const otherEnd = otherStart + (other.duration_minutes ?? 60) * 60000;\n    return otherStart < startMs + duration * 60000 && otherEnd > startMs;\n  })) return NextResponse.json({ error: "That time was just taken. Choose another available slot." }, { status: 409 });\n\n  // Cap open requests to prevent spam
   const { count, error: countError } = await svc
     .from("sessions")
     .select("id", { count: "exact", head: true })
