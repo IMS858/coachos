@@ -12,11 +12,11 @@ export default async function TeamHubPage(){
  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login?next=/team");
  const me=await db.from("profiles").select("id,role,full_name,email,phone,deleted_at").eq("id",user.id).maybeSingle();
  if(me.error||!me.data||me.data.deleted_at||!["owner","trainer"].includes(me.data.role))redirect("/dashboard");
- const profile=me.data,svc=createServiceClient(),since30=new Date(Date.now()-30*86400000).toISOString(),weekAhead=new Date(Date.now()+7*86400000).toISOString();
+ const profile=me.data,svc=createServiceClient(),today=new Date().toISOString().slice(0,10),todayStart=new Date(today+"T00:00:00.000Z"),since30Date=new Date(todayStart),weekAheadDate=new Date(todayStart);since30Date.setUTCDate(since30Date.getUTCDate()-30);weekAheadDate.setUTCDate(weekAheadDate.getUTCDate()+7);const since30=since30Date.toISOString(),weekAhead=weekAheadDate.toISOString(),nowIso=new Date().toISOString();
  const [clientsQ,doneQ,upcomingQ,ruleQ]=await Promise.all([
   svc.from("clients").select("id",{count:"exact",head:true}).eq("status","active").eq("primary_trainer_id",user.id),
   svc.from("sessions").select("id",{count:"exact",head:true}).eq("trainer_id",user.id).eq("status","completed").gte("scheduled_at",since30),
-  svc.from("sessions").select("id",{count:"exact",head:true}).eq("trainer_id",user.id).in("status",["scheduled","confirmed","requested"]).gte("scheduled_at",new Date().toISOString()).lt("scheduled_at",weekAhead),
+  svc.from("sessions").select("id",{count:"exact",head:true}).eq("trainer_id",user.id).in("status",["scheduled","confirmed","requested"]).gte("scheduled_at",nowIso).lt("scheduled_at",weekAhead),
   svc.from("trainer_compensation_rules").select("compensation_type,rate_cents,late_cancel_rate_cents,no_show_rate_cents,provider,provider_employee_id,effective_from,active").eq("trainer_id",user.id).maybeSingle(),
  ]);
  if([clientsQ,doneQ,upcomingQ,ruleQ].some(q=>q.error))throw new Error("Team Hub could not be loaded.");
