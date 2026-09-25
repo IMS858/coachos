@@ -1,45 +1,19 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
-
-/**
- * PATCH /api/account — a signed-in user updates their OWN name and phone.
- *
- * Scoped to auth.uid() and to two fields only, so this can't be used to change
- * someone else's record, escalate a role, or edit the email that identifies
- * the account.
- */
-export async function PATCH(request: NextRequest) {
-  if (request.headers.get("origin") !== request.nextUrl.origin) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await request.json().catch(() => ({}));
-  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => !["full_name","phone"].includes(key))) return NextResponse.json({ error: "Unsupported account fields." }, { status: 400 });
-  const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-
-  if (!fullName || fullName.length > 120) {
-    return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
-  }
-  if (phone.length > 40) {
-    return NextResponse.json({ error: "That phone number looks too long." }, { status: 400 });
-  }
-
-  const { data: me, error: profileError } = await supabase.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();
-  if (profileError) return NextResponse.json({ error: "Account authorization unavailable." }, { status: 503 });
-  if (!me || me.deleted_at || me.role !== "client") return NextResponse.json({ error: "Client account required." }, { status: 403 });
-  const { error } = await supabase
-    .from("profiles")
-    .update({ full_name: fullName, phone: phone || null } as never)
-    .eq("id", user.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true });
+import {type NextRequest,NextResponse} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+import {smallJson} from "@/lib/media/request";
+import {parseAccountDetails} from "@/lib/account/profile-contract";
+export const dynamic="force-dynamic";
+const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
+export async function PATCH(request:NextRequest){
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();
+  if(!user)return reply({error:"Unauthorized"},401);
+  if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin."},403);
+  let details;
+  try{details=parseAccountDetails(await smallJson(request,2048));}catch(e){return reply({error:e instanceof Error?e.message:"Unsupported account fields."},400);}
+  const {data:me,error:profileError}=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();
+  if(profileError)return reply({error:"Account authorization unavailable."},503);
+  if(!me||me.deleted_at||me.role !== "client")return reply({error:"Client account required."},403);
+  const {data:saved,error}=await db.from("profiles").update(details).eq("id",user.id).eq("role","client").is("deleted_at",null).select("id,full_name,phone").maybeSingle();
+  if(error||!saved||saved.id!==user.id||saved.full_name!==details.full_name||saved.phone!==details.phone)return reply({error:"Account changes were not confirmed. Your edits are still here; retry before leaving."},503);
+  return reply({ok:true,profile:{full_name:saved.full_name,phone:saved.phone}});
 }

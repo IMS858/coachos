@@ -1,154 +1,33 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendEmail, emailShell } from "@/lib/mailer";
-
-/**
- * POST /api/sessions/request
- * Client self-booking: a signed-in client requests a session slot.
- * Creates a session with status 'requested' assigned to their primary
- * trainer, and emails the owner so nothing sits unseen.
- *
- * Staff approve or decline via /api/sessions/[id]/respond.
- */
-export async function POST(request: NextRequest) {
-  if (request.headers.get("origin") !== request.nextUrl.origin) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await request.json().catch(() => ({}));
-  const scheduledAt = String(body.scheduled_at ?? "");
-  let sessionType = String(body.session_type ?? "training");
-  const serviceId = typeof body.service_id === "string" ? body.service_id : null;
-  const note = String(body.note ?? "").slice(0, 500);
-  const allowedSessionTypes = new Set(["training"]);
-  if (!allowedSessionTypes.has(sessionType)) {
-    return NextResponse.json({ error: "Choose a valid session type." }, { status: 400 });
+import {type NextRequest,NextResponse} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+import {smallJson} from "@/lib/media/request";
+import {parseRequestPayload,parseRequestReceipt} from "@/lib/booking/client-contract";
+import {sendEmail,emailShell} from "@/lib/mailer";
+const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
+export async function POST(request:NextRequest){
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();
+  if(!user)return reply({error:"Unauthorized",saved:false},401);
+  if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin.",saved:false},403);
+  let body;
+  try{body=parseRequestPayload(await smallJson(request,4096));}catch(e){return reply({error:e instanceof Error?e.message:"Invalid request.",saved:false},400);}
+  // One transaction rechecks the class schedule, 1:1 commitments, trainer blocks,
+  // request limit and active identity. class_occurrences is checked inside that command.
+  const {data,error}=await db.rpc("request_client_training_session",{p_id:body.request_id,p_when:body.scheduled_at,p_note:body.note});
+  if(error){
+    const status=error.code==="42501"?403:error.code==="22023"?400:error.code==="P0100"?429:["23514","23505","23P01","40P01","40001","55P03"].includes(error.code)?409:503;
+    const message=status===503?"Request service is unavailable. Your request was not confirmed; retry with the same reference.":["23505","23P01","40P01","40001","55P03"].includes(error.code)?"The calendar changed while saving. Refresh availability and try again.":error.message;
+    const rollbackKnown=["42501","22023","P0100","23514","23505","23P01","40P01","40001","55P03","42883","42P01","42703","P0001","PGRST202"].includes(error.code);
+    return reply({error:message,...(rollbackKnown?{saved:false}:{})},status);
   }
-  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (ch) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  })[ch] ?? ch);
-
-  const when = new Date(scheduledAt);
-  if (!scheduledAt || isNaN(when.getTime())) {
-    return NextResponse.json({ error: "Pick a valid date and time." }, { status: 400 });
+  let receipt;
+  try{receipt=parseRequestReceipt(data,body.request_id);}catch{return reply({error:"Request receipt was invalid. Retry this same request before changing it."},503);}
+  let notification="not_confirmed";
+  if(!receipt.deduped&&process.env.OWNER_EMAIL){
+    try{
+      const when=new Date(body.scheduled_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+      const sent=await sendEmail({to:process.env.OWNER_EMAIL,idempotencyKey:"session-request/"+receipt.id,subject:"New IMS training request",html:emailShell({heading:"New session request",bodyHtml:"<p>A client requested training for <strong>"+when+"</strong>.</p><p>Review the request in Coach OS Action Center. This is not a confirmed booking.</p>"})});
+      notification=sent.ok?"provider_accepted":"not_confirmed";
+    }catch{/* Request is saved independently of email; never claim delivery. */}
   }
-  const now = new Date();
-  const oneHourFromNow = new Date(now);
-  oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
-  if (when < oneHourFromNow) {
-    return NextResponse.json(
-      { error: "Requests need at least 1 hour of notice." },
-      { status: 400 }
-    );
-  }
-
-  const local = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(when);
-  const part = (type: string) => local.find((p) => p.type === type)?.value ?? "";
-  const day = part("weekday");
-  const minute = Number(part("minute"));
-  const minutes = Number(part("hour")) * 60 + minute;
-  if (day === "Sun" || minutes < (day === "Sat" ? 480 : 360) || minutes > (day === "Sat" ? 720 : 1080) || ![0, 30].includes(minute)) {
-    return NextResponse.json({ error: "Choose a valid IMS studio time. Sundays are by appointment." }, { status: 400 });
-  }
-  const svc = createServiceClient();
-  let duration = 60;
-  let minimumNoticeMinutes = 60;
-  let horizonDays = 60;
-  if (serviceId) {
-    const { data: service, error: serviceError } = await svc.from("service_catalog").select("duration_minutes,session_type,client_bookable,minimum_notice_minutes,booking_horizon_days").eq("id", serviceId).eq("active", true).maybeSingle();
-    if (serviceError) return NextResponse.json({ error: "Service lookup unavailable." }, { status: 503 });
-    if (!service?.client_bookable || !service.duration_minutes || !service.session_type) return NextResponse.json({ error: "That service is not available for client booking." }, { status: 409 });
-    duration = service.duration_minutes; sessionType = service.session_type; minimumNoticeMinutes = service.minimum_notice_minutes ?? 60; horizonDays = service.booking_horizon_days ?? 60;
-  }
-
-  // Must be an actual client (staff should use the schedule directly)
-  const { data: clientRow, error: clientError } = await svc
-    .from("clients")
-    .select("id, primary_trainer_id")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (clientError) return NextResponse.json({ error: "Client account lookup unavailable." }, { status: 503 });
-  if (!clientRow || !clientRow.primary_trainer_id) {
-    return NextResponse.json({ error: clientRow ? "Your account needs a primary coach before requesting sessions." : "Client account required." }, { status: 403 });
-  }
-
-  const serviceNoticeBoundary = new Date(now); serviceNoticeBoundary.setMinutes(serviceNoticeBoundary.getMinutes() + minimumNoticeMinutes);
-  const horizonBoundary = new Date(now); horizonBoundary.setDate(horizonBoundary.getDate() + horizonDays);
-  if (when < serviceNoticeBoundary) return NextResponse.json({ error: `This service requires ${minimumNoticeMinutes} minutes notice.` }, { status: 400 });
-  if (when > horizonBoundary) return NextResponse.json({ error: `This service can be booked up to ${horizonDays} days ahead.` }, { status: 400 });
-
-  // Recheck availability server-side; the client picker is advisory and can go stale.\n  const startMs = when.getTime();\n  const { data: conflicts, error: conflictError } = await svc.from("sessions")\n    .select("id,scheduled_at,duration_minutes")\n    .eq("trainer_id", clientRow.primary_trainer_id)\n    .in("status", ["requested","scheduled","confirmed"])\n    .gte("scheduled_at", new Date(startMs - 4 * 3600000).toISOString())\n    .lt("scheduled_at", new Date(startMs + 3600000).toISOString());\n  if (conflictError) return NextResponse.json({ error: "Availability check unavailable." }, { status: 503 });
-  const { data: classConflicts, error: classConflictError } = await svc.from("class_occurrences").select("id,starts_at,ends_at").eq("trainer_id",clientRow.primary_trainer_id).neq("status","cancelled").lt("starts_at",new Date(startMs+duration*60000).toISOString()).gt("ends_at",when.toISOString());
-  if (classConflictError) return NextResponse.json({ error: "Class availability check unavailable." }, { status: 503 });
-  if ((classConflicts ?? []).length) return NextResponse.json({ error: "That time overlaps your coach’s class schedule. Choose another available slot." }, { status: 409 });\n  if ((conflicts ?? []).some((other) => {\n    const otherStart = new Date(other.scheduled_at).getTime();\n    const otherEnd = otherStart + (other.duration_minutes ?? 60) * 60000;\n    return otherStart < startMs + duration * 60000 && otherEnd > startMs;\n  })) return NextResponse.json({ error: "That time was just taken. Choose another available slot." }, { status: 409 });\n\n  // Cap open requests to prevent spam
-  const { count, error: countError } = await svc
-    .from("sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("client_id", user.id)
-    .eq("status", "requested");
-  if (countError) return NextResponse.json({ error: "Unable to verify pending requests." }, { status: 503 });
-  if ((count ?? 0) >= 5) {
-    return NextResponse.json(
-      { error: "You already have 5 pending requests. We'll respond soon!" },
-      { status: 429 }
-    );
-  }
-
-  const { data: session, error } = await svc
-    .from("sessions")
-    .insert({
-      client_id: user.id,
-      trainer_id: clientRow.primary_trainer_id,
-      scheduled_at: when.toISOString(),
-      duration_minutes: duration,
-      session_type: sessionType,
-      status: "requested",
-      notes_pre: note || null,
-    } as never)
-    .select("id")
-    .single();
-
-  if (error || !session) {
-    return NextResponse.json(
-      { error: "Couldn't create the request.", detail: error?.message },
-      { status: 500 }
-    );
-  }
-
-  // A request is not a confirmed booking; staff must check the authoritative calendar.
-  // Notify the owner (best effort)
-  try {
-    const { data: me } = await svc
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .maybeSingle();
-    const ownerEmail = process.env.OWNER_EMAIL;
-    if (ownerEmail) {
-      const whenStr = when.toLocaleString("en-US", {
-        weekday: "short", month: "short", day: "numeric",
-        hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles",
-      });
-      await sendEmail({
-        to: ownerEmail,
-        idempotencyKey: `session-request/${session.id}`,
-        subject: `Session request — ${me?.full_name ?? "Client"} · ${whenStr}`,
-        html: emailShell({
-          heading: "New session request",
-          bodyHtml: `
-            <p><strong>${escapeHtml(me?.full_name ?? "A client")}</strong> requested a ${sessionType} session for <strong>${whenStr}</strong>.</p>
-            ${note ? `<p style="color:#8a94a3;">Note: "${escapeHtml(note)}"</p>` : ""}
-            <p>Approve or decline it from the Schedule page in Coach OS.</p>
-          `,
-        }),
-      });
-    }
-  } catch (err) {
-    console.warn("[sessions/request] owner email failed:", err);
-  }
-
-  return NextResponse.json({ ok: true, id: session.id });
+  return reply({...receipt,notification},receipt.deduped?200:201);
 }

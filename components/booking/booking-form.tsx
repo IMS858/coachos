@@ -1,186 +1,80 @@
 "use client";
+import {useEffect,useRef,useState} from "react";
+import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {CalendarPlus,Loader2} from "lucide-react";
+import {Button} from "@/components/ui/button";
+import {Card,CardContent,CardHeader,CardTitle} from "@/components/ui/card";
+import {addCalendarDays} from "@/lib/time/pacific";
+import {parseAvailabilityReceipt,parseRequestReceipt,requestedInstant,requestToday,type AvailabilityReceipt,type RequestPayload,type RequestReceipt} from "@/lib/booking/client-contract";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, CalendarPlus, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-/**
- * Sessions start on the hour or the half hour — a 6:47 request isn't a slot
- * anyone can actually train in, so the picker shouldn't offer one.
- *
- * Bounds follow studio hours: Mon-Fri 6am-7pm, Sat 8am-1pm, Sun by
- * appointment (handled by messaging Jason rather than self-booking).
- * Last start is one hour before close so a full session fits.
- */
-function slotsForDate(dateStr: string): { value: string; label: string }[] {
-  if (!dateStr) return [];
-  // Parse as local, not UTC — new Date("2026-07-27") is midnight UTC and can
-  // land on the previous day, which would pick the wrong opening hours.
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const day = new Date(y, (m ?? 1) - 1, d ?? 1).getDay();
-
-  if (day === 0) return []; // Sunday — by appointment
-  const [openHour, closeHour] = day === 6 ? [8, 13] : [6, 19];
-
-  const out: { value: string; label: string }[] = [];
-  for (let h = openHour; h <= closeHour - 1; h++) {
-    for (const min of [0, 30]) {
-      const value = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-      const display = h % 12 === 0 ? 12 : h % 12;
-      const suffix = h < 12 ? "AM" : "PM";
-      out.push({
-        value,
-        label: `${display}:${String(min).padStart(2, "0")} ${suffix}`,
-      });
+export function BookingForm(){
+  const router=useRouter();
+  const sequence=useRef(0),lock=useRef(false),attempt=useRef<RequestPayload|null>(null);
+  const [date,setDate]=useState(""),[time,setTime]=useState(""),[note,setNote]=useState("");
+  const [availability,setAvailability]=useState<AvailabilityReceipt|null>(null),[loading,setLoading]=useState(false);
+  const [busy,setBusy]=useState(false),[uncertain,setUncertain]=useState(false),[error,setError]=useState<string|null>(null);
+  const [confirmed,setConfirmed]=useState<{receipt:RequestReceipt;when:string}|null>(null);
+  useEffect(()=>()=>{sequence.current++;},[]);
+  useEffect(()=>{
+    if(!busy&&!uncertain)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
+    window.addEventListener("beforeunload",warn);return ()=>window.removeEventListener("beforeunload",warn);
+  },[busy,uncertain]);
+  async function loadAvailability(value:string){
+    const request=++sequence.current;
+    setDate(value);setTime("");setAvailability(null);setError(null);setLoading(Boolean(value));
+    if(!value)return;
+    try{
+      const response=await fetch("/api/sessions/availability?date="+encodeURIComponent(value),{cache:"no-store"});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok)throw new Error(data?.error||"Availability is unavailable. Please retry.");
+      const result=parseAvailabilityReceipt(data,value);
+      if(request===sequence.current)setAvailability(result);
+    }catch(cause){if(request===sequence.current)setError(cause instanceof Error?cause.message:"Availability is unavailable.");}
+    finally{if(request===sequence.current)setLoading(false);}
+  }
+  async function submit(event:React.FormEvent){
+    event.preventDefault();if(lock.current)return;
+    let payload=attempt.current;
+    if(!uncertain){
+      if(!availability||availability.date!==date||!availability.slots.includes(time)||loading)return;
+      try{payload={request_id:crypto.randomUUID(),scheduled_at:requestedInstant(date,time),session_type:"training",note:note.trim()};}
+      catch(cause){setError(cause instanceof Error?cause.message:"Choose a valid Pacific slot.");return;}
+      attempt.current=payload;
     }
-  }
-  return out;
-}
-
-export function BookingForm() {
-  const router = useRouter();
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [available, setAvailable] = useState<string[] | null>(null);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function loadAvailability(nextDate: string) {
-    setDate(nextDate); setTime(""); setAvailable(null);
-    if (!nextDate) return;
-    setLoadingSlots(true); setError(null);
-    try { const res=await fetch(`/api/sessions/availability?date=${encodeURIComponent(nextDate)}`, { cache: "no-store" }); const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.error || "Availability unavailable"); setAvailable(Array.isArray(data.slots)?data.slots:[]); }
-    catch(err){ setAvailable(null); setError(err instanceof Error ? err.message : "Availability unavailable"); }
-    finally { setLoadingSlots(false); }
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!date || !time) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/sessions/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduled_at: new Date(`${date}T${time}`).toISOString(),
-          session_type: "training",
-          note,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setDone(true);
-        setDate("");
-        setTime("");
-        setNote("");
-        router.refresh();
-        setTimeout(() => setDone(false), 4000);
-      } else {
-        // Surface the server's detail too — an unrun migration shows up here as a
-        // Postgres enum error, which is the difference between "it's broken" and
-        // knowing exactly which SQL to run.
-        setError(
-          [data.error || "Couldn't send the request.", data.detail]
-            .filter(Boolean)
-            .join(" — ")
-        );
+    if(!payload)return;
+    lock.current=true;setBusy(true);setError(null);
+    try{
+      const response=await fetch("/api/sessions/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok){
+        if(data?.saved===false&&!uncertain){setUncertain(false);attempt.current=null;setAvailability(null);setTime("");}
+        else setUncertain(true);
+        setError(data?.error||"The save was not confirmed. Retry this same request.");return;
       }
-    } catch {
-      setError("Couldn't reach the server. Try again.");
-    } finally {
-      setBusy(false);
-    }
+      const receipt=parseRequestReceipt(data,payload.request_id);
+      setConfirmed({receipt,when:payload.scheduled_at});setUncertain(false);attempt.current=null;router.refresh();
+    }catch(cause){setUncertain(true);setError(cause instanceof Error?cause.message:"Connection interrupted. Retry the same request before changing it.");}
+    finally{lock.current=false;setBusy(false);}
   }
-
-  const selectCls =
-    "bg-navy-deep border border-divider rounded-lg px-3 py-2 text-sm text-cream w-full focus:outline-none focus:border-sky";
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <CalendarPlus className="h-4 w-4 text-sky" /> Request a time
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-cream-dim mb-1.5">Date</label>
-              <Input
-                type="date"
-                required
-                min={new Date().toISOString().split("T")[0]}
-                value={date}
-                onChange={(e) => void loadAvailability(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-cream-dim mb-1.5">Time</label>
-              <select
-                className={selectCls}
-                required
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              >
-                <option value="">
-                  {loadingSlots ? "Checking coach calendar…" : date && slotsForDate(date).length === 0 ? "Sundays are by appointment — message Jason" : available?.length === 0 ? "No open times — choose another day" : "Choose an available time…"}
-                </option>
-                {slotsForDate(date).filter((slot) => available === null || available.includes(slot.value)).map((slot) => (
-                  <option key={slot.value} value={slot.value}>
-                    {slot.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-divider bg-navy-soft px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-cream-faint">Service</p>
-            <p className="mt-1 text-sm font-semibold text-cream">Personal Training · 60 min</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-cream-dim mb-1.5">
-              Note (optional)
-            </label>
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Anything we should know?"
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-md border border-status-limited/30 bg-status-limited/10 px-3 py-2 text-sm text-status-limited">
-              {error}
-            </div>
-          )}
-
-          <Button type="submit" disabled={busy || loadingSlots || !date || !time} className="mt-1">
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : done ? (
-              <>
-                <Check className="h-4 w-4" /> Request sent!
-              </>
-            ) : (
-              "Send request"
-            )}
-          </Button>
-          <p className="text-xs text-cream-faint">
-            Times shown are open on your coach&apos;s Coach OS calendar. Your request still requires confirmation until IMS completes the Vagaro cutover.
-          </p>
-        </form>
-      </CardContent>
-    </Card>
-  );
+  const inputClass="min-h-12 w-full rounded-xl border border-divider bg-white px-3 py-2 text-base text-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky disabled:opacity-60";
+  const locked=busy||uncertain;
+  if(confirmed)return <Card><CardContent className="space-y-3 pt-5"><h2 role="status" className="text-xl font-semibold text-cream">{confirmed.receipt.status==="requested"?"Request saved — awaiting coach confirmation":"Your request is recorded"}</h2><p className="text-sm text-cream-dim">{new Date(confirmed.when).toLocaleString("en-US",{timeZone:"America/Los_Angeles",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})}</p><p className="text-sm leading-6 text-cream-dim">A saved request is not a confirmed booking, payment or package deduction. Your coach will confirm the session separately.</p><Link href={"/sessions/"+confirmed.receipt.id} className="inline-flex min-h-12 items-center font-semibold text-sky">View current request status →</Link><Button type="button" variant="secondary" onClick={()=>{setConfirmed(null);setDate("");setTime("");setNote("");setAvailability(null);}}>Request another time</Button></CardContent></Card>;
+  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><CalendarPlus className="h-5 w-5 text-sky"/>Request training</CardTitle></CardHeader><CardContent>
+    <form onSubmit={event=>void submit(event)} className="space-y-4">
+      <fieldset disabled={locked} className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2"><label htmlFor="booking-date" className="text-sm font-medium">Date · Pacific<input id="booking-date" type="date" required min={requestToday()} max={addCalendarDays(requestToday(),60)} value={date} onChange={e=>void loadAvailability(e.target.value)} className={inputClass}/></label>
+        <label htmlFor="booking-time" className="text-sm font-medium">Time · Pacific<select id="booking-time" required disabled={locked||loading||!availability} value={time} onChange={e=>setTime(e.target.value)} className={inputClass}><option value="">{loading?"Checking coach calendar…":!date?"Choose a date first":!availability?"Verify availability first":availability.slots.length?"Choose a checked time":"No available times"}</option>{availability?.slots.map(slot=>{const h=Number(slot.slice(0,2));return <option key={slot} value={slot}>{h%12||12}:{slot.slice(3)} {h<12?"AM":"PM"}</option>;})}</select></label></div>
+        {date&&!loading&&!availability&&<Button type="button" variant="secondary" onClick={()=>void loadAvailability(date)}>Retry availability</Button>}
+        <p className="rounded-xl bg-surface-soft p-3 text-sm">Personal Training · 60 minutes · all times shown in Pacific time</p>
+        {availability?.slots.length===0&&<p role="status" className="text-sm text-cream-dim">No checked times are available for this date. Choose another date or message your coach. Sundays are by appointment.</p>}
+        <label htmlFor="booking-note" className="block text-sm font-medium">Note · optional<textarea id="booking-note" rows={2} maxLength={500} value={note} onChange={e=>setNote(e.target.value)} className={inputClass} placeholder="Anything your coach should know?"/></label>
+      </fieldset>
+      {error&&<p role="alert" className="rounded-xl border border-status-limited/30 p-3 text-sm text-status-limited">{error}</p>}
+      {uncertain&&<p className="text-sm leading-6 text-cream-dim">Your save status is uncertain. Details are held so retrying uses the same reference and cannot create a second request. Keep this page open until the result is confirmed.</p>}
+      <Button type="submit" disabled={busy||(!uncertain&&(loading||!availability||!time))} className="min-h-12 w-full">{busy?<><Loader2 className="h-4 w-4 animate-spin"/>Saving request…</>:uncertain?"Retry the same request":"Send training request"}</Button>
+      <p className="text-xs leading-5 text-cream-faint">Times are checked against Coach OS records, not Vagaro. Your request still requires coach confirmation until the source calendar is reconciled.</p><Link href="/messages" className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">Ask your coach about scheduling →</Link>
+    </form>
+  </CardContent></Card>;
 }
