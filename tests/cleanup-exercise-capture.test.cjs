@@ -6,8 +6,8 @@ const ts = require("typescript");
 function load(file, overrides = {}, cache = new Map()) {
   const filename = path.resolve(__dirname, "..", file);
   if (cache.has(filename)) return cache.get(filename).exports;
-  const module = { exports: {} };
-  cache.set(filename, module);
+  const loaded = { exports: {} };
+  cache.set(filename, loaded);
   const source = fs.readFileSync(filename, "utf8");
   const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
   const localRequire = require("node:module").createRequire(filename);
@@ -20,8 +20,8 @@ function load(file, overrides = {}, cache = new Map()) {
     }
     return localRequire(name);
   }
-  new Function("require", "module", "exports", result.outputText)(resolve, module, module.exports);
-  return module.exports;
+  new Function("require", "module", "exports", result.outputText)(resolve, loaded, loaded.exports);
+  return loaded.exports;
 }
 const capture = load("lib/exercises/capture.ts");
 const server = load("lib/exercises/capture-server.ts");
