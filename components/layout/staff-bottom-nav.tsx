@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CalendarDays, MoreHorizontal, Target, Dumbbell, MessageCircle, DollarSign, CreditCard, BarChart3, Settings, Mail, X, ListChecks } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, MoreHorizontal, Target, Dumbbell, MessageCircle, DollarSign, CreditCard, BarChart3, Settings, Mail, X, ListChecks, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 const coreItems = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard },
@@ -16,6 +16,7 @@ const moreItems = [
   { href: "/library", label: "Exercise Library", icon: Dumbbell },
   { href: "/programs", label: "Programs", icon: Dumbbell },
   { href: "/messages", label: "Communications", icon: MessageCircle },
+  { href: "/team", label: "Team Hub", icon: BookOpen },
   { href: "/checkout", label: "Checkout", icon: CreditCard },
   { href: "/financials", label: "Financials", icon: DollarSign },
   { href: "/reports", label: "Reports", icon: BarChart3 },
