@@ -48,8 +48,6 @@ alter table public.class_templates enable row level security;
 alter table public.class_occurrences enable row level security;
 alter table public.class_enrollments enable row level security;
 revoke all on public.class_templates,public.class_occurrences,public.class_enrollments from anon,authenticated;
-grant select,insert,update on public.class_templates,public.class_occurrences,public.class_enrollments to authenticated;
-revoke insert,update on public.class_templates,public.class_occurrences,public.class_enrollments from authenticated;
 grant select on public.class_templates,public.class_occurrences,public.class_enrollments to authenticated;
 
 create policy "staff reads class templates" on public.class_templates for select to authenticated
