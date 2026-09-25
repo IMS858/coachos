@@ -33,7 +33,7 @@ create policy "active assigned coach records occurred class delivery" on public.
 
 -- Own-history projection survives completion/retirement without exposing another client,
 -- private class programs, coach notes, credit records or instructor compensation.
-create function public.get_my_class_participation() returns table(
+create or replace function public.get_my_class_participation() returns table(
  enrollment_id uuid,occurrence_id uuid,class_name text,category text,starts_at timestamptz,ends_at timestamptz,
  enrollment_status text,class_status text,attendance_marked_at timestamptz
 ) language plpgsql stable security definer set search_path='' as $$
