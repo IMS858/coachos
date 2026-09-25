@@ -32,7 +32,6 @@ const trainerMore = [
   { href: "/programs", label: "Programs", icon: Dumbbell },
   { href: "/messages", label: "Communications", icon: MessageCircle },
   { href: "/team", label: "Team Hub", icon: BookOpen },
-  { href: "/leads", label: "New business", icon: Target },
 ];
 
 export function StaffBottomNav({ role }: { role: Exclude<UserRole,"client"> }) {
