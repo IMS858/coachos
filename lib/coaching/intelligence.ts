@@ -10,6 +10,7 @@ export type CoachBriefInput = {
   draftPrograms: number;
   activePrograms: number;
   savedExerciseSets: number;
+  remoteCoachingEvidence: boolean;
 };
 
 export type CoachAction = {
@@ -26,7 +27,7 @@ const daysSince = (now: string, value: string | null) => value ? Math.max(0, Mat
 export function coachingMode(input: CoachBriefInput): "Programming only" | "In-person" | "Hybrid" | "Getting started" {
   const hasProgramming = input.activePrograms > 0 || input.draftPrograms > 0 || input.savedExerciseSets > 0;
   const hasSessions = input.lastCompletedAt !== null || input.nextSessionAt !== null;
-  if (hasProgramming && hasSessions) return "Hybrid";
+  if (hasSessions && input.remoteCoachingEvidence) return "Hybrid";
   if (hasSessions) return "In-person";
   if (hasProgramming) return "Programming only";
   return "Getting started";
