@@ -10,6 +10,8 @@ import { ClientProgramLink } from "@/components/clients/client-program-link";
 import { ClientExerciseSets } from "@/components/clients/client-exercise-sets";
 import { ClientProgrammingStatus } from "@/components/clients/client-programming-status";
 import { ClientEvidenceSummary } from "@/components/clients/client-evidence-summary";
+import { ClientCoachBrief } from "@/components/clients/client-coach-brief";
+import { ClientCoachingTimeline } from "@/components/clients/client-coaching-timeline";
 import { SendAgreement } from "@/components/clients/send-agreement";
 import { WaiverPanel } from "@/components/clients/waiver-panel";
 import { MedicalPanel } from "@/components/clients/medical-panel";
@@ -48,9 +50,11 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
       {viewerProfile.role === "owner" && <Link href={`/checkout?client_id=${id}`} className={actionClass}><CreditCard aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Client checkout</span></Link>}
       <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
     </nav></section>
+    <ClientCoachBrief clientId={id}/>
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>
     <ClientEvidenceSummary clientId={id}/>
+    <ClientCoachingTimeline clientId={id}/>
     <ClientExerciseSets clientId={id}/>
     <SessionTracker clientId={id}/>
     <ClientProgramLink clientId={id}/>
