@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CalendarDays, MoreHorizontal, Target, Search, Dumbbell, MessageCircle, DollarSign, CreditCard, BarChart3, Settings, Mail, X, ListChecks, BookOpen, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, MoreHorizontal, Target, Search, Dumbbell, MessageCircle, DollarSign, CreditCard, BarChart3, Settings, Mail, X, ListChecks, BookOpen, ClipboardList, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/types/database";
 
@@ -13,6 +13,7 @@ const coreItems = [
   { href: "/action-center", label: "Actions", icon: ListChecks },
 ];
 const ownerMore = [
+  { href: "/operating-system", label: "IMS OS", icon: Activity },
   { href: "/growth", label: "Growth Center", icon: Target },
   { href: "/leads/research", label: "Research Desk", icon: Search },
   { href: "/leads", label: "New business", icon: Target },
