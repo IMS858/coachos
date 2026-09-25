@@ -9,6 +9,7 @@ import { ClientProgressReport } from "@/components/clients/client-progress-repor
 import { ClientProgramLink } from "@/components/clients/client-program-link";
 import { ClientExerciseSets } from "@/components/clients/client-exercise-sets";
 import { ClientProgrammingStatus } from "@/components/clients/client-programming-status";
+import { ClientEvidenceSummary } from "@/components/clients/client-evidence-summary";
 import { SendAgreement } from "@/components/clients/send-agreement";
 import { WaiverPanel } from "@/components/clients/waiver-panel";
 import { MedicalPanel } from "@/components/clients/medical-panel";
@@ -49,6 +50,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     </nav></section>
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>
+    <ClientEvidenceSummary clientId={id}/>
     <ClientExerciseSets clientId={id}/>
     <SessionTracker clientId={id}/>
     <ClientProgramLink clientId={id}/>
