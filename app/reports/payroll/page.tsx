@@ -4,6 +4,7 @@ import {Download, Clock3, Users, CalendarRange, BadgeDollarSign} from "lucide-re
 import {createClient} from "@/lib/supabase/server";
 import {AppShell} from "@/components/layout/app-shell";
 import {calculatePayrollEvidence,type PayrollRule} from "@/lib/payroll/calculate";
+import {PayrollReview} from "@/components/payroll/payroll-review";
 
 export const dynamic="force-dynamic";
 const TZ="America/Los_Angeles";
@@ -26,6 +27,7 @@ export default async function PayrollReport({searchParams}:{searchParams:Promise
  for(const s of sessions.data??[]){if(!s.trainer_id)continue;const g=groups.get(s.trainer_id)??{name:trainerNames.get(s.trainer_id)??"Trainer",completed:0,minutes:0,late:0,noShow:0};if(s.status==="completed"){g.completed++;g.minutes+=s.duration_minutes??60}else if(s.status==="late_cancelled")g.late++;else if(s.status==="no_show")g.noShow++;groups.set(s.trainer_id,g);}
  const calculations=(sessions.data??[]).map(s=>({session:s,calc:calculatePayrollEvidence(s,(rules.get(s.trainer_id??"")??null) as PayrollRule|null)}));
  const proposedCents=calculations.reduce((n,x)=>n+(x.calc.amount_cents??0),0);const needsReview=calculations.filter(x=>!x.calc.eligible).length;
+ const reviewRows=calculations.map(({session,calc})=>({id:session.id,trainer:trainerNames.get(session.trainer_id??"")??"Trainer",client:clientNames.get(session.client_id)??"Client",scheduled_at:session.scheduled_at,status:session.status,duration_minutes:session.duration_minutes??60,amount_cents:calc.amount_cents,reason:calc.reason}));
  const totalCompleted=[...groups.values()].reduce((n,g)=>n+g.completed,0),totalMinutes=[...groups.values()].reduce((n,g)=>n+g.minutes,0);
  return <AppShell expectedRole="owner"><main className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
   <header className="rounded-3xl bg-band p-6 text-white sm:p-8"><p className="text-xs font-semibold uppercase tracking-[.2em] text-white/60">Owner / Payroll prep</p><h1 className="mt-2 text-4xl font-bold">Payroll Center</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-white/75">Completed-session evidence by trainer. Coach OS does not infer compensation rates, employment classification or taxes.</p></header>
