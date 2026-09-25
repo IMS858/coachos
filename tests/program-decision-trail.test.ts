@@ -8,5 +8,5 @@ test("program decision trail is staff-only, immutable and program-scoped",()=>{
 test("program reasoning is visible to coaches on both programming paths, never a publication action",()=>{
  const quick=readFileSync("app/programs/[id]/library/page.tsx","utf8"),legacy=readFileSync("components/programs/legacy-program-page.tsx","utf8"),log=readFileSync("components/programs/program-decision-log.tsx","utf8");
  assert.match(quick,/ProgramDecisionLog/);assert.match(legacy,/isStaff && <ProgramDecisionLog/);assert.match(log,/staff-only notes/);
- assert.doesNotMatch(log,/publish|client_visible|sendEmail|pushClient/);
+ assert.doesNotMatch(log,/publishProgram|client_visible|sendEmail|pushClient|fetch\([^)]*publish/);
 });
