@@ -7,6 +7,7 @@ import {
   Users,
   Plus,
   Calendar,
+  ListChecks,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -50,6 +51,9 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
     { data: todaySessions },
     { data: draftPrograms },
     unreadMessages,
+    { data: viewer },
+    { data: assignedClients },
+    { data: bookingRequests },
   ] = await Promise.all([
     supabase
       .from("sessions")
@@ -70,13 +74,19 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
       .order("created_at", { ascending: false })
       .limit(5),
     loadStaffUnreadMessages(supabase),
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase.from("clients").select("id,primary_trainer_id").eq("primary_trainer_id", user.id),
+    supabase.from("sessions").select("id,client_id,trainer_id").eq("status", "requested").eq("trainer_id", user.id).limit(50),
   ]);
 
-  const actionableMessages = (unreadMessages ?? []).slice(0,5);
+  const assignedClientIds = new Set((assignedClients ?? []).map((row: any) => row.id));
+  const scopedUnread = viewer?.role === "owner" ? (unreadMessages ?? []) : (unreadMessages ?? []).filter((msg: any) => assignedClientIds.has(msg.client_id));
+  const actionableMessages = scopedUnread.slice(0,5);
 
   const sessions = todaySessions ?? [];
   const completed = sessions.filter((s: any) => s.status === "completed").length;
   const remaining = sessions.length - completed;
+  const actionCount = (draftPrograms ?? []).length + scopedUnread.length + (bookingRequests ?? []).length;
 
   const tasks: Array<{ label: string; urgent: boolean; href: string }> = [];
   for (const p of draftPrograms ?? []) {
@@ -120,6 +130,12 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
             <Button variant="secondary" size="md">
               <Users className="h-4 w-4" />
               Clients
+            </Button>
+          </Link>
+          <Link href="/action-center">
+            <Button variant="secondary" size="md">
+              <ListChecks className="h-4 w-4" />
+              Actions{actionCount > 0 ? ` · ${actionCount}` : ""}
             </Button>
           </Link>
         </div>
