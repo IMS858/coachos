@@ -15,3 +15,5 @@ test("class compensation can never be inferred from class pricing",()=>{const mi
 test("client progress counts recorded class attendance without inventing outcomes",()=>{const page=readFileSync("app/progress/page.tsx","utf8");assert.match(page,/class_enrollments/);assert.match(page,/status","attended/);assert.match(page,/classes attended · recorded attendance only/);assert.doesNotMatch(page,/calories|strength gained|mobility improved|class progress score/i);});
 
 test("owner operating system includes group coaching without merging class finance into PT",()=>{const page=readFileSync("app/operating-system/page.tsx","utf8");assert.match(page,/Group coaching loop/);assert.match(page,/class_occurrences/);assert.match(page,/Credits and payroll remain separate/);});
+
+test("class growth attribution remains explicit rather than inferred",()=>{const migration=readFileSync("packages/db/migrations/0055_class_growth_attribution.sql","utf8"),booking=readFileSync("app/api/classes/book/route.ts","utf8");assert.match(migration,/Source is null unless an explicit, auditable workflow sets it later/);assert.doesNotMatch(booking,/source_type|source_reference|campaign_id/);});
