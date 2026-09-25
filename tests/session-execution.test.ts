@@ -27,3 +27,9 @@ test("client history shows coached performed evidence without exposing edit cont
  assert.match(page,/session_exercise_performance/);assert.match(page,/What you actually performed with your coach/);assert.match(page,/original program prescription stays intact/);
  assert.doesNotMatch(page,/\\.update\\(|\\.insert\\(|Save performed result/);
 });
+
+test("coach client profile compares repeated performed exercise evidence without auto-progressing",()=>{
+ const page=readFileSync("app/clients/[id]/page.tsx","utf8"),trends=readFileSync("components/clients/client-performance-trends.tsx","utf8");
+ assert.match(page,/ClientPerformanceTrends/);assert.match(trends,/Repeated exercise evidence/);assert.match(trends,/does not declare automatic progression/);
+ assert.doesNotMatch(trends,/recommended load|increase weight|progress automatically/i);
+});
