@@ -1,8 +1,8 @@
 "use client";
 import {createContext,useCallback,useContext,useEffect,useState,type ReactNode} from "react";
-const SessionContext=createContext({hasUnsavedResults:false,setUnsavedResults:(_value:boolean)=>{}});
+const SessionContext=createContext({hasUnsavedResults:false,setUnsavedResults:(_value:boolean)=>{},asOf:""});
 export const useSessionWorkspace=()=>useContext(SessionContext);
-export function SessionWorkspace({children}:{children:ReactNode}){
+export function SessionWorkspace({children,asOf}:{children:ReactNode;asOf:string}){
  const [hasUnsavedResults,setDirty]=useState(false);
  const setUnsavedResults=useCallback((value:boolean)=>setDirty(value),[]);
  useEffect(()=>{
@@ -12,5 +12,5 @@ export function SessionWorkspace({children}:{children:ReactNode}){
   window.addEventListener("beforeunload",unload);document.addEventListener("click",navigate,true);
   return ()=>{window.removeEventListener("beforeunload",unload);document.removeEventListener("click",navigate,true);};
  },[hasUnsavedResults]);
- return <SessionContext.Provider value={{hasUnsavedResults,setUnsavedResults}}>{children}</SessionContext.Provider>;
+ return <SessionContext.Provider value={{hasUnsavedResults,setUnsavedResults,asOf}}>{children}</SessionContext.Provider>;
 }

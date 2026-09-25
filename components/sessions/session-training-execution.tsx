@@ -5,7 +5,7 @@ import {SessionExerciseLog} from "./session-exercise-log";
 import {SessionProgramSelector} from "./session-program-selector";
 const fields="id,session_id,prescription_key,exercise_id,exercise_name,prescription_snapshot,updated_at,performed_at,sets_completed,reps_completed,load_performed,rpe_actual,coach_note";
 const unavailable=<section className="rounded-2xl border border-status-limited/30 bg-white p-5"><h2 className="font-semibold">Session execution unavailable</h2><p role="alert" className="mt-2 text-sm text-status-limited">Program or performed-exercise evidence could not be loaded. No blank workout or zero result was substituted.</p></section>;
-export async function SessionTrainingExecution({sessionId}:{sessionId:string}){
+export async function SessionTrainingExecution({sessionId,asOf}:{sessionId:string;asOf:string}){
  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return null;
  const viewer=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(viewer.error)return unavailable;if(!viewer.data||viewer.data.deleted_at||!["owner","trainer"].includes(viewer.data.role))return null;
  const session=await db.from("sessions").select("id,client_id,trainer_id,program_id,status,scheduled_at,session_type").eq("id",sessionId).maybeSingle();
@@ -38,7 +38,7 @@ export async function SessionTrainingExecution({sessionId}:{sessionId:string}){
  if(exerciseQ.error||previousQ.error)return unavailable;
  const names=new Map((exerciseQ.data??[]).map(e=>[e.id,e]));
  let rows;try{rows=executionRows(sessionPlanRows(programQ.data.data,assignments.map(a=>({...a,exercises:names.get(a.exercise_id)??null}))),existing);}catch{return unavailable;}
- const readOnly=s.session_type!=="training"||!["scheduled","confirmed","completed"].includes(s.status)||Date.parse(s.scheduled_at)>Date.now();
+ const readOnly=s.session_type!=="training"||!["scheduled","confirmed","completed"].includes(s.status)||Date.parse(s.scheduled_at)>Date.parse(asOf);
  return <section id="session-training" className="scroll-mt-24 space-y-4 rounded-3xl border border-sky/20 bg-sky/5 p-4 sm:p-5"><div><p className="text-xs font-semibold uppercase tracking-wider text-sky">Session execution</p><h2 className="mt-1 text-2xl font-bold">Prescription → performed</h2><p className="mt-2 text-sm leading-6 text-cream-dim">Record what actually happened without rewriting the program prescription. Coach observations remain private.</p></div>{selector}
  {rows.length?<SessionExerciseLog key={`${s.id}:${s.program_id}`} sessionId={s.id} programVersion={programQ.data.updated_at} rows={rows} existing={existing} previous={previousQ.data as PerformanceRecord[]} readOnly={readOnly}/>:<p className="rounded-xl bg-white p-4 text-sm">This program has no supported structured exercise rows. Open the reviewed program; no workout was inferred.</p>}
  <Link href={`/programs/${s.program_id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">Open program and decision trail →</Link><p className="text-xs text-cream-faint">Previous-result context uses up to 30 earlier completed sessions and 300 exercise records. The program selector shows up to 100 current client programs.</p></section>;

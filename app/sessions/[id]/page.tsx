@@ -22,11 +22,12 @@ export default async function SessionPage({params}:{params:Promise<{id:string}>}
  ]);
  if(peopleQ.error||plansQ.error)throw new Error("Session context could not be loaded.");
  const person=peopleQ.data.find(p=>p.id===session.client_id),trainer=peopleQ.data.find(p=>p.id===session.trainer_id);if(!person||person.deleted_at)notFound();
- return <AppShell><SessionWorkspace><main className="mx-auto w-full max-w-5xl space-y-5 pb-12"><Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">← Today</Link>
+ const asOf=new Date().toISOString();
+ return <AppShell><SessionWorkspace asOf={asOf}><main className="mx-auto w-full max-w-5xl space-y-5 pb-12"><Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">← Today</Link>
  <header className="rounded-3xl bg-band p-5 text-white"><p className="text-xs uppercase tracking-widest text-white/60">IMS / Coaching session</p><h1 className="mt-2 text-3xl font-bold">{person.full_name}</h1><p className="mt-2 text-sm text-white/75">{new Date(session.scheduled_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})} · {session.duration_minutes} min · {session.status.replaceAll("_"," ")}</p></header>
  <nav aria-label="Session workflow" className="grid grid-cols-3 gap-2">{[["#session-prep","1 · Prepare"],["#session-training","2 · Train"],["#session-close","3 · Review & close"]].map(([href,label])=><a key={href} href={href} className="flex min-h-12 items-center justify-center rounded-xl border border-divider bg-white px-2 text-center text-sm font-semibold text-sky">{label}</a>)}</nav>
  <section id="session-prep" className="scroll-mt-24"><SessionCoachPrep clientId={session.client_id} scheduledAt={session.scheduled_at}/></section>
- <SessionTrainingExecution sessionId={session.id}/>
+ <SessionTrainingExecution sessionId={session.id} asOf={asOf}/>
  <SessionDetail key={session.id+session.status} session={{...session,client:person,trainer:trainer??null}} activePlans={plansQ.data??[]}/>
  </main></SessionWorkspace></AppShell>;
 }
