@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { LibraryDraftEditor } from "@/components/programs/library-draft-editor";
+import { ProgramDecisionLog } from "@/components/programs/program-decision-log";
 export const dynamic = "force-dynamic";
 export default async function LibraryProgramDraft({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,5 +20,6 @@ export default async function LibraryProgramDraft({ params }: { params: Promise<
     <Link href={`/clients/${program.client_id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">← Client programming workspace</Link>
     <header className="rounded-3xl bg-band p-6 text-white"><p className="text-xs uppercase tracking-widest text-white/70">IMS / Quick programming</p><h1 className="mt-2 text-3xl font-bold">{program.name}</h1><p className="mt-2 text-sm text-white/80">Private draft · your saved exercise selection and prescriptions</p></header>
     <LibraryDraftEditor programId={program.id} data={program.data} updatedAt={program.updated_at}/>
+    <ProgramDecisionLog programId={program.id}/>
   </main></AppShell>;
 }
