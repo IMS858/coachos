@@ -1,0 +1,2 @@
+import Link from "next/link";
+export function ClassIntelligenceLink(){return <Link href="/classes/intelligence" className="block rounded-2xl border border-sky/20 bg-sky/5 p-5"><p className="text-xs font-semibold uppercase tracking-wide text-sky">Owner evidence</p><h2 className="mt-2 text-xl font-semibold">Class Intelligence →</h2><p className="mt-2 text-sm leading-6 text-cream-dim">Review group-coaching delivery and documentation separately from private-session volume, payment receipts and instructor pay.</p></Link>;}
