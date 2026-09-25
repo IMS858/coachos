@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
-import {readFileSync} from "node:fs";
+import {readFileSync,readdirSync} from "node:fs";
 import {PGlite} from "@electric-sql/pglite";
 const owner="11111111-1111-4111-8111-111111111111",trainer="22222222-2222-4222-8222-222222222222",other="33333333-3333-4333-8333-333333333333",client="44444444-4444-4444-8444-444444444444",program="55555555-5555-4555-8555-555555555555",session="66666666-6666-4666-8666-666666666666",exercise="77777777-7777-4777-8777-777777777777",secondClient="88888888-8888-4888-8888-888888888888";
 const version="2020-01-01T00:00:00Z";
@@ -30,7 +30,8 @@ test("complete session execution rollout is atomic, scoped, replay-safe and clie
   await db.query("insert into public.sessions values($1,$2,$3,$4,'scheduled','2020-01-02T18:00:00Z',$5)",[session,client,trainer,program,version]);
   await db.exec(readFileSync("packages/db/migrations/0046_program_decision_notes.sql","utf8"));
   await db.exec(readFileSync("packages/db/migrations/0047_session_exercise_performance.sql","utf8"));
-  await db.exec(readFileSync("packages/db/migrations/0048_session_execution_guardrails.sql","utf8"));
+  const guardFiles=readdirSync("packages/db/migrations").filter(file=>file.endsWith("_session_execution_guardrails.sql"));assert.equal(guardFiles.length,1);
+  await db.exec(readFileSync("packages/db/migrations/"+guardFiles[0],"utf8"));
   const asActor=async(id:string)=>{await db.exec("reset role");await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec("set role authenticated");};
   const id=randomUUID();
   const save=async(opts:{record?:string;session?:string;key?:string;version?:string|null;programVersion?:string;prescription?:unknown;actual?:unknown}={})=>(await db.query<{result:{ok:boolean;id:string;updated_at:string;deduped:boolean}}>("select public.save_session_performance($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb) as result",[opts.session??session,opts.record??id,opts.key??"quick:0:EX-1",opts.version??null,opts.programVersion??version,JSON.stringify(opts.prescription??prescription),JSON.stringify(opts.actual??actual)])).rows[0].result;

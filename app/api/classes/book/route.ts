@@ -1,5 +1,15 @@
-import {NextResponse,type NextRequest} from "next/server";import {createClient} from "@/lib/supabase/server";import {CAPTURE_UUID} from "@/lib/exercises/capture";
-const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
-async function auth(request:NextRequest){const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return {error:reply({error:"Sign in required."},401)};const origin=request.headers.get("origin");if(origin&&origin!==request.nextUrl.origin)return {error:reply({error:"Invalid request origin."},403)};return {db,user};}
-export async function POST(request:NextRequest){const a=await auth(request);if(a.error)return a.error;const body=await request.json().catch(()=>null);if(!body||typeof body!=="object"||Array.isArray(body))return reply({error:"Invalid class booking."},400);const v=body as Record<string,unknown>,occurrence=typeof v.occurrence_id==="string"&&CAPTURE_UUID.test(v.occurrence_id)?v.occurrence_id:null,id=typeof v.request_id==="string"&&CAPTURE_UUID.test(v.request_id)?v.request_id:null;if(!occurrence||!id||Object.keys(v).some(k=>!["occurrence_id","request_id"].includes(k)))return reply({error:"Valid class and booking reference required."},400);const result=await a.db!.rpc("book_class",{p_occurrence_id:occurrence,p_request_id:id});if(result.error){const status=result.error.code==="42501"?403:result.error.code==="P0002"?404:503;return reply({error:status===503?"Class booking could not be confirmed. Retry without creating another request.":result.error.message},status);}return reply(result.data);}
-export async function DELETE(request:NextRequest){const a=await auth(request);if(a.error)return a.error;const id=request.nextUrl.searchParams.get("enrollment_id");if(!id||!CAPTURE_UUID.test(id))return reply({error:"Valid enrollment required."},400);const result=await a.db!.rpc("cancel_class_booking",{p_enrollment_id:id});if(result.error){const status=result.error.code==="42501"?403:result.error.code==="P0002"?404:503;return reply({error:status===503?"Cancellation could not be confirmed.":result.error.message},status);}return reply(result.data);}
+import {NextResponse,type NextRequest} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+const reply=(body:unknown,status:number)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
+async function prelaunch(request:NextRequest){
+ const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return reply({error:"Sign in required."},401);
+ const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();
+ if(me.error)return reply({error:"Authorization unavailable."},503);
+ if(!me.data||me.data.deleted_at||me.data.role!=="client")return reply({error:"Active client account required."},403);
+ if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin."},403);
+ // book_class and cancel_class_booking are also revoked for authenticated callers in 0057.
+ // Do not re-enable these prototype commands by changing a UI flag alone.
+ return reply({error:"Class registration is in prelaunch. No booking, cancellation or waitlist promotion was made. Contact IMS to review existing records.",code:"CLASS_PRELAUNCH"},409);
+}
+export const POST=prelaunch;
+export const DELETE=prelaunch;
