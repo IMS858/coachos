@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CalendarDays, MoreHorizontal, Target, Search, Dumbbell, MessageCircle, DollarSign, CreditCard, BarChart3, Settings, Mail, X, ListChecks, BookOpen, ClipboardList, Activity } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, MoreHorizontal, Target, Search, Dumbbell, MessageCircle, DollarSign, CreditCard, BarChart3, Settings, Mail, X, ListChecks, BookOpen, ClipboardList, Activity, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/types/database";
 
@@ -20,6 +20,7 @@ const ownerMore = [
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/library", label: "Exercise Library", icon: Dumbbell },
   { href: "/programs", label: "Programs", icon: Dumbbell },
+  { href: "/classes/manage", label: "Classes", icon: GraduationCap },
   { href: "/messages", label: "Communications", icon: MessageCircle },
   { href: "/team", label: "Team Hub", icon: BookOpen },
   { href: "/checkout", label: "Checkout", icon: CreditCard },
