@@ -23,6 +23,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/financials", label: "Financials", icon: DollarSign },
     { href: "/checkout", label: "Checkout", icon: CreditCard },
     { href: "/messages", label: "Communications", icon: MessageCircle },
+    { href: "/settings", label: "Owner Settings", icon: Settings },
     { href: "/settings/services", label: "Services", icon: Settings },
     { href: "/settings/email", label: "Logins", icon: Mail },
   ],
