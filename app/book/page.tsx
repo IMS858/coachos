@@ -4,6 +4,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { BookingForm } from "@/components/booking/booking-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { Users } from "lucide-react";
 
 export const metadata = { title: "Book a Session" };
 
@@ -45,6 +47,7 @@ export default async function BookPage() {
         <div className="grid grid-cols-2 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Training balance</p><p className="mt-1 text-2xl font-bold text-cream">{remaining === null ? "—" : remaining}</p><p className="text-xs text-cream-dim">{trainingPackage?.custom_label || trainingPackage?.tier?.replaceAll("_"," ") || "No active package found"}</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Booking</p><p className="mt-1 text-sm font-semibold text-cream">{remaining === 0 ? "Package depleted" : "Personal Training"}</p><p className="text-xs text-cream-dim">{remaining === 0 ? "You can still request a time; your coach will resolve the package before completion." : "60-minute request"}</p></div></div>
 
         <BookingForm />
+        <Link href="/classes" className="flex min-h-20 items-center justify-between rounded-2xl border border-sky/25 bg-sky/5 p-4 transition hover:border-sky/60"><div><p className="text-xs font-semibold uppercase tracking-wide text-sky">Group coaching</p><p className="mt-1 text-base font-semibold text-cream">Browse IMS classes</p><p className="mt-1 text-xs text-cream-dim">Published classes, capacity and waitlists.</p></div><Users className="h-6 w-6 text-sky"/></Link>
 
         <Card>
           <CardHeader>
