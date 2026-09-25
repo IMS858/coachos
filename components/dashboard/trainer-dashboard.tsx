@@ -208,7 +208,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader><CardTitle>Action Center</CardTitle><CardDescription>Follow-up work stays separate from today’s coaching schedule.</CardDescription></CardHeader>
-            <CardContent><Link href="/action-center" className="flex min-h-11 items-center justify-between rounded-xl border border-divider px-3 text-sm font-semibold text-cream transition hover:border-sky/50"><span>${actionCount} coaching action${actionCount===1?"":"s"}</span><ChevronRight className="h-4 w-4 text-sky"/></Link></CardContent>
+            <CardContent><Link href="/action-center" className="flex min-h-11 items-center justify-between rounded-xl border border-divider px-3 text-sm font-semibold text-cream transition hover:border-sky/50"><span>{actionCount} coaching action{actionCount===1?"":"s"}</span><ChevronRight className="h-4 w-4 text-sky"/></Link></CardContent>
           </Card>
 
           <Card>
