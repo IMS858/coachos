@@ -11,6 +11,7 @@ import { GenerateProgramButton } from "@/components/programs/generate-program-bu
 import { ImsProgramStudio } from "@/components/programs/ims-program-studio";
 import { FourWeekProgramPreview } from "@/components/programs/four-week-program-preview";
 import { ProgramReadinessPanel } from "@/components/programs/program-readiness-panel";
+import { ProgramDecisionLog } from "@/components/programs/program-decision-log";
 
 const BLOCK_ORDER = ["warmup", "main", "finisher", "cooldown"] as const;
 
@@ -115,6 +116,7 @@ export default async function ProgramPage({
         {isStaff && isQuickLibraryProgram && <div className="rounded-2xl border border-sky/25 bg-sky/5 p-5"><p className="text-xs font-semibold uppercase tracking-wider text-sky">Quick programming path</p><h2 className="mt-2 text-xl font-semibold text-cream">Turn the selection into a prescription.</h2><p className="mt-2 text-sm leading-6 text-cream-dim">These exercises came from a coach-only library set. Add sets, reps, load, rest, tempo and client notes below before this becomes a client-facing workout. A current IMS assessment is optional for this pathway.</p></div>}
         {isStaff && (program as any).client_id && <Link href={"/clients/" + (program as any).client_id} className="inline-flex w-fit rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-white">Send client a coaching video</Link>}
         {isStaff && (program as any).status === "draft" && <ProgramReadinessPanel programId={id} />}
+        {isStaff && <ProgramDecisionLog programId={id}/>}
 
         {/* IMS Generator program — PDF-based */}
         {isImsGenerator && (
