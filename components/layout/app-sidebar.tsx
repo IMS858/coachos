@@ -11,9 +11,9 @@ interface NavItem { href: string; label: string; icon: LucideIcon }
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   owner: [
     { href: "/dashboard", label: "Today", icon: LayoutDashboard },
-    { href: "/action-center", label: "Action Center", icon: ListChecks },
     { href: "/dashboard?view=owner", label: "Business Overview", icon: BarChart3 },
     { href: "/clients", label: "Clients", icon: Users },
+    { href: "/action-center", label: "Action Center", icon: ListChecks },
     { href: "/leads", label: "New business", icon: Target },
     { href: "/contacts", label: "Contacts", icon: Users },
     { href: "/library", label: "Exercise Library", icon: Dumbbell },
@@ -29,6 +29,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   trainer: [
     { href: "/dashboard", label: "Today", icon: LayoutDashboard },
     { href: "/clients", label: "Clients", icon: Users },
+    { href: "/action-center", label: "Action Center", icon: ListChecks },
     { href: "/leads", label: "New business", icon: Target },
     { href: "/library", label: "Exercise Library", icon: Dumbbell },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
