@@ -49,25 +49,22 @@ alter table public.class_occurrences enable row level security;
 alter table public.class_enrollments enable row level security;
 revoke all on public.class_templates,public.class_occurrences,public.class_enrollments from anon,authenticated;
 grant select,insert,update on public.class_templates,public.class_occurrences,public.class_enrollments to authenticated;
+revoke insert,update on public.class_templates,public.class_occurrences,public.class_enrollments from authenticated;
+grant select on public.class_templates,public.class_occurrences,public.class_enrollments to authenticated;
 
-create policy "staff manages class templates" on public.class_templates for all to authenticated
-using (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')))
-with check (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')));
+create policy "staff reads class templates" on public.class_templates for select to authenticated
+using (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')));
 create policy "clients read published class templates" on public.class_templates for select to authenticated
 using (visibility='published' and exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role='client'));
 
-create policy "staff manages class occurrences" on public.class_occurrences for all to authenticated
-using (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')))
-with check (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')));
+create policy "staff reads class occurrences" on public.class_occurrences for select to authenticated
+using (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')));
 create policy "clients read published class occurrences" on public.class_occurrences for select to authenticated
 using (status='scheduled' and exists(select 1 from public.class_templates t where t.id=template_id and t.visibility='published') and exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role='client'));
 
-create policy "staff manages class enrollments" on public.class_enrollments for all to authenticated
-using (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')))
-with check (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')));
+create policy "staff reads class enrollments" on public.class_enrollments for select to authenticated
+using (exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer')));
 create policy "clients read own class enrollments" on public.class_enrollments for select to authenticated using(client_id=auth.uid());
-create policy "clients create own published class enrollment" on public.class_enrollments for insert to authenticated
-with check(client_id=auth.uid() and status in ('booked','waitlisted') and exists(select 1 from public.class_occurrences o join public.class_templates t on t.id=o.template_id where o.id=occurrence_id and o.status='scheduled' and o.starts_at>now() and t.visibility='published'));
 
 -- Capacity-safe enrollment command. It decides booked vs waitlisted inside the database.
 create or replace function public.book_class(p_occurrence_id uuid,p_request_id uuid) returns jsonb
@@ -108,3 +105,5 @@ begin
 end $$;
 revoke all on function public.cancel_class_booking(uuid) from public,anon;
 grant execute on function public.cancel_class_booking(uuid) to authenticated;
+
+-- Owner-only mutations for class setup are performed server-side; clients only use the two security-definer booking commands above.
