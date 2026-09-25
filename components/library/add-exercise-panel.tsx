@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Video, Upload, X } from "lucide-react";
 import { uploadWithProgress } from "@/lib/video";
@@ -22,11 +22,6 @@ export function AddExercisePanel({ clients, initialClientId = "" }: { clients: C
   const [pct, setPct] = useState(0), [stage, setStage] = useState("");
   const [error, setError] = useState<string | null>(null), [receipt, setReceipt] = useState<Receipt | null>(null);
   useEffect(() => {
-    if (!file) { setPreview(null); return; }
-    const url = URL.createObjectURL(file); setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-  useEffect(() => {
     if (!pending) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
@@ -36,7 +31,7 @@ export function AddExercisePanel({ clients, initialClientId = "" }: { clients: C
     if (!value || pending || busy) return;
     const problem = videoFileError(value);
     if (problem) { setError(problem); return; }
-    setError(null); setFile(value); setPct(0);
+    setError(null); if (preview) URL.revokeObjectURL(preview); setFile(value); setPreview(URL.createObjectURL(value)); setPct(0);
   }
   async function save(addAnother: boolean) {
     if (lock.current) return;
