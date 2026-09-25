@@ -1,0 +1,2 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+test("payroll review is explicit and cannot masquerade as submission approval",()=>{const review=readFileSync("components/payroll/payroll-review.tsx","utf8"),page=readFileSync("app/reports/payroll/page.tsx","utf8");assert.match(page,/PayrollReview/);assert.match(review,/does not submit payroll/);assert.match(review,/not payroll approval/);assert.doesNotMatch(review,/fetch\(|POST|submitPayroll|approvePayroll/);});
