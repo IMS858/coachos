@@ -35,6 +35,12 @@ const REPORTS = [
     icon: DollarSign,
   },
   {
+    href: "/reports/payroll",
+    title: "Payroll Prep",
+    desc: "Completed-session evidence, trainer hours, late cancels and owner-reviewed export for payroll.",
+    icon: DollarSign,
+  },
+  {
     href: "/reports/trainers",
     title: "Trainer Utilization",
     desc: "Sessions delivered per trainer this week and month.",
