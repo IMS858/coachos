@@ -45,3 +45,9 @@ test("client app stays coaching-first instead of exposing the staff operating sy
  assert.doesNotMatch(nav,/Growth Center|Payroll|Financials|Owner Settings|IMS OS/);
  assert.match(today,/>Train →</);assert.match(today,/>Progress →</);assert.match(today,/>Coach →</);assert.match(today,/>Book →</);
 });
+
+test("session detail opens with coach evidence instead of another generic logging screen",()=>{
+ const page=readFileSync("app/sessions/[id]/page.tsx","utf8"),prep=readFileSync("components/sessions/session-coach-prep.tsx","utf8");
+ assert.match(page,/SessionCoachPrep/);assert.match(prep,/Pre-session brief/);assert.match(prep,/recorded IMS coaching evidence/);
+ assert.doesNotMatch(prep,/diagnos|probability|churn score/i);
+});
