@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   if (files.error) return reply({ error: "Upload verification unavailable. Retry this same save." }, 503);
   const file = files.data?.find(row => row.name === fileName && row.id);
   if (!file || file.metadata?.mimetype !== MIME[parts[3]] || !(Number(file.metadata?.size) > 0) || Number(file.metadata?.size) > 200 * 1024 * 1024) return reply({ error: "The complete upload could not be verified. Use a supported file under 200 MB." }, 409);
-  const result = await svc.from("client_media").insert({ id: parts[2], client_id: user.id, uploaded_by: user.id, kind, category: "general", title: "Client technique clip", note: note.trim() || null, storage_path: path }).select("id").single();
+  const result = await svc.from("client_media").insert({ id: parts[2], client_id: user.id, uploaded_by: user.id, kind, category: "general", title: "Client technique clip", note: note.trim() || null, storage_path: path, review_status: "awaiting_review" }).select("id").single();
   if (result.error?.code === "23505") {
     const repeated = await lookup();
     if (!repeated.error && same(repeated.data)) return reply({ ok: true, notified: !!repeated.data?.notified_at, deduped: true });
