@@ -6,6 +6,7 @@ import {createClient} from "@/lib/supabase/server";
 import {findLowBalancePackages} from "@/lib/queries/low-balance";
 import {loadLeadWorkspace} from "@/lib/leads/queries";
 import {loadStaffUnreadMessages} from "@/lib/messages/actionable";
+import {mediaReviewHref} from "@/lib/media/review-links";
 export const dynamic="force-dynamic";
 type Row={key:string;title:string;meta:string;href:string};
 function Queue({title,href,empty,rows}:{title:string;href:string;empty:string;rows:Row[]}){
@@ -38,7 +39,7 @@ export default async function ActionCenterPage(){
  const sharedQueues=<>
   <Queue title="Booking requests" href="/schedule" empty="No pending training requests in your loaded scope." rows={requests.map(row=>({key:row.id,title:names.get(row.client_id)??"Client",meta:date(row.scheduled_at),href:"/schedule"}))}/>
   <Queue title="Unread communications" href="/messages" empty="No incoming messages need attention." rows={messages.map(row=>({key:row.id,title:names.get(row.client_id)??"Client message",meta:row.body.slice(0,90),href:"/messages/"+row.client_id}))}/>
-  <div id="form-video-actions" className="scroll-mt-24"><Queue title="Client form videos" href="/clients" empty="No client form videos are awaiting review." rows={mediaReviews.map(row=>({key:row.id,title:names.get(row.client_id)??"Client video",meta:row.note||"Technique clip awaiting feedback",href:"/clients/"+row.client_id+"#form-video-review"}))}/></div>
+  <div id="form-video-actions" className="scroll-mt-24"><Queue title="Client form videos" href="/clients" empty="No client form videos are awaiting review." rows={mediaReviews.map(row=>({key:row.id,title:names.get(row.client_id)??"Client video",meta:row.note||"Technique clip awaiting feedback",href:mediaReviewHref(row.id)}))}/></div>
   <Queue title="Programs awaiting work" href="/programs" empty="No draft programs need attention. Exercise sets remain on client profiles." rows={programs.map(row=>({key:row.id,title:row.name||"Draft program",meta:names.get(row.client_id)??"Client",href:"/programs/"+row.id}))}/>
   <Queue title="Classes needing a delivery plan" href="/classes/manage" empty="Upcoming classes in the loaded 7-day window have structured plans." rows={classPrep.map(row=>({key:row.id,title:"Class plan not assigned",meta:date(row.starts_at),href:"/classes/manage/"+row.id}))}/>
   <Queue title="Clients going quiet" href="/clients" empty="No active clients in your scope are currently flagged." rows={quietRows.map(row=>({key:row.id,title:names.get(row.id)??"Client",meta:row.last_session_at?"14+ days since recorded session":"No completed session recorded",href:"/clients/"+row.id}))}/>
