@@ -25,6 +25,12 @@ alter table public.session_exercise_performance enable row level security;
 revoke all on public.session_exercise_performance from anon,authenticated;
 grant select,insert,update on public.session_exercise_performance to authenticated;
 
+create policy "client reads own session performance" on public.session_exercise_performance
+for select to authenticated using (
+  client_id=auth.uid()
+  and exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role='client')
+);
+
 create policy "staff reads scoped session performance" on public.session_exercise_performance
 for select to authenticated using (
   exists(select 1 from public.profiles me where me.id=auth.uid() and me.deleted_at is null and me.role in ('owner','trainer'))
