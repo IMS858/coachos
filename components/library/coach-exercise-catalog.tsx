@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { allCatalogPages, exerciseSetIds, isExerciseSet, UUID, type CatalogExercise, type CatalogClient, type SavedExerciseSet } from "@/lib/exercises/catalog";
+import { savedPrescriptions } from "@/lib/exercises/prescription";
 import { CATALOG_COLUMNS } from "@/lib/exercises/collections-server";
 import { ExerciseCatalogBrowser } from "@/components/library/exercise-catalog-browser";
 import { AddExercisePanel } from "@/components/library/add-exercise-panel";
@@ -32,7 +33,7 @@ export async function CoachExerciseCatalog({ clientId, collectionId }: { clientI
       const set = result.data;
       if (!set || set.status !== "draft" || !isExerciseSet(set.data)) throw new Error("This draft exercise set is no longer available.");
       if (!clients.some(c => c.id === set.client_id)) throw new Error("The client profile for this set is unavailable.");
-      initialSet = { id: set.id, name: set.name, client_id: set.client_id, updated_at: set.updated_at, canonical_ids: exerciseSetIds(set.data), note: typeof set.data.note === "string" ? set.data.note : "" };
+      initialSet = { id: set.id, name: set.name, client_id: set.client_id, updated_at: set.updated_at, canonical_ids: exerciseSetIds(set.data), prescriptions: savedPrescriptions(set.data), note: typeof set.data.note === "string" ? set.data.note : "" };
     } else if (clientId && !clients.some(c => c.id === clientId)) throw new Error("That client profile is unavailable. Open the library from an existing client.");
   } catch (cause) { error = cause instanceof Error ? cause.message : "Exercise workspace is unavailable."; }
   if (error) return <main className="mx-auto w-full max-w-6xl space-y-4 pb-16"><h1 className="text-3xl font-bold text-cream">Exercise Library</h1><div role="alert" className="rounded-2xl border border-status-limited/40 bg-white p-6 text-cream">{error} No selections or approvals were changed.</div><Link href="/library" className="inline-flex min-h-11 items-center text-sky underline">Reload the library</Link></main>;

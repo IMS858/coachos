@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "git": { "deploymentEnabled": { "release/ims-unified-2026-09": false } },
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "installCommand": "npm ci",

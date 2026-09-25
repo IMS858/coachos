@@ -1,26 +1,16 @@
+import { parsePrescriptionMap, type PrescriptionMap } from "./prescription";
 export const EXERCISE_SET_SOURCE = "ims_exercise_set";
 export const MAX_SET_EXERCISES = 500;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export interface CatalogExercise {
-  canonical_id: string;
-  canonical_name: string;
-  aliases: string | null;
-  category: string | null;
-  movement_pattern: string | null;
-  source_primary_joints: string | null;
-  equipment: string | null;
-  matched_exercise_id: string | null;
-  mapping_status: string | null;
+  canonical_id: string; canonical_name: string; aliases: string | null; category: string | null;
+  movement_pattern: string | null; source_primary_joints: string | null; equipment: string | null;
+  matched_exercise_id: string | null; mapping_status: string | null;
 }
 export interface CatalogClient { id: string; full_name: string }
 export interface SavedExerciseSet {
-  id: string;
-  name: string;
-  client_id: string;
-  updated_at: string;
-  canonical_ids: string[];
-  note: string;
+  id: string; name: string; client_id: string; updated_at: string; canonical_ids: string[]; note: string;
+  prescriptions?: PrescriptionMap;
 }
 export function isExerciseSet(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -39,9 +29,7 @@ export function sourceTokens(value: string | null): string[] {
   } catch { /* Source also contains ordinary delimited text. */ }
   return value.split(/[,;|]/).map(v => v.trim()).filter(Boolean);
 }
-export function catalogLabel(value: string | null): string {
-  return value ? value.replaceAll("_", " ") : "Uncategorized";
-}
+export function catalogLabel(value: string | null): string { return value ? value.replaceAll("_", " ") : "Uncategorized"; }
 export function filterCatalog(rows: CatalogExercise[], filters: { query?: string; category?: string; joint?: string; equipment?: string; selectedOnly?: boolean }, selected: ReadonlySet<string> = new Set()): CatalogExercise[] {
   const terms = (filters.query ?? "").trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return rows.filter(row => {
@@ -53,14 +41,9 @@ export function filterCatalog(rows: CatalogExercise[], filters: { query?: string
     return terms.every(term => haystack.includes(term));
   });
 }
-
 export interface ExerciseSetInput {
-  request_id: string;
-  client_id: string;
-  name: string;
-  note: string;
-  canonical_ids: string[];
-  expected_updated_at?: string;
+  request_id: string; client_id: string; name: string; note: string; canonical_ids: string[];
+  prescriptions?: PrescriptionMap; expected_updated_at?: string;
 }
 export function parseExerciseSetInput(value: unknown, editing = false): ExerciseSetInput {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid exercise selection.");
@@ -73,32 +56,30 @@ export function parseExerciseSetInput(value: unknown, editing = false): Exercise
       || v.canonical_ids.some(id => typeof id !== "string" || !/^EX-\d{4,6}$/.test(id))
       || new Set(v.canonical_ids).size !== v.canonical_ids.length) throw new Error("Choose a non-duplicated set of source exercises.");
   if (editing && (typeof v.expected_updated_at !== "string" || !Number.isFinite(Date.parse(v.expected_updated_at)))) throw new Error("Refresh this saved set before editing it.");
-  // Reject prescription/publication overrides rather than silently trusting them.
-  const allowed = new Set(["request_id", "client_id", "name", "note", "canonical_ids", "expected_updated_at"]);
-  if (Object.keys(v).some(key => !allowed.has(key))) throw new Error("Only exercise selections and coach notes can be saved here.");
-  return { request_id: v.request_id, client_id: v.client_id, name: v.name.trim(), note: typeof v.note === "string" ? v.note.trim() : "", canonical_ids: v.canonical_ids as string[], ...(editing ? { expected_updated_at: v.expected_updated_at as string } : {}) };
+  // Dosage is coaching intent, not a publication, safety or identity override.
+  const allowed = new Set(["request_id", "client_id", "name", "note", "canonical_ids", "prescriptions", "expected_updated_at"]);
+  if (Object.keys(v).some(key => !allowed.has(key))) throw new Error("Only exercise selections, prescriptions and coach notes can be saved here.");
+  return { request_id: v.request_id, client_id: v.client_id, name: v.name.trim(), note: typeof v.note === "string" ? v.note.trim() : "", canonical_ids: v.canonical_ids as string[],
+    ...(v.prescriptions === undefined ? {} : { prescriptions: parsePrescriptionMap(v.prescriptions, v.canonical_ids as string[]) }),
+    ...(editing ? { expected_updated_at: v.expected_updated_at as string } : {}) };
 }
-
 /** Snapshots are coaching selections, not exercise approvals or a publishable plan. */
 export function exerciseSetData(input: ExerciseSetInput, rows: CatalogExercise[], actorId: string) {
   const byId = new Map(rows.map(row => [row.canonical_id, row]));
   if (input.canonical_ids.some(id => !byId.has(id))) throw new Error("One or more exercises are no longer in the source catalog. Refresh and retry.");
+  const prescriptions = parsePrescriptionMap(input.prescriptions ?? {}, input.canonical_ids);
   return {
-    source: EXERCISE_SET_SOURCE,
-    visibility: "coach_only",
-    schema_version: 1,
-    canonical_ids: input.canonical_ids,
-    note: input.note,
-    selected_by: actorId,
+    source: EXERCISE_SET_SOURCE, visibility: "coach_only", schema_version: 2,
+    canonical_ids: input.canonical_ids, note: input.note, selected_by: actorId,
     exercises: input.canonical_ids.map(id => {
       const row = byId.get(id)!;
       return { canonical_id: id, name: row.canonical_name, category: row.category, primary_joints: row.source_primary_joints, equipment: row.equipment,
         // Never turn an unverified match/candidate into an assignment.
-        matched_exercise_id: row.mapping_status === "coach_confirmed" ? row.matched_exercise_id : null };
+        matched_exercise_id: row.mapping_status === "coach_confirmed" ? row.matched_exercise_id : null,
+        ...prescriptions[id] };
     }),
   };
 }
-
 /** Deterministic pagination: never let a server row cap masquerade as a full catalog. */
 export async function allCatalogPages<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown; count?: number | null }>, size = 200): Promise<T[]> {
   const rows: T[] = [];
