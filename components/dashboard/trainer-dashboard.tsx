@@ -1,7 +1,5 @@
 import {
   Clock,
-  CheckCircle2,
-  CircleDot,
   MessageCircle,
   ChevronRight,
   Users,
@@ -87,16 +85,6 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   const completed = sessions.filter((s: any) => s.status === "completed").length;
   const remaining = sessions.length - completed;
   const actionCount = (draftPrograms ?? []).length + scopedUnread.length + (bookingRequests ?? []).length;
-
-  const tasks: Array<{ label: string; urgent: boolean; href: string }> = [];
-  for (const p of draftPrograms ?? []) {
-    const name = (p as any).clients?.profiles?.full_name ?? "client";
-    tasks.push({
-      label: `Program for ${name} is in draft`,
-      urgent: true,
-      href: `/programs/${p.id}`,
-    });
-  }
 
 
   return (
