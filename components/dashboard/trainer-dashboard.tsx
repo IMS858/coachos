@@ -84,6 +84,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
   const actionableMessages = scopedUnread.slice(0,5);
 
   const sessions = todaySessions ?? [];
+  const todayStart=new Date();todayStart.setHours(0,0,0,0);const todayEnd=new Date(todayStart);todayEnd.setDate(todayEnd.getDate()+1);const classesQ=await supabase.from("class_occurrences").select("id,starts_at,ends_at,capacity,status,class_templates(name,category)").eq("trainer_id",userId).gte("starts_at",todayStart.toISOString()).lt("starts_at",todayEnd.toISOString()).neq("status","cancelled").order("starts_at");
   const todayClientIds = [...new Set(sessions.flatMap((row: any) => row.clients?.id ? [row.clients.id as string] : []))];
   const [prepPlansQ, prepAssessQ, prepProgramsQ] = todayClientIds.length ? await Promise.all([
     supabase.from("plans").select("client_id,kind,total_sessions,sessions_used,status").in("client_id",todayClientIds).eq("status","active"),
