@@ -81,7 +81,7 @@ export default async function ClientsPage({
               New client
             </Button>
           </Link>
-        </div>
+        </div></div>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><Users className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.active}</p><p className="text-xs text-cream-faint">Active clients</p></div>
