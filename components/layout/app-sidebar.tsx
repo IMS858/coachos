@@ -12,6 +12,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   owner: [
     { href: "/dashboard", label: "Today", icon: LayoutDashboard },
     { href: "/dashboard?view=owner", label: "Business Overview", icon: BarChart3 },
+    { href: "/operating-system", label: "IMS Operating System", icon: Activity },
     { href: "/clients", label: "Clients", icon: Users },
     { href: "/action-center", label: "Action Center", icon: ListChecks },
     { href: "/growth", label: "Growth Center", icon: Target },
