@@ -68,7 +68,7 @@ test("complete session execution rollout is atomic, scoped, replay-safe and clie
    await asActor(client);assert.equal((await db.query("select * from public.session_exercise_performance")).rows.length,0);assert.equal((await db.query("select * from public.session_performance_history")).rows.length,0);
    assert.equal((await db.query("select * from public.get_my_coached_performance()")).rows.length,0);
    await db.exec(`reset role;update public.sessions set status='completed' where id='${session}';update public.programs set status='active' where id='${program}'`);await asActor(client);
-   const rows=(await db.query("select * from public.get_my_coached_performance()")).rows;assert.equal(rows.length,1);assert.equal("coach_note" in rows[0],false);assert.equal("prescription_snapshot" in rows[0],false);
+   const rows=(await db.query<Record<string,unknown>>("select * from public.get_my_coached_performance()")).rows;assert.equal(rows.length,1);assert.equal("coach_note" in rows[0],false);assert.equal("prescription_snapshot" in rows[0],false);
    await asActor(secondClient);assert.equal((await db.query("select * from public.get_my_coached_performance()")).rows.length,0);
    await db.exec("reset role;update public.exercise_reviews set safety_status='pending'");await asActor(client);assert.equal((await db.query("select * from public.get_my_coached_performance()")).rows.length,0);
    await db.exec("reset role;update public.exercise_reviews set safety_status='approved'");
