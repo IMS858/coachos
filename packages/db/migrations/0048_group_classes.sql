@@ -82,7 +82,7 @@ begin
  if found and v_existing.status in ('booked','waitlisted') then return jsonb_build_object('ok',true,'id',v_existing.id,'status',v_existing.status,'deduped',true); end if;
  select count(*) into v_count from public.class_enrollments where occurrence_id=p_occurrence_id and status='booked';
  v_status:=case when v_count<v_capacity then 'booked' else 'waitlisted' end;
- if found then
+ if v_existing.id is not null then
    update public.class_enrollments set id=p_request_id,status=v_status,booked_at=clock_timestamp(),cancelled_at=null,updated_at=clock_timestamp() where occurrence_id=p_occurrence_id and client_id=v_user returning * into v_existing;
  else
    insert into public.class_enrollments(id,occurrence_id,client_id,status) values(p_request_id,p_occurrence_id,v_user,v_status) returning * into v_existing;
