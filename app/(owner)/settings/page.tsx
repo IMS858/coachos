@@ -5,7 +5,7 @@ const sections=[
  {href:"/settings/email",title:"Access & logins",copy:"Client invitations, account access and email diagnostics.",icon:Mail},
  {href:"/clients",title:"People & coaching",copy:"Client relationships, programming paths and account status.",icon:Users},
  {href:"/action-center",title:"Operations",copy:"Follow-ups, reviews and work that needs owner attention.",icon:ShieldCheck},
- {href:"/reports/payroll",title:"Payroll Prep",copy:"Trainer hours, completed sessions and exportable payroll evidence.",icon:BadgeDollarSign},
+ {href:"/settings/payroll",title:"Payroll & compensation",copy:"Trainer evidence, provider connection and owner-reviewed payroll controls.",icon:BadgeDollarSign},
  {href:"/leads?tab=research",title:"AI & Research",copy:"Research Desk workflow. Budget controls arrive with paid AI connection.",icon:BrainCircuit},
  {href:"/library",title:"Video & exercise library",copy:"Exercise approvals, client visibility and reusable coaching media.",icon:Video},
  {href:"/reports",title:"Audit & reporting",copy:"Operational, financial and engagement reporting.",icon:History},
