@@ -1,6 +1,6 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const ts=require('typescript');
 const root=path.join(__dirname,'..'),coach='22222222-2222-4222-8222-222222222222',client='44444444-4444-4444-8444-444444444444',base='66666666-6666-4666-8666-666666666666';
-function load(relative,mocks){const source=fs.readFileSync(path.join(root,relative),'utf8'),out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,module={exports:{}};new Function('require','module','exports',out)(name=>Object.hasOwn(mocks,name)?mocks[name]:name.startsWith('@/')?load(name.slice(2)+'.ts',mocks):require(name),module,module.exports);return module.exports;}
+function load(relative,mocks){const source=fs.readFileSync(path.join(root,relative),'utf8'),out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,loadedModule={exports:{}};new Function('require','module','exports',out)(name=>Object.hasOwn(mocks,name)?mocks[name]:name.startsWith('@/')?load(name.slice(2)+'.ts',mocks):require(name),loadedModule,loadedModule.exports);return loadedModule.exports;}
 function request(body,origin='https://coach.invalid'){return {headers:new Headers({origin}),nextUrl:new URL('https://coach.invalid/api/media'),json:async()=>body};}
 function mock(options={}){
  const calls=[];
