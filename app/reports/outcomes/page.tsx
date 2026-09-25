@@ -8,13 +8,13 @@ export const dynamic="force-dynamic";
 export default async function OutcomesReport(){
  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login?next=/reports/outcomes");
  const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error||me.data?.role!=="owner"||me.data.deleted_at)redirect("/dashboard");
- const thirty=new Date(Date.now()-30*86400000).toISOString();
+ const today=new Date().toISOString().slice(0,10);const thirty=new Date(today+"T00:00:00.000Z");thirty.setUTCDate(thirty.getUTCDate()-30);const thirtyIso=thirty.toISOString();
  const [clientsQ,assessQ,bodyQ,signalsQ,sessionsQ,programsQ,staleQ]=await Promise.all([
   db.from("clients").select("id").eq("status","active"),
   db.from("assessments").select("client_id,assessment_date,status").eq("status","complete"),
   db.from("body_comp_records").select("client_id,recorded_at"),
   db.from("v_progression_signals").select("client_id,pattern,sessions_considered,last_recorded"),
-  db.from("sessions").select("id,client_id",{count:"exact"}).eq("status","completed").gte("completed_at",thirty),
+  db.from("sessions").select("id,client_id",{count:"exact"}).eq("status","completed").gte("completed_at",thirtyIso),
   db.from("programs").select("client_id,status,published_at").in("status",["published","active"]),
   db.from("v_assessment_staleness").select("client_id,staleness,days_since"),
  ]);
