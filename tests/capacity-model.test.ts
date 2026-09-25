@@ -24,3 +24,5 @@ test("sessions overlapping explicit time blocks are conflicts, not usable capaci
  const result=buildTrainerCapacity(new Date("2026-09-24T19:00:00Z"),[{trainer_id:trainer,weekday:1,start_time:"09:00:00",end_time:"17:00:00",active:true}],[{trainer_id:trainer,starts_at:"2026-09-21T19:00:00Z",ends_at:"2026-09-21T20:00:00Z"}],[{trainer_id:trainer,scheduled_at:"2026-09-21T19:15:00Z",duration_minutes:30,status:"scheduled"}])[0];
  assert.equal(result.blocked_session_conflicts,1);assert.equal(result.booked_minutes,0);assert.equal(result.open_minutes,420);
 });
+
+test("capacity shows class coaching separately until unified overlap reconciliation",()=>{const page=readFileSync("app/capacity/page.tsx","utf8");assert.match(page,/class_occurrences/);assert.match(page,/Group coaching scheduled/);assert.match(page,/Shown separately from 1:1 booked capacity to avoid double-counting/);});
