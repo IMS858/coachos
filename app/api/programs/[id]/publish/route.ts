@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { fourWeekStructureIssues } from "@/lib/programs/four-week-integrity";
+import { recordAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -84,5 +85,6 @@ export async function POST(
   if (saveError || !saved) {
     return NextResponse.json({ error: saveError ? "Unable to publish" : "Draft changed during publication; refresh and retry" }, { status: saveError ? 500 : 409 });
   }
+  await recordAudit({actorId:user.id,action:"program.published",entityType:"program",entityId:id,changes:{client_id:record.client_id,source:"ims_generator"}});
   return NextResponse.json({ ok: true, program_id: id });
 }
