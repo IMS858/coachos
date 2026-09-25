@@ -6,6 +6,7 @@ const sections=[
  {href:"/clients",title:"People & coaching",copy:"Client relationships, programming paths and account status.",icon:Users},
  {href:"/settings/staff",title:"Staff & roles",copy:"Team roles, coaching load, schedules and payroll mapping readiness.",icon:Users},
  {href:"/action-center",title:"Operations",copy:"Follow-ups, reviews and work that needs owner attention.",icon:ShieldCheck},
+ {href:"/settings/readiness",title:"Operational readiness",copy:"Staff, client, programming, payroll and audit evidence in one portability view.",icon:ShieldCheck},
  {href:"/settings/payroll",title:"Payroll & compensation",copy:"Trainer evidence, provider connection and owner-reviewed payroll controls.",icon:BadgeDollarSign},
  {href:"/leads?tab=research",title:"AI & Research",copy:"Research Desk workflow. Budget controls arrive with paid AI connection.",icon:BrainCircuit},
  {href:"/library",title:"Video & exercise library",copy:"Exercise approvals, client visibility and reusable coaching media.",icon:Video},
