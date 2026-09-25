@@ -12,6 +12,7 @@ import { ClientProgrammingStatus } from "@/components/clients/client-programming
 import { ClientEvidenceSummary } from "@/components/clients/client-evidence-summary";
 import { ClientCoachBrief } from "@/components/clients/client-coach-brief";
 import { ClientCoachingTimeline } from "@/components/clients/client-coaching-timeline";
+import { ClientPerformanceTrends } from "@/components/clients/client-performance-trends";
 import { SendAgreement } from "@/components/clients/send-agreement";
 import { WaiverPanel } from "@/components/clients/waiver-panel";
 import { MedicalPanel } from "@/components/clients/medical-panel";
@@ -55,6 +56,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     <ClientProgrammingStatus clientId={id}/>
     <ClientEvidenceSummary clientId={id}/>
     <ClientCoachingTimeline clientId={id}/>
+    <ClientPerformanceTrends clientId={id}/>
     <ClientExerciseSets clientId={id}/>
     <SessionTracker clientId={id}/>
     <ClientProgramLink clientId={id}/>
