@@ -1,5 +1,5 @@
 -- Recurring class series and class-specific access products.
-alter table public.class_occurrences add column if not exists series_id uuid;
+create table if not exists public.class_series (\n id uuid primary key default gen_random_uuid(),\n template_id uuid not null references public.class_templates(id) on delete restrict,\n trainer_id uuid not null references public.profiles(id),\n weekday integer not null check(weekday between 0 and 6),\n start_time time not null,\n duration_minutes integer not null check(duration_minutes between 15 and 180),\n capacity integer not null check(capacity between 1 and 100),\n location text,\n starts_on date not null,\n ends_on date,\n active boolean not null default true,\n created_by uuid not null references public.profiles(id),\n created_at timestamptz not null default now(),\n updated_at timestamptz not null default now(),\n check(ends_on is null or ends_on>=starts_on)\n);\nalter table public.class_occurrences add column if not exists series_id uuid;
 alter table public.class_occurrences add column if not exists source_key text;
 create unique index if not exists class_occurrence_source_key_unique on public.class_occurrences(source_key) where source_key is not null;
 
