@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+test("Action Center supports both owner and trainer workflows",()=>{const page=readFileSync("app/action-center/page.tsx","utf8");assert.match(page,/\["owner","trainer"\]/);assert.match(page,/Coach action center/);assert.match(page,/Owner action center/);assert.match(page,/primary_trainer_id/);});
+test("trainer Today links to Action Center and scopes unread work",()=>{const page=readFileSync("components/dashboard/trainer-dashboard.tsx","utf8");assert.match(page,/href="\/action-center"/);assert.match(page,/assignedClientIds/);assert.match(page,/scopedUnread/);assert.match(page,/Actions\{actionCount/);});
