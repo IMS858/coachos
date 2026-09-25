@@ -40,13 +40,13 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
 
   return <AppShell><div className="flex min-w-0 flex-col gap-6">
     <Link href="/clients" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-cream-dim hover:text-cream"><ArrowLeft aria-hidden="true" className="h-4 w-4" />All clients</Link>
-    <nav aria-label="Client actions" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <section className="rounded-3xl border border-sky/15 bg-gradient-to-br from-white via-white to-sky/5 p-4 shadow-sm sm:p-5"><p className="mb-3 text-xs font-semibold uppercase tracking-[.16em] text-sky">Coach actions</p><nav aria-label="Client actions" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       <Link href={`/sessions/new?client_id=${id}`} className={actionClass}><CalendarPlus aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Book training</span></Link>
-      <Link href={`/library?client_id=${id}`} className={actionClass}><Dumbbell aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Add exercise set</span></Link>
-      <Link href={`/messages/${id}`} className={actionClass}><MessageCircle aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Message this client</span></Link>
+      <Link href={`/library?client_id=${id}`} className={actionClass}><Dumbbell aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Quick programming</span></Link>
+      <Link href={`/messages/${id}`} className={actionClass}><MessageCircle aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Message client</span></Link>
       {viewerProfile.role === "owner" && <Link href={`/checkout?client_id=${id}`} className={actionClass}><CreditCard aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Client checkout</span></Link>}
       <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
-    </nav>
+    </nav></section>
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>
     <ClientExerciseSets clientId={id}/>
