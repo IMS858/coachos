@@ -16,7 +16,7 @@ export default async function AuditHistoryPage({searchParams}:{searchParams:Prom
  const actors=actorIds.length?await db.from("profiles").select("id,full_name").in("id",actorIds):{data:[],error:null};
  if(actors.error)throw new Error("Audit actors could not be loaded.");
  const names=new Map((actors.data??[]).map(r=>[r.id,r.full_name]));const rows=logs.data??[];
- const since7=Date.now()-7*86400000,uniqueActors=new Set(rows.filter(r=>new Date(r.created_at).getTime()>=since7).map(r=>r.actor_id).filter(Boolean)).size;
+ const newestAt=rows[0]?.created_at?new Date(rows[0].created_at).getTime():0,since7=newestAt-7*86400000,uniqueActors=new Set(rows.filter(r=>new Date(r.created_at).getTime()>=since7).map(r=>r.actor_id).filter(Boolean)).size;
  const entities=new Set(rows.map(r=>r.entity_type)).size;
  return <AppShell expectedRole="owner"><main className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-6">
   <header className="rounded-3xl bg-band p-6 text-white sm:p-8"><p className="text-xs font-semibold uppercase tracking-[.2em] text-white/60">Owner control center</p><h1 className="mt-2 text-4xl font-bold">Operational History</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-white/75">A durable record of important Coach OS changes so future operators can understand what happened without relying on memory.</p></header>
