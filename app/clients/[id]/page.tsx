@@ -64,7 +64,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     <SendAgreement clientId={id} defaultEmail={profileRow.email ?? ""} defaultName={profileRow.full_name}/>
     <WaiverPanel clientId={id}/>
     <MedicalPanel clientId={id}/>
-    <ClientVideoWorkflow clientId={id}/>
+    <ClientVideoWorkflow clientId={id} clientName={profileRow.full_name}/>
     <div id="coach-video"><SendVideoPanel clientId={id} clientName={profileRow.full_name}/></div>
     <ClientLoginPanel clientId={id} clientName={profileRow.full_name} hasEmail={Boolean(profileRow.email)} isOwner={viewerProfile.role === "owner"}/>
     <IntakeLinkButton clientId={id} clientName={profileRow.full_name} clientEmail={profileRow.email}/>
