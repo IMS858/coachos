@@ -8,17 +8,16 @@ import {
   CalendarPlus,
   TrendingUp,
   MessageCircle,
-  ClipboardList,
   UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/dashboard", label: "Today", icon: Home },
-  { href: "/plan", label: "Plan", icon: Dumbbell },
-  { href: "/workouts", label: "Log", icon: ClipboardList },
-  { href: "/book", label: "Book", icon: CalendarPlus },
+  { href: "/plan", label: "Train", icon: Dumbbell },
   { href: "/progress", label: "Progress", icon: TrendingUp },
+  { href: "/messages", label: "Coach", icon: MessageCircle },
+  { href: "/book", label: "Book", icon: CalendarPlus },
   { href: "/account", label: "Me", icon: UserRound },
 ];
 
