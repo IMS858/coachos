@@ -5,7 +5,7 @@ import HealthKit
 @MainActor final class HealthStore: ObservableObject {
     @Published var syncState = "Not connected"
     private let store = HKHealthStore()
-    private let calendar = Calendar(identifier: .gregorian)
+    private let calendar: Calendar = { var value=Calendar(identifier:.gregorian);value.timeZone=.current;return value }()
     private var readTypes: Set<HKObjectType> {
         var set:Set<HKObjectType>=[HKObjectType.workoutType()]
         [HKQuantityTypeIdentifier.stepCount,.activeEnergyBurned,.appleExerciseTime,.bodyMass].compactMap{HKQuantityType.quantityType(forIdentifier:$0)}.forEach{set.insert($0)}
@@ -85,7 +85,7 @@ import HealthKit
         let values=try await (steps,energy,exercise,weight,sleep,workout)
         var observed:[String]=[];if values.0 != nil{observed.append("steps")};if values.1 != nil{observed.append("active_energy")};if values.2 != nil{observed.append("exercise_minutes")};if values.3.0 != nil{observed.append("weight")};if values.4 != nil{observed.append("sleep")};if values.5.1 != nil{observed.append("workouts")}
         guard !observed.isEmpty else{return}
-        let formatter=DateFormatter();formatter.calendar=calendar;formatter.locale=Locale(identifier:"en_US_POSIX");formatter.dateFormat="yyyy-MM-dd"
+        let formatter=DateFormatter();formatter.calendar=calendar;formatter.timeZone=calendar.timeZone;formatter.locale=Locale(identifier:"en_US_POSIX");formatter.dateFormat="yyyy-MM-dd"
         var request=URLRequest(url:SessionStore.apiBaseURL.appending(path:"/api/mobile/health"));request.httpMethod="POST";request.setValue("application/json",forHTTPHeaderField:"Content-Type")
         request.httpBody=try JSONSerialization.data(withJSONObject:["day":formatter.string(from:start),"steps":values.0 as Any,"active_energy_kcal":values.1 as Any,"exercise_minutes":values.2 as Any,"weight_lb":values.3.0 as Any,"weight_source":values.3.1 as Any,"sleep_hours":values.4 as Any,"workout_minutes":values.5.0 as Any,"workout_count":values.5.1 as Any,"observed_types":observed,"time_zone":TimeZone.current.identifier,"utc_offset_minutes":TimeZone.current.secondsFromGMT(for:start)/60])
         let (_,response)=try await URLSession.shared.data(for:request);guard (response as? HTTPURLResponse)?.statusCode==200 else{throw URLError(.badServerResponse)}
