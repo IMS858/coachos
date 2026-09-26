@@ -105,7 +105,7 @@ export function NewSessionForm({
   // Re-default the time when mode toggles
   function switchMode(next: "schedule" | "log") {
     setMode(next);
-    setScheduledAt(next === "log" ? defaultLogTime() : defaultScheduleTime());
+    setScheduledAt(next === "log" ? defaultLogTime() : scheduleTimeForDate(initialDate));
   }
 
   async function handleSubmit(e: React.FormEvent) {
