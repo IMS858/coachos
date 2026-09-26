@@ -1,11 +1,18 @@
 import Foundation
 import SwiftUI
+import WebKit
 
 @MainActor final class SessionStore: ObservableObject {
     @Published var isAuthenticated = false
     @Published var route = "/dashboard"
     static let apiBaseURL = URL(string: ProcessInfo.processInfo.environment["IMS_API_BASE_URL"] ?? "https://coachos-opal.vercel.app")!
     private let baseURL = SessionStore.apiBaseURL
+
+    func adoptWebCookies(from store: WKHTTPCookieStore) async {
+        let cookies = await store.allCookies()
+        for cookie in cookies { HTTPCookieStorage.shared.setCookie(cookie) }
+        await bootstrap()
+    }
 
     func bootstrap() async {
         var request = URLRequest(url: baseURL.appending(path: "/api/mobile/session"))
