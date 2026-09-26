@@ -1,10 +1,26 @@
-import Link from "next/link";
 import {createClient} from "@/lib/supabase/server";
-import {fuelDate,phaseForDate,type FuelPlan} from "@/lib/fuel/model";
-export async function FuelTodayCard(){const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return null;const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error)return <p role="alert" className="rounded-xl border border-divider p-3 text-sm">Fuel authorization unavailable.</p>;if(!me.data||me.data.deleted_at||me.data.role!=="client")return null;
- const release=await db.from("fuel_plan_releases").select("version_id,sequence").eq("client_id",user.id).order("sequence",{ascending:false}).limit(1).maybeSingle();let title="Fuel & Performance",detail="Habits and weekly coach check-ins. No nutrition target is assumed.";
- if(release.error)return <section role="alert" className="rounded-2xl border border-divider bg-white p-4"><h2 className="font-semibold">Fuel & Performance unavailable</h2><p className="mt-2 text-sm text-cream-dim">Fuel evidence could not be loaded; training remains available.</p></section>;
- if(release.data?.version_id){const version=await db.from("fuel_plan_versions").select("content").eq("id",release.data.version_id).eq("client_id",user.id).maybeSingle();if(version.error||!version.data)return <p role="alert" className="rounded-xl border border-divider p-3 text-sm">Assigned fuel plan unavailable. No targets were inferred.</p>;const plan=version.data.content as FuelPlan,phase=phaseForDate(plan,fuelDate());title=plan.title;detail=phase?`${phase.name} · Open today's plan and optional check-in.`:"Your plan has no phase assigned for today. Check with your coach.";}
- else if(release.data)detail="Your current fuel plan is paused. Previous releases remain in your history.";
- return <Link href="/fuel" className="block rounded-2xl border border-sky/20 bg-sky/5 p-5 transition hover:border-sky/50"><p className="text-xs font-semibold uppercase tracking-wider text-sky">Fuel & Performance</p><h2 className="mt-2 text-xl font-semibold text-cream">{title}</h2><p className="mt-2 text-sm text-cream-dim">{detail}</p><span className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-sky">Open Fuel →</span></Link>;
+import {loadFuelToday} from "@/lib/fuel/today-load";
+import {buildFuelToday} from "@/lib/fuel/today";
+import {confirmedTrainingContext} from "@/lib/fuel/model";
+import {FuelDailyForm} from "./journal-forms";
+import {FuelTodayView} from "./today-view";
+
+export async function FuelTodayCard() {
+  const db = await createClient();
+  const {data: {user}, error} = await db.auth.getUser();
+  if (error) return <p role="alert">Today authorization is unavailable. Refresh to try again.</p>;
+  if (!user) return null;
+  const me = await db.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
+  if (me.error) return <p role="alert">Today authorization is unavailable. Refresh to try again.</p>;
+  if (!me.data || me.data.deleted_at || me.data.role !== "client") return null;
+  const data = await loadFuelToday(db, user.id);
+  const today = buildFuelToday(data);
+  // Failed evidence must never become a new revision-zero save form.
+  const canReport = data.plan.status === "ready" && data.daily.status === "ready" && data.sessions.status === "ready";
+  return <FuelTodayView data={data}>{canReport && <details className="mt-4 border-t border-divider pt-2"><summary className="flex min-h-12 cursor-pointer items-center text-sm font-semibold text-sky">{today.daily ? "Update my daily check-in" : "Quick daily check-in"}</summary><FuelDailyForm
+    key={`${data.date}:${today.daily?.revision ?? 0}:${today.version?.id ?? "none"}`}
+    clientId={user.id} date={data.date} entry={today.daily} versionId={today.version?.id ?? null}
+    plan={today.active?.content ?? null}
+    hasBooking={data.sessions.status === "ready" && confirmedTrainingContext(data.sessions.value, data.date)}
+  /></details>}</FuelTodayView>;
 }

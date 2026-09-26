@@ -25,3 +25,5 @@ export const fuelCommandSchema=z.discriminatedUnion("action",[
 export type FuelCommand=z.infer<typeof fuelCommandSchema>;
 export function parseFuelCommand(value:unknown):FuelCommand {const parsed=fuelCommandSchema.safeParse(value);if(!parsed.success)throw Error(parsed.error.issues.map(i=>i.message).slice(0,3).join(" "));return parsed.data;}
 export function validFuelReceipt(value:unknown,command:FuelCommand,clientId:string):boolean {if(!value||typeof value!=="object")return false;const r=value as Record<string,unknown>;return r.ok===true&&r.request_id===command.request_id&&r.client_id===clientId&&r.action===command.action&&typeof r.entity_id==="string"&&uuid.safeParse(r.entity_id).success&&Number.isSafeInteger(r.revision)&&Number(r.revision)>0&&typeof r.deduped==="boolean";}
+// Reads and writes validate the same client-reported evidence contract.
+export {daily as fuelDailySchema, weekly as fuelCheckinSchema};
