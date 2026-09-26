@@ -207,9 +207,8 @@ export async function SessionTracker({ clientId }: { clientId: string }) {
           {packages.map((p) => {
             const evidence = packageBalanceEvidence(p);
             const known = evidence.status === "known";
-            const remaining = known ? evidence.remaining : null;
-            const low = known && remaining <= 2 && remaining > 0;
-            const empty = known && remaining === 0;
+            const low = evidence.status === "known" && evidence.remaining <= 2 && evidence.remaining > 0;
+            const empty = evidence.status === "known" && evidence.remaining === 0;
             return (
               <div key={p.id} className="flex items-center gap-4">
                 {known ? <ProgressRing used={evidence.used} total={evidence.total} low={low || empty} /> : <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-full border border-status-moderate/30 bg-status-moderate/10"><AlertTriangle className="h-5 w-5 text-status-moderate"/></div>}
