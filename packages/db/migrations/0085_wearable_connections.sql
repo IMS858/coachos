@@ -24,3 +24,27 @@ create policy client_data_connections_read on public.client_data_connections for
  where actor.id=auth.uid() and actor.deleted_at is null
  and (actor.role='owner' or (actor.role='trainer' and c.primary_trainer_id=actor.id) or (actor.role='client' and actor.id=client_data_connections.client_id)))
 );
+
+
+create or replace function public.sync_apple_health_connection_registry() returns trigger
+ language plpgsql security definer set search_path='' as $$
+begin
+ if tg_op in ('INSERT','UPDATE') then
+  insert into public.client_data_connections(client_id,provider,transport,status,observed_categories,last_synced_at,connected_at,updated_at)
+  values(new.client_id,'apple_health','native_healthkit','connected',new.observed_types,new.synced_at,new.synced_at,clock_timestamp())
+  on conflict(client_id,provider) do update set
+   transport='native_healthkit',status='connected',observed_categories=excluded.observed_categories,
+   last_synced_at=excluded.last_synced_at,connected_at=coalesce(public.client_data_connections.connected_at,excluded.connected_at),
+   revoked_at=null,updated_at=clock_timestamp();
+  return new;
+ end if;
+ if tg_op='DELETE' and not exists(select 1 from public.client_health_daily where client_id=old.client_id) then
+  update public.client_data_connections set status='not_connected',observed_categories='{}',last_synced_at=null,updated_at=clock_timestamp()
+  where client_id=old.client_id and provider='apple_health';
+ end if;
+ return old;
+end $$;
+revoke all on function public.sync_apple_health_connection_registry() from public,anon,authenticated,service_role;
+drop trigger if exists apple_health_connection_registry on public.client_health_daily;
+create trigger apple_health_connection_registry after insert or update or delete on public.client_health_daily
+ for each row execute function public.sync_apple_health_connection_registry();
