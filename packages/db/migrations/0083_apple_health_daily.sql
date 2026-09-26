@@ -88,3 +88,16 @@ exception when numeric_value_out_of_range or check_violation or invalid_text_rep
 end $$;
 revoke all on function public.sync_client_health_day(date,jsonb) from public,anon,authenticated,service_role;
 grant execute on function public.sync_client_health_day(date,jsonb) to authenticated;
+
+
+create or replace function public.clear_my_client_health_data() returns jsonb
+ language plpgsql security definer set search_path='' as $$
+declare actor uuid:=auth.uid(); removed integer;
+begin
+ if actor is null or not exists(select 1 from public.profiles p where p.id=actor and p.role='client' and p.deleted_at is null) then raise exception 'Client authorization required' using errcode='42501';end if;
+ delete from public.client_health_daily where client_id=actor;get diagnostics removed=row_count;
+ insert into public.audit_logs(id,actor_id,action,entity_type,entity_id,changes) values(gen_random_uuid(),actor,'health.apple_data_cleared','client',actor,jsonb_build_object('removed_daily_summaries',removed));
+ return jsonb_build_object('ok',true,'client_id',actor,'removed_daily_summaries',removed);
+end $$;
+revoke all on function public.clear_my_client_health_data() from public,anon,authenticated,service_role;
+grant execute on function public.clear_my_client_health_data() to authenticated;
