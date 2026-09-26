@@ -107,3 +107,5 @@ test('actual Today render preserves zero, distinguishes unassigned fields and ha
  const d=data();d.daily=ready(daily('training'));d.plan.value.version.content.phases[0].training.fat_g=0;d.plan.value.version.content.phases[0].training.carbs_g=null;
  const output=textOf(view.FuelTodayView({data:d}));assert.match(output,/0\s+g/);assert.match(output,/Not assigned/);assert.equal((output.match(/Your next step/g)||[]).length,1);assert.match(output,/not a health score/);
 });
+
+test("Today meal playbook comes only from released plan and matching day context",()=>{const model=fs.readFileSync(path.join(root,"lib/fuel/today.ts"),"utf8"),view=fs.readFileSync(path.join(root,"components/fuel/today-view.tsx"),"utf8");assert.match(model,/meal\.day === "either" \|\| meal\.day === context\.day/);assert.match(model,/context\.day !== "unclassified"/);assert.match(view,/Approved meal playbook/);assert.match(view,/did not generate these from today/);});
