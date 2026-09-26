@@ -89,7 +89,7 @@ begin
    if jsonb_typeof(proposed->k) is distinct from 'string' or proposed->>k !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then raise exception 'Invalid destination identity' using errcode='22023';end if;
   elsif k in ('duration_minutes','sessions_remaining','package_price_cents','amount_paid_cents','amount_owed_cents','credit_cents') then
    if jsonb_typeof(proposed->k) is distinct from 'number' or proposed->>k !~ '^[0-9]{1,10}$' then raise exception 'Amounts and quantities must be non-negative integers' using errcode='22023';end if;
-   if (proposed->>k)::numeric>case when k like '%_cents' then 1000000000 when k='duration_minutes' then 480 else 10000 end then raise exception 'Amount or quantity exceeds review limit' using errcode='22023';end if;
+   if (proposed->>k)::numeric > (case when k like '%_cents' then 1000000000 when k='duration_minutes' then 480 else 10000 end) then raise exception 'Amount or quantity exceeds review limit' using errcode='22023';end if;
    if k='duration_minutes' and (proposed->>k)::integer<15 then raise exception 'Duration must be 15–480 minutes' using errcode='22023';end if;
   elsif k='starts_at' then
    if jsonb_typeof(proposed->k) is distinct from 'string' or proposed->>k !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]([.][0-9]{1,3})?(Z|[+-](0[0-9]|1[0-4]):[0-5][0-9])$' or proposed->>k ~ '[+-]14:(0[1-9]|[1-5][0-9])$' then raise exception 'Time requires an explicit valid offset' using errcode='22023';end if;
