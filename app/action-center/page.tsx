@@ -5,12 +5,13 @@ import {AppShell} from "@/components/layout/app-shell";
 import {createClient} from "@/lib/supabase/server";
 import {loadActionCenter, type ActionQueue} from "@/lib/action-center/load";
 import {FuelReviewQueue} from "@/components/fuel/review-queue";
+import {mediaReviewHref} from "@/lib/media/review-links";
 import {ReloadPageButton} from "@/components/ui/reload-page-button";
 export const dynamic="force-dynamic";
 const icons = {requests:CalendarCheck,messages:Inbox,"form-video-actions":Video,programs:Dumbbell,quiet:UserRoundCheck,classes:CalendarCheck,leads:Target,payments:CreditCard,packages:PackageSearch};
 function Queue({value}:{value:ActionQueue}) {
  return <section id={value.id} className="scroll-mt-24 overflow-hidden rounded-2xl border border-divider bg-white shadow-sm"><header className="flex items-center justify-between gap-3 border-b border-divider px-5 py-4"><div><h2 className="font-semibold text-cream">{value.title}</h2>{value.total!==null&&<p className="mt-1 text-xs text-cream-faint">{value.rows.length} shown of {value.total} matching records</p>}</div><Link href={value.href} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-sky">View all <ArrowRight className="h-3 w-3"/></Link></header>
- {value.status==="unavailable"?<div role="alert" className="space-y-3 p-5"><p className="font-semibold text-status-limited">Queue unavailable</p><p className="text-sm leading-6 text-cream-dim">This queue could not be verified. Its count is unknown—not zero. Other available queues remain usable.</p><ReloadPageButton label="Retry loading queues"/></div>:value.rows.length?<div className="divide-y divide-divider">{value.rows.map(row=><Link key={row.key} href={row.href} className="block px-5 py-3 transition hover:bg-sky/[0.035]"><p className="break-words text-sm font-semibold text-cream">{row.title}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-cream-dim">{row.meta}</p></Link>)}</div>:<p className="p-5 text-sm leading-6 text-cream-dim">{value.empty}</p>}
+ {value.status==="unavailable"?<div role="alert" className="space-y-3 p-5"><p className="font-semibold text-status-limited">Queue unavailable</p><p className="text-sm leading-6 text-cream-dim">This queue could not be verified. Its count is unknown—not zero. Other available queues remain usable.</p><ReloadPageButton label="Retry loading queues"/></div>:value.rows.length?<div className="divide-y divide-divider">{value.rows.map(row=><Link key={row.key} href={value.id==="form-video-actions"?mediaReviewHref(row.key):row.href} className="block px-5 py-3 transition hover:bg-sky/[0.035]"><p className="break-words text-sm font-semibold text-cream">{row.title}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-cream-dim">{row.meta}</p></Link>)}</div>:<p className="p-5 text-sm leading-6 text-cream-dim">{value.empty}</p>}
  </section>;
 }
 export default async function ActionCenterPage(){
