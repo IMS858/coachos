@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Repeat2, ListChecks, GraduationCap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Repeat2, ListChecks, GraduationCap, Clock3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { PendingRequests } from "@/components/schedule/pending-requests";
@@ -134,6 +134,7 @@ export default async function SchedulePage({
         : "all";
   const visibleTrainers = selectedTrainerId === "all" ? trainers : trainers.filter((t) => t.id === selectedTrainerId);
   const trainerQS = `&trainer=${selectedTrainerId}`;
+  const isSingleTrainer = selectedTrainerId !== "all";
 
   // Fetch the whole visible week of sessions (powers day-strip counts too)
   const weekStart = `${monday}T00:00:00${ptOffset(monday)}`;
@@ -176,6 +177,8 @@ export default async function SchedulePage({
   }
 
   const daySessions = scopedWeekSessions.filter((s) => ptDateOf(s.scheduled_at) === selected);
+  const completedToday = daySessions.filter((s) => s.status === "completed").length;
+  const remainingToday = daySessions.filter((s) => ["scheduled","confirmed"].includes(s.status)).length;
 
   // Whole-hour labels within the range. With a 4:30 start, the first whole
   // hour label is 5:00; the half-hour lead-in still renders as grid space.
@@ -223,12 +226,12 @@ export default async function SchedulePage({
   return (
     <AppShell>
       <div className="flex flex-col gap-5">
-        <PendingRequests requests={pendingRequests} />
+        {pendingRequests.length > 0 && <PendingRequests requests={pendingRequests} />}
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="eyebrow">This week</div>
+            <div className="eyebrow">{isSingleTrainer ? "Coach schedule" : "Team schedule"}</div>
             <h1 className="text-3xl font-bold text-cream">Schedule</h1>
             <p className="text-sm text-cream-dim mt-1">
               {selectedTitle}
@@ -270,7 +273,7 @@ export default async function SchedulePage({
 
         {dayClasses.length>0&&<section className="rounded-2xl border border-sky/20 bg-sky/5 p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-sky">Group coaching today</p><h2 className="mt-1 font-semibold text-cream">{dayClasses.length} class{dayClasses.length===1?"":"es"} on the selected schedule</h2></div><GraduationCap className="h-5 w-5 text-sky"/></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{dayClasses.map((row:any)=><div key={row.id} className="rounded-xl bg-white p-3"><p className="text-sm font-semibold text-cream">{row.class_templates?.name??"Class"}</p><p className="mt-1 text-xs text-cream-dim">{fmtTime(row.starts_at)} · capacity {row.capacity}</p></div>)}</div></section>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Today</p><p className="mt-1 text-2xl font-bold text-cream">{daySessions.length}</p><p className="text-xs text-cream-dim">sessions</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Selected day</p><p className="mt-1 text-2xl font-bold text-cream">{daySessions.length}</p><p className="text-xs text-cream-dim">{remainingToday} upcoming · {completedToday} done</p></div>
           <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{scopedWeekSessions.length}</p><p className="text-xs text-cream-dim">training sessions</p></div>
           <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Requests</p><p className="mt-1 text-2xl font-bold text-cream">{pendingRequests.length}</p><p className="text-xs text-cream-dim">need review</p></div>
           <Link href="/schedule/standing" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><p className="text-xs uppercase tracking-wider text-sky">Recurring</p><p className="mt-1 text-sm font-semibold text-cream">Manage standing slots →</p></Link>
@@ -341,8 +344,8 @@ export default async function SchedulePage({
         </div>
 
         {/* Day grid */}
-        <div className="rounded-xl border border-divider bg-navy-soft overflow-x-auto">
-          <div className="min-w-[640px]">
+        <div className="rounded-xl border border-divider bg-white overflow-x-auto shadow-sm">
+          <div className={isSingleTrainer ? "min-w-[360px]" : "min-w-[640px]"}>
             {/* Trainer headers */}
             <div
               className="grid border-b border-divider"
@@ -407,10 +410,10 @@ export default async function SchedulePage({
               </div>
 
               {/* One column per trainer */}
-              {trainers.map((t) => (
+              {visibleTrainers.map((t) => (
                 <div
                   key={t.id}
-                  className="relative border-l border-divider"
+                  className="relative border-l border-divider bg-white"
                   style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
                 >
                   {/* Hour lines */}
@@ -474,7 +477,7 @@ export default async function SchedulePage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-cream-faint"><span className={`h-2.5 w-2.5 rounded-sm border ${TRAINING_STYLE}`} />Personal Training</div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-white p-4 text-xs text-cream-dim"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-sm border ${TRAINING_STYLE}`} />Personal Training</div><div className="flex items-center gap-2"><Clock3 className="h-3.5 w-3.5" />Pacific Time · 4:30 AM–7:00 PM</div></div>
       </div>
     </AppShell>
   );
