@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @next/next/no-html-link-for-pages -- Native links must work when the app router has failed. */
 /** Critical inline styling remains readable if the root layout or stylesheet failed. */
 export function RecoveryScreen({ digest }: { digest?: string }) {
   const reference = typeof digest === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(digest) ? digest : null;
