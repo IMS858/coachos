@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils";
+import { packageBalanceEvidence } from "@/lib/plans/package-balance";
 
 /* ---------------------------------------------------------------------------
  * SessionTracker — the headline panel on a client's profile.
@@ -114,7 +115,7 @@ export async function SessionTracker({ clientId }: { clientId: string }) {
   const { data: plans } = await supabase
     .from("plans")
     .select(
-      "id, kind, tier, custom_label, status, total_sessions, sessions_used, monthly_rate_cents, sessions_per_week, expires_at"
+      "id, kind, tier, custom_label, status, service_type, total_sessions, sessions_used, current_session_number, monthly_rate_cents, sessions_per_week, expires_at"
     )
     .eq("client_id", clientId)
     .eq("status", "active");
@@ -204,14 +205,14 @@ export async function SessionTracker({ clientId }: { clientId: string }) {
       {packages.length > 0 && (
         <div className="px-5 py-4 space-y-3 border-b border-divider">
           {packages.map((p) => {
-            const total = p.total_sessions ?? 0;
-            const used = p.sessions_used ?? 0;
-            const remaining = Math.max(total - used, 0);
-            const low = remaining <= 2 && remaining > 0;
-            const empty = remaining === 0;
+            const evidence = packageBalanceEvidence(p);
+            const known = evidence.status === "known";
+            const remaining = known ? evidence.remaining : null;
+            const low = known && remaining <= 2 && remaining > 0;
+            const empty = known && remaining === 0;
             return (
               <div key={p.id} className="flex items-center gap-4">
-                <ProgressRing used={used} total={total} low={low || empty} />
+                {known ? <ProgressRing used={evidence.used} total={evidence.total} low={low || empty} /> : <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-full border border-status-moderate/30 bg-status-moderate/10"><AlertTriangle className="h-5 w-5 text-status-moderate"/></div>}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-cream">
@@ -233,7 +234,7 @@ export async function SessionTracker({ clientId }: { clientId: string }) {
                     )}
                   </div>
                   <div className="mt-1 text-sm text-cream-dim">
-                    {used} of {total} sessions used
+                    {known ? `${evidence.used} of ${evidence.total} sessions used` : "Package counters need review; no remaining-session total was inferred."}
                     {p.expires_at && (
                       <span className="text-cream-faint">
                         {" · expires "}
@@ -241,17 +242,7 @@ export async function SessionTracker({ clientId }: { clientId: string }) {
                       </span>
                     )}
                   </div>
-                  {/* Linear bar under the text for quick scan */}
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-white/8 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        empty || low ? "bg-status-moderate" : "bg-sky"
-                      }`}
-                      style={{
-                        width: `${total > 0 ? (used / total) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
+                  {known && <div className="mt-2 h-1.5 w-full rounded-full bg-white/8 overflow-hidden"><div className={`h-full rounded-full ${empty || low ? "bg-status-moderate" : "bg-sky"}`} style={{width: `${evidence.total > 0 ? (evidence.used / evidence.total) * 100 : 0}%`}}/></div>}
                 </div>
               </div>
             );
