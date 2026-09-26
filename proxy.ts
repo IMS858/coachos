@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { usesHandlerAuthentication, isStaffPage } from "@/lib/auth/route-policy";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /**
@@ -16,6 +17,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/callback",
   "/api/auth/reset-password",
   "/intake",
+  "/consult",
   "/sign",
   "/api/agreements",
 ];
@@ -31,6 +33,7 @@ const ROLE_HOME = {
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  if (usesHandlerAuthentication(path)) return NextResponse.next({ request });
 
   // If Supabase env vars aren't configured yet, let everything through
   // so the page-level checks can render a useful error instead of 403/500
@@ -80,10 +83,10 @@ export async function proxy(request: NextRequest) {
   // The (owner) / (trainer) / (client) route groups in app/ are convention only —
   // the actual gate is here.
   const ownerOnly = ["/owner", "/settings/services", "/settings/team"];
-  const trainerPlus = ["/clients", "/assessments", "/programs"];
+
 
   const isOwnerArea = ownerOnly.some((r) => path.startsWith(r));
-  const isTrainerArea = trainerPlus.some((r) => path.startsWith(r));
+  const isTrainerArea = isStaffPage(path);
 
   if (isOwnerArea && role !== "owner") {
     return NextResponse.redirect(new URL("/dashboard", request.url));

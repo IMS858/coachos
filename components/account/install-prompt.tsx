@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Smartphone, Share, MoreVertical, Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -21,32 +21,40 @@ import { Button } from "@/components/ui/button";
  * they're already inside.
  */
 
-type Platform = "ios" | "android" | "desktop";
 
 interface InstallEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+  const Step = ({ n, children }: { n: number; children: React.ReactNode }) => (
+    <li className="flex gap-2.5 items-start">
+      <span className="shrink-0 h-5 w-5 rounded-full bg-sky/15 text-sky text-[11px] font-semibold flex items-center justify-center mt-0.5">
+        {n}
+      </span>
+      <span className="prose-ims text-sm text-cream-dim">{children}</span>
+    </li>
+  );
+
+function environment() {
+  if (window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & {standalone?:boolean}).standalone) return 'installed';
+  const ua=navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1) ? 'ios' : /Android/.test(ua) ? 'android' : 'desktop';
+}
+function subscribeEnvironment(listener:()=>void) {
+  const media=window.matchMedia('(display-mode: standalone)');
+  media.addEventListener('change',listener);window.addEventListener('appinstalled',listener);
+  return ()=>{media.removeEventListener('change',listener);window.removeEventListener('appinstalled',listener);};
+}
+const serverEnvironment=()=> 'desktop';
+
 export function InstallPrompt() {
-  const [platform, setPlatform] = useState<Platform>("desktop");
-  const [installed, setInstalled] = useState(false);
+  const platform = useSyncExternalStore(subscribeEnvironment,environment,serverEnvironment);
+  const installed = platform === "installed";
   const [deferred, setDeferred] = useState<InstallEvent | null>(null);
   const [justInstalled, setJustInstalled] = useState(false);
 
   useEffect(() => {
-    const ua = navigator.userAgent;
-    // iPadOS 13+ reports as Macintosh, so touch support is the reliable tell.
-    const isIOS =
-      /iPad|iPhone|iPod/.test(ua) ||
-      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-    setPlatform(isIOS ? "ios" : /Android/.test(ua) ? "android" : "desktop");
-
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (navigator as any).standalone === true;
-    setInstalled(standalone);
-
     const onPrompt = (e: Event) => {
       e.preventDefault(); // stop Chrome's own mini-infobar
       setDeferred(e as InstallEvent);
@@ -74,14 +82,7 @@ export function InstallPrompt() {
 
   if (installed) return null;
 
-  const Step = ({ n, children }: { n: number; children: React.ReactNode }) => (
-    <li className="flex gap-2.5 items-start">
-      <span className="shrink-0 h-5 w-5 rounded-full bg-sky/15 text-sky text-[11px] font-semibold flex items-center justify-center mt-0.5">
-        {n}
-      </span>
-      <span className="prose-ims text-sm text-cream-dim">{children}</span>
-    </li>
-  );
+
 
   return (
     <div className="rounded-lg border border-divider bg-navy-soft p-5">

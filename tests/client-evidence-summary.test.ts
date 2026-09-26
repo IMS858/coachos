@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+
+test("client profile surfaces factual coaching evidence trail",()=>{const page=readFileSync("app/clients/[id]/page.tsx","utf8"),summary=readFileSync("components/clients/client-evidence-summary.tsx","utf8");assert.match(page,/ClientEvidenceSummary/);assert.match(summary,/Coaching evidence/);assert.match(summary,/Counts do not imply improvement by themselves/);assert.match(summary,/assessments/);assert.match(summary,/body_comp_records/);assert.match(summary,/v_progression_signals/);assert.match(summary,/completed/);});

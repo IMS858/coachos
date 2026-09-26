@@ -45,10 +45,10 @@ export async function AppShell({
 
   if (role === "client") {
     return (
-      <div className="theme-light min-h-screen bg-paper pb-20">
+      <div className="theme-light min-h-screen bg-paper pb-24">
         <UsageTracker />
         <MobileTopBar />
-        <main className="mx-auto max-w-2xl px-4 py-4">{children}</main>
+        <main className="mx-auto max-w-2xl px-4 py-5 sm:px-6 sm:py-7">{children}</main>
         <ClientBottomNav />
       </div>
     );
@@ -64,11 +64,11 @@ export async function AppShell({
       <UsageTracker />
       <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
         <MobileTopBar />
-        <div className="mx-auto max-w-7xl px-5 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </div>
       </main>
-      <StaffBottomNav />
+      <StaffBottomNav role={role} />
     </div>
   );
 }

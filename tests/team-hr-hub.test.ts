@@ -1,0 +1,9 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+
+test("Team Hub is limited to owner/trainer roles and scopes private payroll data to the signed-in staff member",()=>{const page=readFileSync("app/team/page.tsx","utf8");assert.match(page,/\["owner","trainer"\]/);assert.match(page,/trainer_compensation_rules/);assert.match(page,/\.eq\("trainer_id",user\.id\)/);assert.match(page,/operational guide, not an employment contract/);});
+
+test("Team Hub contains versioned coaching, privacy, schedule, programming, safety and payroll guidance",()=>{const resources=readFileSync("lib/team/hr-resources.ts","utf8");for(const heading of ["IMS Coaching Standards","Client Care & Privacy","Schedule & Session Records","Programming & Exercise Library","Facility & Safety","Payroll & Time Evidence"])assert.match(resources,new RegExp(heading.replace(/[&]/g,"\\&")));assert.match(resources,/TEAM_HANDBOOK_VERSION/);});
+
+test("staff navigation exposes Team Hub and mobile tools are role aware",()=>{const side=readFileSync("components/layout/app-sidebar.tsx","utf8"),mobile=readFileSync("components/layout/staff-bottom-nav.tsx","utf8"),shell=readFileSync("components/layout/app-shell.tsx","utf8");assert.match(side,/label: "Team Hub"/);assert.match(mobile,/ownerMore/);assert.match(mobile,/trainerMore/);assert.match(mobile,/Team Hub/);assert.match(shell,/StaffBottomNav role=\{role\}/);});
+
+test("owner Staff & Roles can preview and copy the trainer Team Hub link",()=>{const page=readFileSync("app/(owner)/settings/staff/page.tsx","utf8"),link=readFileSync("components/settings/team-hub-link.tsx","utf8");assert.match(page,/Trainer Team Hub/);assert.match(page,/TeamHubLink/);assert.match(link,/Copy trainer link/);assert.match(link,/window\.location\.origin\+"\/team"/);});

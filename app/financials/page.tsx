@@ -1,154 +1,51 @@
-import { redirect } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { AppShell } from "@/components/layout/app-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getFinancialSnapshot } from "@/lib/queries/financials";
-import { RentersPanel } from "@/components/financials/renters-panel";
-import { formatCurrency } from "@/lib/utils";
-
+import {redirect} from "next/navigation";
+import Link from "next/link";
+import {createClient} from "@/lib/supabase/server";
+import {AppShell} from "@/components/layout/app-shell";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {RentersPanel} from "@/components/financials/renters-panel";
+import {FinancialEvidencePanel} from "@/components/financials/evidence-panel";
+import {PaymentList} from "@/components/billing/payment-list";
+import {loadFinancialEvidence} from "@/lib/financials/load";
+import {captureFinancialEvidence} from "@/lib/financials/evidence";
+import {readCompleteEvidence} from "@/lib/migration/complete-read";
 export const dynamic = "force-dynamic";
 
-/**
- * /financials — owner-only money picture. Pulls memberships, renter rent, and
- * package revenue (earned + booked) into weekly/monthly views.
- */
 export default async function FinancialsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const db = await createClient();
+  const {data: {user}} = await db.auth.getUser();
   if (!user) redirect("/login?next=/financials");
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!me || me.role !== "owner") redirect("/dashboard");
-
-  const svc = createServiceClient();
-  const f = await getFinancialSnapshot(svc);
-
-  const { data: rentersList } = await svc
-    .from("renters")
-    .select("id, name, discipline, monthly_rent_cents")
-    .eq("status", "active")
-    .order("name", { ascending: true });
-
-  const monthName = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    timeZone: "America/Los_Angeles",
-  }).format(new Date());
-
-  return (
-    <AppShell>
-      <div className="flex flex-col gap-6">
-        <div>
-          <div className="eyebrow">Studio</div>
-          <h1 className="text-3xl font-bold text-cream">Financials</h1>
-          <p className="text-cream-faint text-sm">
-            Your full revenue picture — recurring income plus delivered package
-            revenue.
-          </p>
-        </div>
-
-        {/* Headline: total monthly revenue */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-xs uppercase tracking-widest text-cream-faint">
-              Total Revenue · {monthName}
-            </div>
-            <div className="tabular text-5xl font-bold text-sky mt-1" style={{ fontFamily: "var(--font-display)" }}>
-              {formatCurrency(f.totalMonthlyRevenueCents)}
-            </div>
-            <div className="text-sm text-cream-faint mt-1">
-              Recurring {formatCurrency(f.recurringMonthlyCents)} + delivered
-              packages {formatCurrency(f.packageEarnedThisMonthCents)}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recurring breakdown */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Stat label="Membership MRR" value={formatCurrency(f.membershipMrrCents)} hint="active subscriptions" />
-          <Stat label="Renter Rent" value={formatCurrency(f.renterRentCents)} hint="fixed monthly" />
-          <Stat label="Recurring Total" value={formatCurrency(f.recurringMonthlyCents)} hint="memberships + rent" />
-          <Stat label="Packages Sold" value={formatCurrency(f.packageBookedThisMonthCents)} hint={`booked in ${monthName}`} />
-        </div>
-
-        {/* Package revenue: weekly vs monthly (earned) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Package revenue (delivered)</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-6">
-            <div>
-              <div className="text-xs uppercase tracking-widest text-cream-faint">This week</div>
-              <div className="tabular text-3xl font-bold text-sky mt-1" style={{ fontFamily: "var(--font-display)" }}>
-                {formatCurrency(f.packageEarnedThisWeekCents)}
-              </div>
-              <div className="text-xs text-cream-faint mt-1">{f.sessionsThisWeek} sessions completed</div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-widest text-cream-faint">This month</div>
-              <div className="tabular text-3xl font-bold text-sky mt-1" style={{ fontFamily: "var(--font-display)" }}>
-                {formatCurrency(f.packageEarnedThisMonthCents)}
-              </div>
-              <div className="text-xs text-cream-faint mt-1">{f.sessionsThisMonth} sessions completed</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Per-trainer session volume */}
-        {f.sessionsByTrainer.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Sessions by trainer · {monthName}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {f.sessionsByTrainer.map((t) => (
-                <div
-                  key={t.trainer_id}
-                  className="flex items-center justify-between border-b border-divider/50 pb-2 last:border-0"
-                >
-                  <span className="text-sm text-cream">{t.name}</span>
-                  <span className="text-sm font-medium text-cream">
-                    {t.count} sessions
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        <RentersPanel renters={rentersList ?? []} />
-
-        <p className="text-xs text-cream-faint">
-          "Delivered" package revenue recognizes a package's per-session value as
-          each session is completed. "Packages sold" is cash booked when a
-          package is purchased. Recurring = memberships + renter rent.
-        </p>
-      </div>
-    </AppShell>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="pt-5">
-        <div className="text-xs uppercase tracking-widest text-cream-faint">{label}</div>
-        <div className="tabular text-2xl font-bold text-sky mt-1" style={{ fontFamily: "var(--font-display)" }}>{value}</div>
-        {hint && <div className="text-[11px] text-cream-faint mt-0.5">{hint}</div>}
-      </CardContent>
-    </Card>
-  );
+  const {data: me, error} = await db.from("profiles").select("role,deleted_at").eq("id", user.id).maybeSingle();
+  if (error || !me || me.deleted_at || me.role !== "owner") redirect("/dashboard");
+  // Authorization precedes every ledger read. The authenticated client retains RLS.
+  const data = await loadFinancialEvidence(db);
+  const recent = data.payments.status === "ready" ? [...data.payments.value.rows]
+    .sort((a, b) => (Date.parse(b.created_at ?? "") || 0) - (Date.parse(a.created_at ?? "") || 0) || b.id.localeCompare(a.id)).slice(0, 8) : [];
+  const clientIds = [...new Set(recent.flatMap(row => row.client_id ? [row.client_id] : []))];
+  const people = await captureFinancialEvidence(async () => clientIds.length ? readCompleteEvidence<{id: string; full_name: string}>((a, b) =>
+    db.from("profiles").select("id,full_name", {count: "exact"}).in("id", clientIds).order("id").range(a, b)) : [], "Client names are temporarily unavailable; the recorded payments remain below.");
+  const names = people.status === "ready" ? Object.fromEntries(people.value.map(person => [person.id, person.full_name])) : {};
+  const renters = data.renters;
+  return <AppShell expectedRole="owner"><div className="flex min-w-0 flex-col gap-6">
+    <header className="rounded-3xl bg-band px-5 py-7 text-white shadow-lg sm:px-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/65">Studio operations</p>
+      <h1 className="mt-2 text-4xl font-bold text-white">Financials</h1>
+      <p className="mt-2 text-sm text-white/80">Training value, recorded collections and unresolved money. No invented accounting history.</p>
+    </header>
+    <nav aria-label="Financial workflows" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {[["/checkout", "New checkout"], ["/clients", "Client billing"], ["/reports/training-value", "Training value"], ["/settings/migration", "Reconcile sources"]].map(([href, label]) => <Link key={href} href={href} className="flex min-h-12 items-center justify-center rounded-2xl border border-divider bg-white px-4 py-3 text-center text-sm font-semibold text-sky">{label} →</Link>)}
+    </nav>
+    <FinancialEvidencePanel data={data}/>
+    <Card><CardHeader><CardTitle>Recent payments</CardTitle></CardHeader><CardContent className="p-0">
+      {data.payments.status === "unavailable" ? <p role="alert" className="px-5 pb-5 text-sm">{data.payments.message}</p> : <>
+        {people.status === "unavailable" && <p role="status" className="px-5 pb-3 text-sm">{people.message}</p>}
+        {recent.length ? <PaymentList rows={recent} clientNames={names}/> : <p className="px-5 pb-5 text-sm text-cream-dim">No Coach OS payment records found. Source-system history may still be awaiting reconciliation.</p>}
+        <p className="px-5 py-4 text-xs text-cream-dim">Latest {recent.length} records by creation time, not a monthly or lifetime total. The evidence cards above use the complete loaded ledger and actual payment dates.</p>
+      </>}
+    </CardContent></Card>
+    {renters.status === "unavailable" ? <p role="alert" className="rounded-xl border border-divider p-4 text-sm">{renters.message}</p>
+      : renters.value.value.unknownRecords > 0 ? <p role="alert" className="rounded-xl border border-divider p-4 text-sm">Renter prices need review. No missing rent was converted to zero; renter editing is held until the source rates are resolved.</p>
+      : <RentersPanel renters={renters.value.rows.map(row => ({...row, monthly_rent_cents: row.monthly_rent_cents!}))}/>}
+    <p className="text-xs leading-5 text-cream-dim">Read-only reporting does not create payments, invoices, package usage or payroll submissions. QuickBooks reconciliation and verified package openings remain separate owner workflows.</p>
+  </div></AppShell>;
 }

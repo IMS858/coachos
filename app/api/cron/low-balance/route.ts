@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { findLowBalancePackages } from "@/lib/queries/low-balance";
 import { sendEmail, emailShell } from "@/lib/mailer";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/cron/low-balance
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   const lowBalance = await findLowBalancePackages(2);
+  const svc = createServiceClient();
   const depleted = lowBalance.filter((c) => c.state === "depleted");
   const low = lowBalance.filter((c) => c.state === "low");
 
@@ -39,6 +41,9 @@ export async function GET(request: NextRequest) {
   // an owner email is configured. No-ops silently if Resend isn't set up yet.
   // ---------------------------------------------------------------------------
   const ownerEmail = process.env.OWNER_EMAIL || "admin@imsfitnesscenter.com";
+  const escapeHtml = (value: string) => value
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
   let emailed = false;
 
   if (lowBalance.length > 0) {
@@ -46,8 +51,8 @@ export async function GET(request: NextRequest) {
       .map(
         (c) =>
           `<tr>
-             <td style="padding:6px 0;color:#dfe7f0;font-family:Arial,sans-serif;font-size:14px;">${c.name}</td>
-             <td style="padding:6px 0;color:#b8c4d2;font-family:Arial,sans-serif;font-size:13px;">${c.planLabel}</td>
+             <td style="padding:6px 0;color:#dfe7f0;font-family:Arial,sans-serif;font-size:14px;">${escapeHtml(c.name)}</td>
+             <td style="padding:6px 0;color:#b8c4d2;font-family:Arial,sans-serif;font-size:13px;">${escapeHtml(c.planLabel)}</td>
              <td style="padding:6px 0;text-align:right;font-family:Arial,sans-serif;font-size:13px;color:${
                c.state === "depleted" ? "#f08a8a" : "#f0b46a"
              };">${c.state === "depleted" ? "Depleted" : `${c.remaining} left`}</td>
@@ -55,7 +60,11 @@ export async function GET(request: NextRequest) {
       )
       .join("");
 
-    const result = await sendEmail({
+    const { data: owner } = await svc.from("profiles").select("id").eq("role", "owner").limit(1).maybeSingle();
+    if (!owner?.id) return NextResponse.json({ error: "Owner recipient unavailable" }, { status: 503 });
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
+    const dedupeKey = `owner-low-balance:${day}`;
+    const payload = {
       to: ownerEmail,
       subject: `${lowBalance.length} client${lowBalance.length === 1 ? "" : "s"} need a package renewal`,
       text: lowBalance
@@ -69,7 +78,15 @@ export async function GET(request: NextRequest) {
           `<table role="presentation" width="100%" style="margin-top:16px;border-collapse:collapse;">${rows}</table>`,
         footnote: "Daily automatic scan from IMS Coach OS.",
       }),
+    };
+    const { data: claim, error: claimError } = await svc.rpc("claim_notification", {
+      p_key: dedupeKey, p_recipient: owner.id, p_template: "owner-low-balance", p_payload: payload,
     });
+    if (claimError) return NextResponse.json({ error: "Notification ledger unavailable" }, { status: 503 });
+    if (!claim) return NextResponse.json({ ran_at: new Date().toISOString(), total_flagged: lowBalance.length, emailed: false, duplicate_suppressed: true });
+    const result = await sendEmail({ ...claim.payload, idempotencyKey: dedupeKey });
+    const { data: saved, error: saveError } = await svc.rpc("finish_notification", { p_key: dedupeKey, p_token: claim.token, p_provider: result.ok ? result.id : null, p_error: result.ok ? null : result.error });
+    if (saveError || !saved) return NextResponse.json({ error: "Delivery acknowledgement failed" }, { status: 503 });
     emailed = result.ok;
   }
 

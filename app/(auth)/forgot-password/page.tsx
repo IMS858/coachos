@@ -17,19 +17,24 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      await fetch("/api/auth/reset-password", {
+      const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      if (!response.ok) throw new Error("Request failed");
+      setSent(true);
+    } catch {
+      setError("We couldn’t submit your request. Check your connection and try again.");
     } finally {
       setLoading(false);
-      setSent(true);
     }
   }
 
@@ -58,7 +63,8 @@ export default function ForgotPasswordPage() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
+          <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+            {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
             <div>
               <label
                 htmlFor="email"
@@ -74,9 +80,10 @@ export default function ForgotPasswordPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="h-12 rounded-xl border-[#d6dfe8] bg-white px-4 text-base text-[#17191c] placeholder:text-[#8492a3]"
               />
             </div>
-            <Button type="submit" disabled={loading || !email.includes("@")} className="mt-2">
+            <Button type="submit" disabled={loading || !email.includes("@")} className="mt-2 min-h-12 rounded-xl">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
             </Button>
             <Link

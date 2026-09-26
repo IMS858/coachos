@@ -45,17 +45,20 @@ export function AddToProgramModal({ exerciseId, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Load active programs once
+  // Load draft programs once
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const res = await fetch("/api/programs?status=active");
-      if (cancelled) return;
-      if (res.ok) {
+      try {
+        const res = await fetch("/api/programs?status=draft");
+        if (!res.ok) throw new Error("Could not load draft programs");
         const data = await res.json();
-        setPrograms(data.programs ?? []);
+        if (!cancelled) setPrograms(data.programs ?? []);
+      } catch {
+        if (!cancelled) setError("Could not load draft programs. Close and try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     }
     load();
     return () => {
@@ -87,6 +90,7 @@ export function AddToProgramModal({ exerciseId, onClose }: Props) {
     setError(null);
     setSuccess(null);
 
+    try {
     const res = await fetch(`/api/programs/${selectedProgramId}/exercises`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -96,9 +100,9 @@ export function AddToProgramModal({ exerciseId, onClose }: Props) {
         sets: sets || null,
         reps: reps || null,
         load: load || null,
-        rest_seconds: restSeconds || null,
+        rest_seconds: restSeconds === "" ? null : restSeconds,
         tempo: tempo || null,
-        notes_trainer: notes || null,
+        notes_client: notes || null,
       }),
     });
 
@@ -113,6 +117,11 @@ export function AddToProgramModal({ exerciseId, onClose }: Props) {
     } else {
       const err = await res.json().catch(() => ({}));
       setError(err.error ?? "Save failed");
+    }
+    } catch {
+      setError("Connection lost. Check the program before retrying.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -160,7 +169,7 @@ export function AddToProgramModal({ exerciseId, onClose }: Props) {
               {!loading && filteredPrograms.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-cream-faint italic">
                   {programs.length === 0
-                    ? "No active programs. Create one first."
+                    ? "No draft programs. Create a draft first."
                     : `No programs match "${search}"`}
                 </div>
               )}
@@ -266,12 +275,12 @@ export function AddToProgramModal({ exerciseId, onClose }: Props) {
               </div>
 
               <div>
-                <Label>Notes (trainer-facing)</Label>
+                <Label>Client instructions (visible to client)</Label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  placeholder="Specific to this client's setup, regression options, etc."
+                  placeholder="Cues and setup instructions your client should see."
                   className="w-full rounded-md border border-divider bg-navy-deep px-3 py-2 text-sm text-cream placeholder:text-cream-faint focus:outline-none focus:ring-2 focus:ring-sky resize-none"
                 />
               </div>

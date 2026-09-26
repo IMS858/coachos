@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Repeat2, ListChecks, GraduationCap, Clock3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { PendingRequests } from "@/components/schedule/pending-requests";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { activeTrainingPackageBalance, packageBalanceLabel } from "@/lib/plans/package-balance";
 
 // Always fetch live data so newly-created records appear immediately.
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
  *
  * Columns = every profile with role owner/trainer (Jason / Gabriel).
  * Rows = 4:30 AM – 7:00 PM, Pacific time.
- * Session blocks are color-coded by session_type and click through to detail.
+ * Training blocks click through to session detail.
  * ?date=YYYY-MM-DD selects the day; arrows move a week at a time.
  */
 
@@ -29,25 +30,8 @@ const DAY_START_HOUR = DAY_START_HALF / 2; // 4.5 (used by time math)
 const PX_PER_30MIN = 36;
 const TOTAL_HALF_HOURS = DAY_END_HALF - DAY_START_HALF;
 
-// Colour encodes WHO OWNS the session, not just what it is — which keeps the
-// AB5 separation visible on the grid at a glance:
-//   brand blue    = the two things IMS sells under its own brand
-//   slate         = IMS-run testing / screening
-//   warm neutral  = independent practitioners renting the space
-const TYPE_STYLES: Record<string, string> = {
-  training: "bg-sky/10 border-l-[3px] border-l-sky text-sky-deep",
-  recovery: "bg-sky/[0.06] border-l-[3px] border-l-sky-light text-sky-deep",
-  assessment: "bg-[#eef1f5] border-l-[3px] border-l-[#5b6b7d] text-[#33414f]",
-  mobility: "bg-[#eef1f5] border-l-[3px] border-l-[#5b6b7d] text-[#33414f]",
-  body_comp: "bg-[#eef1f5] border-l-[3px] border-l-[#5b6b7d] text-[#33414f]",
-  pilates: "bg-[#f5f3ef] border-l-[3px] border-l-[#a08b6a] text-[#5c4c33]",
-  massage: "bg-[#f5f3ef] border-l-[3px] border-l-[#a08b6a] text-[#5c4c33]",
-};
-const _TYPE_STYLE_FALLBACK =
-  "bg-navy-elev border-l-[3px] border-l-cream-faint text-cream-dim";
-const TYPE_STYLES_LOOKUP: Record<string, string> = new Proxy(TYPE_STYLES, {
-  get: (t, k: string) => t[k] ?? _TYPE_STYLE_FALLBACK,
-}) as Record<string, string>;
+// Coach OS scheduling is training-only; use one clear training treatment on the grid.
+const TRAINING_STYLE = "bg-sky/10 border-l-[3px] border-l-sky text-sky-deep";
 
 function todayInPt(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
@@ -107,7 +91,7 @@ function fmtTime(iso: string): string {
 export default async function SchedulePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; type?: string }>;
+  searchParams: Promise<{ date?: string; trainer?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -131,12 +115,7 @@ export default async function SchedulePage({
   const monday = mondayOf(selected);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
-  // Session-type filter. Massage/bodywork lives under "recovery" in the enum.
-  const validTypes = ["training", "pilates", "recovery", "mobility", "body_comp"];
-  const typeFilter = validTypes.includes(params.type ?? "")
-    ? (params.type as string)
-    : "all";
-  const typeQS = typeFilter === "all" ? "" : `&type=${typeFilter}`;
+  // Coach OS self-booking is training-only. Keep the staff calendar focused on training.
 
   // Trainers = staff profiles (owner coaches too)
   const { data: staff } = await supabase
@@ -146,6 +125,17 @@ export default async function SchedulePage({
     .order("role", { ascending: false }) // owner first
     .order("full_name");
   const trainers = staff ?? [];
+  const requestedTrainer = params.trainer ?? "";
+  const selectedTrainerId = requestedTrainer === "all"
+    ? "all"
+    : trainers.some((t) => t.id === requestedTrainer)
+      ? requestedTrainer
+      : viewer.role === "trainer" && trainers.some((t) => t.id === user.id)
+        ? user.id
+        : "all";
+  const visibleTrainers = selectedTrainerId === "all" ? trainers : trainers.filter((t) => t.id === selectedTrainerId);
+  const trainerQS = `&trainer=${selectedTrainerId}`;
+  const isSingleTrainer = selectedTrainerId !== "all";
 
   // Fetch the whole visible week of sessions (powers day-strip counts too)
   const weekStart = `${monday}T00:00:00${ptOffset(monday)}`;
@@ -162,6 +152,9 @@ export default async function SchedulePage({
     .neq("status", "cancelled")
     .order("scheduled_at");
   const weekSessions = sessions ?? [];
+  const { data: classRows, error: classError } = await supabase.from("class_occurrences").select("id,template_id,trainer_id,starts_at,ends_at,capacity,status,class_templates(name,category)").gte("starts_at",weekStart).lt("starts_at",weekEnd).neq("status","cancelled").order("starts_at");
+  if(classError) throw new Error("Class schedule could not be loaded.");
+  const weekClasses=classRows??[],scopedClasses=selectedTrainerId==="all"?weekClasses:weekClasses.filter((row:any)=>row.trainer_id===selectedTrainerId),dayClasses=scopedClasses.filter((row:any)=>ptDateOf(row.starts_at)===selected);
 
   // Resolve client names in one extra query (no join ambiguity)
   const clientIds = Array.from(new Set(weekSessions.map((s) => s.client_id)));
@@ -175,18 +168,33 @@ export default async function SchedulePage({
       (names ?? []).map((n) => [n.id, n.full_name])
     );
   }
+  const { data: weekPlans, error: weekPlansError } = clientIds.length
+    ? await supabase.from("plans")
+        .select("id,client_id,kind,tier,custom_label,service_type,total_sessions,sessions_used,current_session_number,status")
+        .in("client_id", clientIds)
+        .eq("status", "active")
+    : { data: [] as any[], error: null };
+  const packageEvidenceByClient = new Map<string, ReturnType<typeof activeTrainingPackageBalance>>();
+  if (!weekPlansError) {
+    for (const clientId of clientIds) {
+      packageEvidenceByClient.set(
+        clientId,
+        activeTrainingPackageBalance((weekPlans ?? []).filter((plan: any) => plan.client_id === clientId))
+      );
+    }
+  }
 
+  const trainingWeekSessions = weekSessions.filter((s) => s.session_type === "training");
+  const scopedWeekSessions = selectedTrainerId === "all" ? trainingWeekSessions : trainingWeekSessions.filter((s) => s.trainer_id === selectedTrainerId);
   const dayCounts: Record<string, number> = {};
-  for (const s of weekSessions) {
+  for (const s of scopedWeekSessions) {
     const d = ptDateOf(s.scheduled_at);
     dayCounts[d] = (dayCounts[d] ?? 0) + 1;
   }
 
-  const daySessions = weekSessions.filter(
-    (s) =>
-      ptDateOf(s.scheduled_at) === selected &&
-      (typeFilter === "all" || s.session_type === typeFilter)
-  );
+  const daySessions = scopedWeekSessions.filter((s) => ptDateOf(s.scheduled_at) === selected);
+  const completedToday = daySessions.filter((s) => s.status === "completed").length;
+  const remainingToday = daySessions.filter((s) => ["scheduled","confirmed"].includes(s.status)).length;
 
   // Whole-hour labels within the range. With a 4:30 start, the first whole
   // hour label is 5:00; the half-hour lead-in still renders as grid space.
@@ -207,7 +215,7 @@ export default async function SchedulePage({
   // Pending client session requests (any date)
   const { data: requestRows } = await supabase
     .from("sessions")
-    .select("id, scheduled_at, session_type, notes_pre, client_id")
+    .select("id, scheduled_at, session_type, notes_pre, client_id, trainer_id")
     .eq("status", "requested")
     .order("scheduled_at")
     .limit(20);
@@ -216,23 +224,28 @@ export default async function SchedulePage({
     ? await supabase.from("profiles").select("id, full_name").in("id", requestClientIds)
     : { data: [] as any[] };
   const nameById = new Map((requestProfiles ?? []).map((p: any) => [p.id, p.full_name]));
-  const pendingRequests = (requestRows ?? []).map((r: any) => ({
+  const requestPlanIds = [...new Set((requestRows ?? []).map((r:any)=>r.client_id))];
+  const { data: requestPlans } = requestPlanIds.length ? await supabase.from("plans").select("id,client_id,tier,custom_label,service_type,total_sessions,sessions_used,current_session_number,kind,status").in("client_id",requestPlanIds).eq("status","active") : { data: [] as any[] };
+  const scopedRequestRows = selectedTrainerId === "all" ? (requestRows ?? []) : (requestRows ?? []).filter((r:any) => r.trainer_id === selectedTrainerId);
+  const pendingRequests = scopedRequestRows.map((r: any) => { const clientPlans=(requestPlans??[]).filter((plan:any)=>plan.client_id===r.client_id); const evidence=activeTrainingPackageBalance(clientPlans); const plan=clientPlans.find((candidate:any)=>candidate.id===evidence.planId); return ({
     id: r.id,
     scheduled_at: r.scheduled_at,
     session_type: r.session_type,
     notes_pre: r.notes_pre,
     client_name: nameById.get(r.client_id) ?? "Client",
-  }));
+    package_label: evidence.status==="none" ? null : plan?.custom_label || plan?.tier?.replaceAll("_"," ") || packageBalanceLabel(evidence),
+    sessions_remaining: evidence.status==="known" ? evidence.remaining : null,
+  }); });
 
   return (
     <AppShell>
       <div className="flex flex-col gap-5">
-        <PendingRequests requests={pendingRequests} />
+        {pendingRequests.length > 0 && <PendingRequests requests={pendingRequests} />}
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="eyebrow">This week</div>
+            <div className="eyebrow">{isSingleTrainer ? "Coach schedule" : "Team schedule"}</div>
             <h1 className="text-3xl font-bold text-cream">Schedule</h1>
             <p className="text-sm text-cream-dim mt-1">
               {selectedTitle}
@@ -242,30 +255,42 @@ export default async function SchedulePage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/schedule?date=${addDays(selected, -7)}${typeQS}`}>
+            <Link href={`/schedule?date=${addDays(selected, -7)}${trainerQS}`}>
               <Button variant="ghost" size="icon" title="Previous week">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href={`/schedule?date=${today}${typeQS}`}>
+            <Link href={`/schedule?date=${today}${trainerQS}`}>
               <Button variant="secondary">
                 <CalendarDays className="h-4 w-4" />
                 Today
               </Button>
             </Link>
-            <Link href={`/schedule?date=${addDays(selected, 7)}${typeQS}`}>
+            <Link href={`/schedule?date=${addDays(selected, 7)}${trainerQS}`}>
               <Button variant="ghost" size="icon" title="Next week">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href={`/schedule/agenda?date=${selected}`}><Button variant="secondary">Daily agenda</Button></Link>
+            <Link href={`/schedule/agenda?date=${selected}${trainerQS}`}><Button variant="secondary"><ListChecks className="h-4 w-4" /> Daily agenda</Button></Link>
+            <Link href="/schedule/standing"><Button variant="secondary"><Repeat2 className="h-4 w-4" /> Standing bookings</Button></Link>
+            <Link href="/classes/manage"><Button variant="secondary"><GraduationCap className="h-4 w-4"/> Classes</Button></Link>
             <Link href="/sessions/new">
               <Button>
                 <Plus className="h-4 w-4" />
-                New session
+                New training session
               </Button>
             </Link>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider bg-white p-3 shadow-sm"><Link href={`/schedule?date=${selected}&trainer=all`} aria-current={selectedTrainerId === "all" ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold ${selectedTrainerId === "all" ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}>All trainers</Link>{trainers.map((trainer) => <Link key={trainer.id} href={`/schedule?date=${selected}&trainer=${trainer.id}`} aria-current={selectedTrainerId === trainer.id ? "page" : undefined} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${selectedTrainerId === trainer.id ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}><Avatar name={trainer.full_name} size="sm"/><span>{trainer.id === user.id ? "My schedule" : trainer.full_name}</span></Link>)}</div>
+
+        {dayClasses.length>0&&<section className="rounded-2xl border border-sky/20 bg-sky/5 p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-sky">Group coaching today</p><h2 className="mt-1 font-semibold text-cream">{dayClasses.length} class{dayClasses.length===1?"":"es"} on the selected schedule</h2></div><GraduationCap className="h-5 w-5 text-sky"/></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{dayClasses.map((row:any)=><div key={row.id} className="rounded-xl bg-white p-3"><p className="text-sm font-semibold text-cream">{row.class_templates?.name??"Class"}</p><p className="mt-1 text-xs text-cream-dim">{fmtTime(row.starts_at)} · capacity {row.capacity}</p></div>)}</div></section>}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Selected day</p><p className="mt-1 text-2xl font-bold text-cream">{daySessions.length}</p><p className="text-xs text-cream-dim">{remainingToday} upcoming · {completedToday} done</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Week</p><p className="mt-1 text-2xl font-bold text-cream">{scopedWeekSessions.length}</p><p className="text-xs text-cream-dim">training sessions</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Requests</p><p className="mt-1 text-2xl font-bold text-cream">{pendingRequests.length}</p><p className="text-xs text-cream-dim">need review</p></div>
+          <Link href="/schedule/standing" className="rounded-2xl border border-sky/20 bg-sky/5 p-4 transition hover:border-sky/50"><p className="text-xs uppercase tracking-wider text-sky">Recurring</p><p className="mt-1 text-sm font-semibold text-cream">Manage standing slots →</p></Link>
         </div>
 
         {/* Week strip */}
@@ -281,7 +306,7 @@ export default async function SchedulePage({
             return (
               <Link
                 key={d}
-                href={`/schedule?date=${d}${typeQS}`}
+                href={`/schedule?date=${d}${trainerQS}`}
                 className={`rounded-lg border px-2 py-2.5 text-center transition-colors ${
                   isSelected
                     ? "border-sky bg-sky shadow-sm"
@@ -332,48 +357,18 @@ export default async function SchedulePage({
           })}
         </div>
 
-        {/* Type filter bar */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            { key: "all", label: "All" },
-            { key: "training", label: "Training" },
-            { key: "pilates", label: "Pilates" },
-            { key: "recovery", label: "Massage / Recovery" },
-            { key: "mobility", label: "Mobility" },
-          ].map((t) => {
-            const active = typeFilter === t.key;
-            const href =
-              t.key === "all"
-                ? `/schedule?date=${selected}`
-                : `/schedule?date=${selected}&type=${t.key}`;
-            return (
-              <Link
-                key={t.key}
-                href={href}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-sky text-white"
-                    : "bg-navy-soft text-cream-faint hover:text-cream border border-divider"
-                }`}
-              >
-                {t.label}
-              </Link>
-            );
-          })}
-        </div>
-
         {/* Day grid */}
-        <div className="rounded-xl border border-divider bg-navy-soft overflow-x-auto">
-          <div className="min-w-[640px]">
+        <div className="rounded-xl border border-divider bg-white overflow-x-auto shadow-sm">
+          <div className={isSingleTrainer ? "min-w-[360px]" : "min-w-[640px]"}>
             {/* Trainer headers */}
             <div
               className="grid border-b border-divider"
               style={{
-                gridTemplateColumns: `64px repeat(${Math.max(trainers.length, 1)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `64px repeat(${Math.max(visibleTrainers.length, 1)}, minmax(0, 1fr))`,
               }}
             >
               <div />
-              {trainers.map((t) => {
+              {visibleTrainers.map((t) => {
                 const n = daySessions.filter(
                   (s) => s.trainer_id === t.id
                 ).length;
@@ -394,7 +389,7 @@ export default async function SchedulePage({
                   </div>
                 );
               })}
-              {trainers.length === 0 && (
+              {visibleTrainers.length === 0 && (
                 <div className="px-4 py-3 text-sm text-cream-faint border-l border-divider">
                   No staff profiles yet.
                 </div>
@@ -405,7 +400,7 @@ export default async function SchedulePage({
             <div
               className="grid"
               style={{
-                gridTemplateColumns: `64px repeat(${Math.max(trainers.length, 1)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `64px repeat(${Math.max(visibleTrainers.length, 1)}, minmax(0, 1fr))`,
               }}
             >
               {/* Gutter */}
@@ -429,10 +424,10 @@ export default async function SchedulePage({
               </div>
 
               {/* One column per trainer */}
-              {trainers.map((t) => (
+              {visibleTrainers.map((t) => (
                 <div
                   key={t.id}
-                  className="relative border-l border-divider"
+                  className="relative border-l border-divider bg-white"
                   style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
                 >
                   {/* Hour lines */}
@@ -458,7 +453,7 @@ export default async function SchedulePage({
                         1,
                         Math.round((s.duration_minutes ?? 60) / 30)
                       );
-                      const style = TYPE_STYLES_LOOKUP[s.session_type] ?? TYPE_STYLES.training;
+                      const style = TRAINING_STYLE;
                       const dimmed =
                         s.status === "late_cancelled" || s.status === "no_show";
                       return (
@@ -481,12 +476,17 @@ export default async function SchedulePage({
                             {String(s.session_type).replace("_", " ")}
                             {s.status === "completed" && " ✓"}
                           </div>
+                          {!weekPlansError && packageEvidenceByClient.get(s.client_id)?.status !== "none" && (
+                            <div className="mt-0.5 truncate text-[10px] opacity-70">
+                              {packageBalanceLabel(packageEvidenceByClient.get(s.client_id)!)}
+                            </div>
+                          )}
                         </Link>
                       );
                     })}
                 </div>
               ))}
-              {trainers.length === 0 && (
+              {visibleTrainers.length === 0 && (
                 <div
                   className="border-l border-divider"
                   style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
@@ -496,15 +496,7 @@ export default async function SchedulePage({
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-cream-faint">
-          {Object.entries(TYPE_STYLES).map(([type, cls]) => (
-            <span key={type} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-sm border ${cls}`} />
-              {type.replace("_", " ")}
-            </span>
-          ))}
-        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-white p-4 text-xs text-cream-dim"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-sm border ${TRAINING_STYLE}`} />Personal Training</div><div className="flex items-center gap-2"><Clock3 className="h-3.5 w-3.5" />Pacific Time · 4:30 AM–7:00 PM</div></div>
       </div>
     </AppShell>
   );

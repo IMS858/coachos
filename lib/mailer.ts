@@ -55,6 +55,7 @@ export async function sendEmail(opts: {
   html: string;
   text?: string;
   replyTo?: string;
+  idempotencyKey?: string;
 }): Promise<SendResult> {
   const resend = getClient();
   if (!resend) {
@@ -75,7 +76,7 @@ export async function sendEmail(opts: {
       html: opts.html,
       text: opts.text,
       replyTo: opts.replyTo ?? DEFAULT_REPLY_TO,
-    });
+    }, opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : undefined);
     if (error) {
       console.error("[mailer] send failed:", error.message, "| from:", FROM);
       return { ok: false, reason: classify(error.message), error: error.message, from: FROM };

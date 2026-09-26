@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * PATCH /api/clients/[id]
@@ -55,6 +56,7 @@ export async function PATCH(
         { status: 500 }
       );
     }
+    await recordAudit({actorId:user.id,action:"client.profile_updated",entityType:"client",entityId:id,changes:{full_name_changed:body.full_name!==undefined,email_changed:body.email!==undefined,phone_changed:body.phone!==undefined,avatar_changed:body.avatar_url!==undefined}});
     return NextResponse.json({ ok: true });
   }
 
@@ -73,6 +75,7 @@ export async function PATCH(
         { status: 500 }
       );
     }
+    await recordAudit({actorId:user.id,action:"client.status_updated",entityType:"client",entityId:id,changes:{status:body.status}});
     return NextResponse.json({ ok: true });
   }
 

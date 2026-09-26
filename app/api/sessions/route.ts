@@ -1,144 +1,23 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-
-/**
- * POST /api/sessions
- *
- * Creates a new session row. Two modes:
- *
- *   mode: 'schedule' — future booking. Status = 'scheduled'. No counter change.
- *   mode: 'log'      — already happened. Status = 'completed'. If the
- *                      service_type is billable (training/massage/pilates),
- *                      increment the matching package counter atomically.
- *
- * Trainer/owner only.
- *
- * Body:
- *   {
- *     mode: 'schedule' | 'log',
- *     client_id: string (required),
- *     trainer_id?: string (defaults to caller),
- *     scheduled_at: ISO8601 string (required),
- *     duration_minutes: number (required),
- *     session_type: string (required) — feeds the session_type enum
- *     service_type?: 'training' | 'massage' | 'pilates' | null
- *     notes_pre?: string
- *     notes_post?: string
- *   }
- *
- * Returns: { session_id, counter? }
- */
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || profile.role === "client") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const body = await request.json().catch(() => ({}));
-
-  // Validate
-  const mode = body.mode === "log" ? "log" : "schedule";
-  if (!body.client_id) {
-    return NextResponse.json({ error: "client_id required" }, { status: 400 });
-  }
-  if (!body.scheduled_at) {
-    return NextResponse.json({ error: "scheduled_at required" }, { status: 400 });
-  }
-  if (!body.session_type) {
-    return NextResponse.json({ error: "session_type required" }, { status: 400 });
-  }
-  if (!body.duration_minutes || body.duration_minutes < 1) {
-    return NextResponse.json(
-      { error: "duration_minutes must be at least 1" },
-      { status: 400 }
-    );
-  }
-
-  const isCompleted = mode === "log";
-  const billable =
-    body.service_type &&
-    ["training", "massage", "pilates"].includes(body.service_type);
-
-  // For 'log' mode + billable service: increment counter FIRST
-  // (so we can roll back if the session insert fails)
-  let billingPlanId: string | null = null;
-  let counterResult: any = null;
-
-  if (isCompleted && billable) {
-    const { data: result, error: incErr } = await supabase.rpc(
-      "increment_session_counter",
-      {
-        p_client_id: body.client_id,
-        p_service_type: body.service_type,
-      }
-    );
-    if (incErr) {
-      return NextResponse.json(
-        { error: "Counter increment failed", detail: incErr.message },
-        { status: 500 }
-      );
-    }
-    counterResult = result;
-    billingPlanId = result?.plan_id ?? null;
-  }
-
-  // Build session row
-  const insert: any = {
-    client_id: body.client_id,
-    trainer_id: body.trainer_id ?? user.id,
-    scheduled_at: body.scheduled_at,
-    duration_minutes: body.duration_minutes,
-    session_type: body.session_type,
-    service_type: body.service_type ?? null,
-    status: isCompleted ? "completed" : "scheduled",
-    notes_pre: body.notes_pre ?? null,
-    notes_post: body.notes_post ?? null,
-  };
-
-  if (isCompleted) {
-    insert.completed_at = new Date().toISOString();
-    insert.completed_by = user.id;
-    insert.plan_id = billingPlanId;
-  }
-
-  const { data: session, error: insertErr } = await supabase
-    .from("sessions")
-    .insert(insert)
-    .select("id")
-    .single();
-
-  if (insertErr) {
-    // Roll back the counter if we incremented one
-    if (billingPlanId) {
-      await supabase.rpc("decrement_session_counter", {
-        p_plan_id: billingPlanId,
-      });
-    }
-    return NextResponse.json(
-      { error: "Session insert failed", detail: insertErr.message },
-      { status: 500 }
-    );
-  }
-
-  // The trigger sessions_sync_last_session_at handles clients.last_session_at
-  // automatically when status='completed'.
-
-  return NextResponse.json({
-    ok: true,
-    session_id: session.id,
-    counter: counterResult,
-  });
+import {type NextRequest,NextResponse} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+import {CAPTURE_UUID} from "@/lib/exercises/capture";
+import {smallJson} from "@/lib/media/request";
+const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
+export async function POST(request:NextRequest){
+ const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return reply({error:"Unauthorized"},401);
+ if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin"},403);
+ const raw=await smallJson(request,16000).catch(()=>null);if(!raw||typeof raw!=="object"||Array.isArray(raw))return reply({error:"Invalid session request"},400);
+ const body=raw as Record<string,unknown>,keys=["request_id","mode","client_id","trainer_id","scheduled_at","duration_minutes","session_type","service_type","notes_pre","notes_post"];
+ if(Object.keys(body).some(k=>!keys.includes(k)))return reply({error:"Unsupported session fields"},400);
+ if(typeof body.request_id!=="string"||!CAPTURE_UUID.test(body.request_id)||typeof body.client_id!=="string"||!CAPTURE_UUID.test(body.client_id)||typeof body.trainer_id!=="string"||!CAPTURE_UUID.test(body.trainer_id))return reply({error:"Valid session, client and trainer IDs are required"},400);
+ if(body.mode!=="schedule"&&body.mode!=="log")return reply({error:"Invalid session mode"},400);
+ if(body.session_type!=="training"&&body.session_type!=="assessment")return reply({error:"Coach OS session creation supports training and assessment only"},400);
+ if((body.session_type==="training"&&body.service_type!=="training")||(body.session_type==="assessment"&&body.service_type!==null))return reply({error:"Service does not match session type"},400);
+ if(typeof body.scheduled_at!=="string"||!Number.isFinite(Date.parse(body.scheduled_at))||typeof body.duration_minutes!=="number"||!Number.isInteger(body.duration_minutes)||body.duration_minutes<1||body.duration_minutes>480)return reply({error:"Invalid session details"},400);
+ for(const k of ["notes_pre","notes_post"]){const v=body[k];if(v!==undefined&&v!==null&&(typeof v!=="string"||v.length>4000))return reply({error:"Session notes must be text under 4,000 characters"},400);}
+ const {data,error}=await db.rpc("create_staff_session",{p_id:body.request_id,p_body:body});
+ if(error?.code==="PGRST202"||error?.code==="42883")return reply({error:"Session creation is not configured in this environment.",code:"SESSION_CREATE_UNAVAILABLE"},503);
+ if(error){const status=error.code==="42501"?403:["22023","23P01","40P01","40001"].includes(error.code)?409:503;return reply({error:status===503?"Session save was not confirmed. Retry with the same request.":error.code==="23P01"?"Trainer already has a session at this time.":error.message},status);}
+ if(!data||data.ok!==true||typeof data.session_id!=="string")return reply({error:"Session save receipt was invalid. Check the schedule before retrying."},503);
+ return reply(data);
 }

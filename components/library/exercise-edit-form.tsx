@@ -100,7 +100,7 @@ export function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
         <CardHeader>
           <CardTitle>Visibility</CardTitle>
           <CardDescription>
-            Drafts are trainer-only. Set to "Published" + "Client visible" to
+            Drafts are trainer-only. Set to &quot;Published&quot; + &quot;Client visible&quot; to
             release for clients.
           </CardDescription>
         </CardHeader>
@@ -169,7 +169,7 @@ export function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
               placeholder='e.g. "Hip Controlled Articular Rotations"'
             />
             <p className="text-xs text-cream-faint mt-1">
-              Jason's coaching name. Shown to clients and in programs.
+              Jason&apos;s coaching name. Shown to clients and in programs.
             </p>
           </div>
         </CardContent>
@@ -240,7 +240,7 @@ export function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
           <CardTitle>Contraindications</CardTitle>
           <CardDescription>
             Conditions where this exercise needs adjustment or substitution. Be
-            specific. Always defer to the client's clinical care team.
+            specific. Always defer to the client&apos;s clinical care team.
           </CardDescription>
         </CardHeader>
         <CardContent>

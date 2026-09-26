@@ -23,24 +23,26 @@ export interface RecurringSlot {
  * We find the offset PT had at that moment and apply it.
  */
 export function ptWallClockToUtc(ymd: string, time: string): Date {
-  const [h, m] = time.split(":").map(Number);
-  // Start from the naive UTC guess, then correct by PT's offset that day.
-  const naive = new Date(`${ymd}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`);
-  // What time does that UTC instant show in PT?
-  const ptParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(naive);
-  const ptHour = Number(ptParts.find((p) => p.type === "hour")?.value ?? "0");
-  // Offset in hours between our intended PT hour and what UTC-as-PT shows.
-  // PT is behind UTC, so we add the difference back.
-  let diff = h - ptHour;
-  // Handle wrap-around at midnight (e.g. h=0 vs ptHour=17)
-  if (diff > 12) diff -= 24;
-  if (diff < -12) diff += 24;
-  return new Date(naive.getTime() + diff * 60 * 60 * 1000);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new Error("Invalid Pacific date or time");
+  }
+  const naive = Date.parse(`${ymd}T${time}:00Z`);
+  if (!Number.isFinite(naive) || new Date(naive).toISOString().slice(0, 10) !== ymd) {
+    throw new Error("Invalid Pacific date");
+  }
+  const format = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  });
+  // Pacific time uses UTC-7/-8 for supported modern booking dates. Test both
+  // actual instants. In the repeated fall-back hour choose the earlier instant;
+  // reject the nonexistent spring-forward hour rather than silently moving it.
+  for (const offsetHours of [7, 8]) {
+    const candidate = new Date(naive + offsetHours * 3_600_000);
+    const parts = Object.fromEntries(format.formatToParts(candidate).map(p => [p.type, p.value]));
+    if (`${parts.year}-${parts.month}-${parts.day}` === ymd && `${parts.hour}:${parts.minute}` === time) return candidate;
+  }
+  throw new Error("This Pacific time does not exist due to daylight saving time");
 }
 
 /** YYYY-MM-DD for a Date, in PT. */
@@ -62,6 +64,20 @@ function weekdayInPT(ymd: string): number {
     weekday: "short",
   }).format(new Date(`${ymd}T12:00:00Z`));
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
+}
+
+export function buildSeriesOccurrences(opts: { slots: RecurringSlot[]; startDate: string; horizonWeeks?: number; now?: Date }): { occurrences: string[]; generatedUntil: string } {
+  const horizonWeeks = opts.horizonWeeks ?? 8;
+  const todayPT = ymdInPT(opts.now ?? new Date());
+  let day = opts.startDate > todayPT ? opts.startDate : todayPT;
+  const generatedUntil = addDays(todayPT, horizonWeeks * 7);
+  const occurrences: string[] = [];
+  while (day <= generatedUntil) {
+    const wd = weekdayInPT(day);
+    for (const slot of opts.slots) if (slot.weekday === wd) occurrences.push(ptWallClockToUtc(day, slot.time).toISOString());
+    day = addDays(day, 1);
+  }
+  return { occurrences, generatedUntil };
 }
 
 export interface SeriesRow {
@@ -130,10 +146,11 @@ export async function generateSeriesSessions(
   }
 
   if (rows.length === 0) {
-    await svc
+    const { error: advanceError } = await svc
       .from("recurring_series")
       .update({ generated_until: horizonEnd })
       .eq("id", series.id);
+    if (advanceError) throw new Error(`Series cursor update failed: ${advanceError.message}`);
     return 0;
   }
 
@@ -141,21 +158,23 @@ export async function generateSeriesSessions(
   // its conflict target): fetch existing slot times for this series in range
   // and skip any we've already created.
   const times = rows.map((r) => r.scheduled_at).sort();
-  const { data: existing } = await svc
+  const { data: existing, error: existingError } = await svc
     .from("sessions")
     .select("scheduled_at")
     .eq("recurring_series_id", series.id)
     .gte("scheduled_at", times[0])
     .lte("scheduled_at", times[times.length - 1]);
 
+  if (existingError) throw new Error(`Existing series lookup failed: ${existingError.message}`);
   const have = new Set((existing ?? []).map((e: any) => e.scheduled_at));
   const toInsert = rows.filter((r) => !have.has(r.scheduled_at));
 
   if (toInsert.length === 0) {
-    await svc
+    const { error: advanceError } = await svc
       .from("recurring_series")
       .update({ generated_until: horizonEnd })
       .eq("id", series.id);
+    if (advanceError) throw new Error(`Series cursor update failed: ${advanceError.message}`);
     return 0;
   }
 
@@ -169,10 +188,11 @@ export async function generateSeriesSessions(
     throw new Error(`Session insert failed: ${error.message}`);
   }
 
-  await svc
+  const { error: advanceError } = await svc
     .from("recurring_series")
     .update({ generated_until: horizonEnd })
     .eq("id", series.id);
+  if (advanceError) throw new Error(`Sessions created but series cursor update failed: ${advanceError.message}`);
 
   return count ?? toInsert.length;
 }
@@ -182,13 +202,14 @@ export async function generateAllActiveSeries(
   svc: SupabaseClient,
   horizonWeeks = 8
 ): Promise<{ series: number; created: number }> {
-  const { data: list } = await svc
+  const { data: list, error: listError } = await svc
     .from("recurring_series")
     .select(
       "id, client_id, trainer_id, session_type, duration_minutes, location, slots, status, generated_until, start_date"
     )
     .eq("status", "active");
 
+  if (listError) throw new Error(`Recurring series lookup failed: ${listError.message}`);
   let created = 0;
   for (const s of list ?? []) {
     created += await generateSeriesSessions(svc, s as SeriesRow, horizonWeeks);

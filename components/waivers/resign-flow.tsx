@@ -96,7 +96,7 @@ export function ResignFlow({ types }: { types: WaiverDoc["type"][] }) {
         <CheckCircle2 className="h-10 w-10 text-status-optimal mx-auto mb-3" />
         <h2 className="text-lg font-semibold text-cream">All set</h2>
         <p className="prose-ims text-sm text-cream-dim mt-1">
-          Filed — that's you for the next year. Taking you back…
+          Filed — that&apos;s you for the next year. Taking you back…
         </p>
       </div>
     );

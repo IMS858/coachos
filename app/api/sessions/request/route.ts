@@ -1,113 +1,33 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendEmail, emailShell } from "@/lib/mailer";
-
-/**
- * POST /api/sessions/request
- * Client self-booking: a signed-in client requests a session slot.
- * Creates a session with status 'requested' assigned to their primary
- * trainer, and emails the owner so nothing sits unseen.
- *
- * Staff approve or decline via /api/sessions/[id]/respond.
- */
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await request.json().catch(() => ({}));
-  const scheduledAt = String(body.scheduled_at ?? "");
-  const sessionType = String(body.session_type ?? "training");
-  const note = String(body.note ?? "").slice(0, 500);
-
-  const when = new Date(scheduledAt);
-  if (!scheduledAt || isNaN(when.getTime())) {
-    return NextResponse.json({ error: "Pick a valid date and time." }, { status: 400 });
+import {type NextRequest,NextResponse} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+import {smallJson} from "@/lib/media/request";
+import {parseRequestPayload,parseRequestReceipt} from "@/lib/booking/client-contract";
+import {sendEmail,emailShell} from "@/lib/mailer";
+const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
+export async function POST(request:NextRequest){
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();
+  if(!user)return reply({error:"Unauthorized",saved:false},401);
+  if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin.",saved:false},403);
+  let body;
+  try{body=parseRequestPayload(await smallJson(request,4096));}catch(e){return reply({error:e instanceof Error?e.message:"Invalid request.",saved:false},400);}
+  // One transaction rechecks the class schedule, 1:1 commitments, trainer blocks,
+  // request limit and active identity. class_occurrences is checked inside that command.
+  const {data,error}=await db.rpc("request_client_training_session",{p_id:body.request_id,p_when:body.scheduled_at,p_note:body.note});
+  if(error){
+    const status=error.code==="42501"?403:error.code==="22023"?400:error.code==="P0100"?429:["23514","23505","23P01","40P01","40001","55P03"].includes(error.code)?409:503;
+    const message=status===503?"Request service is unavailable. Your request was not confirmed; retry with the same reference.":["23505","23P01","40P01","40001","55P03"].includes(error.code)?"The calendar changed while saving. Refresh availability and try again.":error.message;
+    const rollbackKnown=["42501","22023","P0100","23514","23505","23P01","40P01","40001","55P03","42883","42P01","42703","P0001","PGRST202"].includes(error.code);
+    return reply({error:message,...(rollbackKnown?{saved:false}:{})},status);
   }
-  if (when.getTime() < Date.now() + 60 * 60 * 1000) {
-    return NextResponse.json(
-      { error: "Requests need at least 1 hour of notice." },
-      { status: 400 }
-    );
+  let receipt;
+  try{receipt=parseRequestReceipt(data,body.request_id);}catch{return reply({error:"Request receipt was invalid. Retry this same request before changing it."},503);}
+  let notification="not_confirmed";
+  if(!receipt.deduped&&process.env.OWNER_EMAIL){
+    try{
+      const when=new Date(body.scheduled_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+      const sent=await sendEmail({to:process.env.OWNER_EMAIL,idempotencyKey:"session-request/"+receipt.id,subject:"New IMS training request",html:emailShell({heading:"New session request",bodyHtml:"<p>A client requested training for <strong>"+when+"</strong>.</p><p>Review the request in Coach OS Action Center. This is not a confirmed booking.</p>"})});
+      notification=sent.ok?"provider_accepted":"not_confirmed";
+    }catch{/* Request is saved independently of email; never claim delivery. */}
   }
-
-  const svc = createServiceClient();
-
-  // Must be an actual client (staff should use the schedule directly)
-  const { data: clientRow } = await svc
-    .from("clients")
-    .select("id, primary_trainer_id")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!clientRow) {
-    return NextResponse.json({ error: "Client account required." }, { status: 403 });
-  }
-
-  // Cap open requests to prevent spam
-  const { count } = await svc
-    .from("sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("client_id", user.id)
-    .eq("status", "requested");
-  if ((count ?? 0) >= 5) {
-    return NextResponse.json(
-      { error: "You already have 5 pending requests. We'll respond soon!" },
-      { status: 429 }
-    );
-  }
-
-  const { data: session, error } = await svc
-    .from("sessions")
-    .insert({
-      client_id: user.id,
-      trainer_id: clientRow.primary_trainer_id,
-      scheduled_at: when.toISOString(),
-      duration_minutes: 60,
-      session_type: sessionType,
-      status: "requested",
-      notes_pre: note || null,
-    } as never)
-    .select("id")
-    .single();
-
-  if (error || !session) {
-    return NextResponse.json(
-      { error: "Couldn't create the request.", detail: error?.message },
-      { status: 500 }
-    );
-  }
-
-  // Notify the owner (best effort)
-  try {
-    const { data: me } = await svc
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .maybeSingle();
-    const ownerEmail = process.env.OWNER_EMAIL;
-    if (ownerEmail) {
-      const whenStr = when.toLocaleString("en-US", {
-        weekday: "short", month: "short", day: "numeric",
-        hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles",
-      });
-      await sendEmail({
-        to: ownerEmail,
-        subject: `Session request — ${me?.full_name ?? "Client"} · ${whenStr}`,
-        html: emailShell({
-          heading: "New session request",
-          bodyHtml: `
-            <p><strong>${me?.full_name ?? "A client"}</strong> requested a ${sessionType} session for <strong>${whenStr}</strong>.</p>
-            ${note ? `<p style="color:#8a94a3;">Note: "${note}"</p>` : ""}
-            <p>Approve or decline it from the Schedule page in Coach OS.</p>
-          `,
-        }),
-      });
-    }
-  } catch (err) {
-    console.warn("[sessions/request] owner email failed:", err);
-  }
-
-  return NextResponse.json({ ok: true, id: session.id });
+  return reply({...receipt,notification},receipt.deduped?200:201);
 }

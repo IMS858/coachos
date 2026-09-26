@@ -54,7 +54,7 @@ export function SendVideoPanel({
   const [meta, setMeta] = useState<{ duration: number } | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [poster, setPoster] = useState<Blob | null>(null);
-  const [shrink, setShrink] = useState(true);
+  const [shrink, setShrink] = useState(false);
   const [quality, setQuality] = useState<QualityKey>("standard");
   const [saved, setSaved] = useState<{ from: number; to: number } | null>(null);
   const [done, setDone] = useState<null | "sent" | "sent-notified">(null);
@@ -208,7 +208,7 @@ export function SendVideoPanel({
           <Video className="h-4 w-4 text-sky" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-cream">Send homework</h3>
+          <h3 className="text-base font-semibold text-cream">Coach video</h3>
           <p className="prose-ims text-sm text-cream-dim mt-0.5">
             Film the cue while it&apos;s fresh — {clientName.split(" ")[0]} sees it
             on their plan.
@@ -347,7 +347,7 @@ export function SendVideoPanel({
                   className="mt-0.5"
                 />
                 <span className="text-sm text-cream">
-                  Shrink before sending
+                  Optimize before sending
                   <span className="block text-xs text-cream-faint mt-0.5">
                     Clients watch on a phone, so this costs nothing visible and
                     loads far faster. Takes about as long as the clip runs

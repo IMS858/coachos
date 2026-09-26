@@ -152,7 +152,7 @@ export function NewClientForm() {
         <CardHeader>
           <CardTitle>Identity</CardTitle>
           <CardDescription>
-            Use the client's real email — magic-link sign-in goes here.
+            Use the client&apos;s real email — magic-link sign-in goes here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

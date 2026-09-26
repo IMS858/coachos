@@ -1,132 +1,26 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendEmail, emailShell } from "@/lib/mailer";
-
-export const dynamic = "force-dynamic";
-
-/**
- * POST /api/media/assign
- * Assign library exercises to a client as homework.
- *
- * The alternative — re-filming the same drill for every client — is what makes
- * a video library expensive and inconsistent. Record "Hip 90/90 PAILs" once,
- * assign it twenty times.
- *
- * Accepts several at a time because homework is usually prescribed as a set.
- */
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: me } = await supabase
-    .from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (!me || !["owner", "trainer"].includes(me.role)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
-  }
-
-  const b = await request.json().catch(() => ({}));
-  const clientId = String(b.client_id ?? "");
-  const exerciseIds: string[] = Array.isArray(b.exercise_ids) ? b.exercise_ids : [];
-  const note = String(b.note ?? "").trim();
-  const category = ["mobility", "strength", "conditioning", "general"].includes(b.category)
-    ? b.category : "mobility";
-
-  if (!clientId || exerciseIds.length === 0) {
-    return NextResponse.json(
-      { error: "Pick at least one exercise." },
-      { status: 400 }
-    );
-  }
-
-  const svc = createServiceClient();
-
-  const { data: exercises } = await svc
-    .from("exercises")
-    .select("id, name, ims_label")
-    .in("id", exerciseIds);
-
-  if (!exercises || exercises.length === 0) {
-    return NextResponse.json({ error: "Those exercises weren't found." }, { status: 404 });
-  }
-
-  // Don't assign the same drill twice — re-assigning should feel idempotent.
-  const { data: existing } = await svc
-    .from("client_media")
-    .select("exercise_id")
-    .eq("client_id", clientId)
-    .is("archived_at", null)
-    .in("exercise_id", exerciseIds);
-
-  const already = new Set((existing ?? []).map((e: any) => e.exercise_id));
-  const toInsert = (exercises as any[])
-    .filter((ex) => !already.has(ex.id))
-    .map((ex) => ({
-      client_id: clientId,
-      uploaded_by: user.id,
-      kind: "video",
-      category,
-      title: ex.ims_label || ex.name,
-      note: note || null,
-      exercise_id: ex.id,
-      storage_path: null,
-    }));
-
-  if (toInsert.length === 0) {
-    return NextResponse.json({
-      ok: true,
-      added: 0,
-      skipped: exercises.length,
-      message: "Already assigned.",
-    });
-  }
-
-  const { error } = await svc.from("client_media").insert(toInsert as never);
-  if (error) {
-    console.error("[media/assign]", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // One email for the batch, not one per exercise.
-  let notified = false;
-  try {
-    const { data: profile } = await svc
-      .from("profiles").select("email, full_name").eq("id", clientId).maybeSingle();
-    const email = (profile as any)?.email;
-    if (email) {
-      const site = process.env.NEXT_PUBLIC_SITE_URL || "https://coachos-opal.vercel.app";
-      const firstName =
-        String((profile as any).full_name ?? "").trim().split(" ")[0] || "there";
-      const list = toInsert
-        .map((i) => `<li style="margin-bottom:4px;">${i.title.replace(/[<>]/g, "")}</li>`)
-        .join("");
-      const result = await sendEmail({
-        to: email,
-        subject: `New ${category} homework from IMS`,
-        html: emailShell({
-          heading: `${firstName}, you've got homework`,
-          bodyHtml: `
-            <p>Jason assigned you ${toInsert.length} thing${toInsert.length === 1 ? "" : "s"} to work on:</p>
-            <ul style="color:#4b5563;padding-left:20px;">${list}</ul>
-            ${note ? `<p style="color:#4b5563;">${note.replace(/[<>]/g, "")}</p>` : ""}
-            <p style="margin:24px 0;">
-              <a href="${site}/plan" style="background:#1c6a9c;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">
-                See your homework
-              </a>
-            </p>
-          `,
-        }),
-      });
-      notified = result.ok;
-    }
-  } catch (err) {
-    console.warn("[media/assign] notify failed:", err);
-  }
-
-  return NextResponse.json({
-    ok: true,
-    added: toInsert.length,
-    skipped: exercises.length - toInsert.length,
-    notified,
-  });
+import {type NextRequest} from "next/server";
+import {authorizeStaffMediaClient,mediaReply} from "@/lib/media/staff-client";
+import {smallJson} from "@/lib/media/request";
+import {CAPTURE_UUID} from "@/lib/exercises/capture";
+import {sendEmail,emailShell} from "@/lib/mailer";
+export const dynamic="force-dynamic";
+/** Explicit approved demonstration assignment. This never publishes a program prescription. */
+export async function POST(request:NextRequest){
+ const raw=await smallJson(request,16000).catch(()=>null);if(!raw||typeof raw!=="object"||Array.isArray(raw))return mediaReply({error:"Invalid demonstration request"},400);
+ const body=raw as Record<string,unknown>,clientId=body.client_id,exerciseIds=body.exercise_ids,note=body.note??"",category=body.category??"mobility";
+ if(Object.keys(body).some(k=>!["client_id","exercise_ids","note","category"].includes(k))||typeof clientId!=="string"||!CAPTURE_UUID.test(clientId)||!Array.isArray(exerciseIds)||exerciseIds.length<1||exerciseIds.length>30||exerciseIds.some(id=>typeof id!=="string"||!CAPTURE_UUID.test(id))||typeof note!=="string"||note.length>2000||typeof category!=="string"||!["mobility","strength","conditioning","general"].includes(category))return mediaReply({error:"Pick 1–30 valid exercises and a coaching note under 2,000 characters."},400);
+ const auth=await authorizeStaffMediaClient(request,clientId);if(auth.error)return auth.error;
+ const ids=[...new Set(exerciseIds as string[])];
+ // The command rechecks client_visible, safety_status='approved' and playable video under locks.
+ const {data,error}=await auth.db!.rpc("assign_client_media_demos",{p_client_id:clientId,p_exercise_ids:ids,p_category:category,p_note:note.trim()||null});
+ if(error){const status=error.code==="42501"?403:["22023","40001","40P01"].includes(error.code)?409:503;return mediaReply({error:status===503?"Demonstration assignment could not be confirmed. Retry the same selection.":error.message},status);}
+ const receipt=data as {ok?:boolean;client_id?:string;added?:number;skipped?:number;media_ids?:unknown[]}|null;
+ const added=receipt?.added,skipped=receipt?.skipped,mediaIds=receipt?.media_ids;
+ if(!receipt||receipt.ok!==true||receipt.client_id!==clientId||typeof added!=="number"||typeof skipped!=="number"||!Number.isInteger(added)||!Number.isInteger(skipped)||added<0||skipped<0||added+skipped!==ids.length||!Array.isArray(mediaIds)||mediaIds.length!==added||mediaIds.some(id=>typeof id!=="string"||!CAPTURE_UUID.test(id)))return mediaReply({error:"Assignment receipt was invalid. Check the client record before retrying."},503);
+ let notified=false;
+ if(added>0&&auth.recipient!.email){try{
+  const site=process.env.NEXT_PUBLIC_SITE_URL||"https://coachos-opal.vercel.app",escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+  const sent=await sendEmail({to:auth.recipient!.email,idempotencyKey:"demo-assignment/"+mediaIds[0],subject:"Your IMS coach shared exercise demonstrations",html:emailShell({heading:"New demonstrations in My Plan",bodyHtml:'<p>Your coach shared '+added+' approved demonstration'+(added===1?'':'s')+'.</p><p><a href="'+escape(site+'/plan')+'">Open My Plan</a></p>'})});notified=sent.ok;
+ }catch{/* Saving demonstration assignments does not guarantee notification delivery. */}}
+ return mediaReply({ok:true,added,skipped,notified,message:added===0?"Already assigned; previous notes remain unchanged.":"Approved demonstrations assigned."});
 }

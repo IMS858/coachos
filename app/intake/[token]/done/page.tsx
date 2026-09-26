@@ -8,11 +8,11 @@ export default function IntakeDonePage() {
           <CheckCircle2 className="h-8 w-8 text-status-optimal" />
         </div>
         <h1 className="text-2xl font-semibold text-ink mb-2">
-          You're all set
+          You&apos;re all set
         </h1>
         <p className="text-sm text-ink/70 leading-relaxed">
           Your intake is complete and your trainer has everything they need to
-          make your assessment count. We'll see you at your scheduled time.
+          make your assessment count. We&apos;ll see you at your scheduled time.
         </p>
         <div className="mt-6 rounded-xl bg-white border border-line p-4 text-left text-sm">
           <div className="font-medium text-ink mb-1">What to bring</div>

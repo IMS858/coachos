@@ -148,7 +148,7 @@ function ScrollableWaiverText({ body }: { body: string }) {
         </p>
       )}
       {scrolledToEnd && (
-        <p className="text-xs text-status-optimal mt-2">✓ You've reached the end</p>
+        <p className="text-xs text-status-optimal mt-2">✓ You&apos;ve reached the end</p>
       )}
     </div>
   );

@@ -93,9 +93,12 @@ export async function POST(request: NextRequest) {
     ...(isSubscription
       ? { subscription_data: { metadata: { client_id, lookup_key } } }
       : { payment_intent_data: { metadata: { client_id, lookup_key } } }),
+    payment_method_collection: "if_required",
+    allow_promotion_codes: false,
     success_url: `${origin}/checkout?success=1`,
     cancel_url: `${origin}/checkout?canceled=1`,
   });
 
+  if (!session.url) return NextResponse.json({ error: "Stripe did not return a checkout URL" }, { status: 502 });
   return NextResponse.json({ url: session.url });
 }

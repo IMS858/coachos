@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageThread } from "@/components/messages/message-thread";
+import { ArchiveThreadButton } from "@/components/messages/archive-thread-button";
 
 export default async function ThreadPage({
   params,
@@ -67,7 +68,7 @@ export default async function ThreadPage({
             </Link>
           )}
           <Avatar name={clientProfile.full_name} />
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold tracking-tight">
               {isStaff ? clientProfile.full_name : "Messages"}
             </h1>
@@ -77,6 +78,7 @@ export default async function ThreadPage({
                 : "Your coaches see this thread and reply here."}
             </p>
           </div>
+          {isStaff && <ArchiveThreadButton clientId={clientId} />}
         </div>
 
         <MessageThread

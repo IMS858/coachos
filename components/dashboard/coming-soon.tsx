@@ -28,7 +28,7 @@ export function ComingSoon({ title, description, next }: ComingSoonProps) {
         {next && next.length > 0 && (
           <div className="mt-6 max-w-md mx-auto text-left">
             <div className="text-xs font-medium uppercase tracking-wider text-cream-faint mb-2">
-              What's next
+              What&apos;s next
             </div>
             <ul className="text-sm text-cream-dim space-y-1.5">
               {next.map((item, i) => (

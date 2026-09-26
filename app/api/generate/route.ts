@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { generatorEndpoint } from "@/lib/programs/generator-endpoint";
 import { approvedDeviceEvidence } from "@/lib/devices/approved-evidence";
 import { generatorCardioProfile, generatorRichRestrictions, includeUnverifiedSurgicalHistory, recommendedTrainingDays } from "@/lib/programs/cardio-assessment";
 
@@ -16,8 +17,7 @@ export const dynamic = "force-dynamic";
  * It runs in seconds — no AI timeout risk.
  */
 
-const GENERATOR_URL =
-  process.env.PROGRAM_GENERATOR_URL || "https://program-generator-rho.vercel.app";
+
 
 /** Map Coach OS joint rating to constraint/concern flags. */
 function mapConstraints(data: any): { constraints: string[]; concerns: string[]; concernNotes: string } {
@@ -321,19 +321,25 @@ export async function POST(request: NextRequest) {
   };
 
   const generatorSecret = process.env.PROGRAM_GENERATOR_SECRET;
-  if (!generatorSecret || !process.env.PROGRAM_GENERATOR_URL) {
+  const endpoint = generatorEndpoint(process.env.PROGRAM_GENERATOR_URL, "generate", process.env.NODE_ENV === "production");
+  if (!generatorSecret || !endpoint) {
     return NextResponse.json({ error: "Secure generator is not configured" }, { status: 503 });
   }
   const started = Date.now();
   try {
-    const res = await fetch(`${GENERATOR_URL}/api/generate`, {
+    const requestBody = JSON.stringify(generatorPayload);
+    if (Buffer.byteLength(requestBody, "utf8") > 262144) {
+      return NextResponse.json({ error: "Assessment exceeds generator size limit" }, { status: 413 });
+    }
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "Authorization": `Bearer ${generatorSecret}`,
       },
-      body: JSON.stringify(generatorPayload),
+      body: requestBody,
+      cache: "no-store",
       signal: AbortSignal.timeout(55000),
     });
 
@@ -432,6 +438,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/pdf",
         "X-IMS-Program-ID": program.id,
+        "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${safeName}_ims_plan.pdf"`,
       },
     });

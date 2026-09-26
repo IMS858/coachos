@@ -1,9 +1,33 @@
 import Link from "next/link";
-import { ChevronRight, TrendingUp, DollarSign, Users, FileSpreadsheet, Activity } from "lucide-react";
+import { ChevronRight, TrendingUp, DollarSign, Users, FileSpreadsheet, Activity, Target, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 
 const REPORTS = [
+  {
+    href: "/reports/training-value",
+    title: "Training Value — $93 Estimate",
+    desc: "Completed and upcoming private training analyzed separately by client, coach and month. Not collected revenue.",
+    icon: Activity,
+  },
+  {
+    href: "/reports/operations",
+    title: "Operations Health",
+    desc: "Package renewals, payment exceptions, no-shows and client setup gaps that need attention.",
+    icon: ShieldCheck,
+  },
+  {
+    href: "/reports/leads",
+    title: "New Business & Conversion",
+    desc: "Current inquiries, first-contact health, booked prospects and conversion by source. Historical contacts are excluded.",
+    icon: Target,
+  },
+  {
+    href: "/reports/outcomes",
+    title: "Client Outcomes & Evidence",
+    desc: "Assessment, reassessment, body-composition and progression evidence coverage across active clients.",
+    icon: Activity,
+  },
   {
     href: "/reports/progress",
     title: "Client Progress Report",
@@ -12,14 +36,20 @@ const REPORTS = [
   },
   {
     href: "/reports/usage",
-    title: "App Usage",
-    desc: "Who's opening the app, who's watching their homework, and who's gone quiet.",
+    title: "Client Engagement",
+    desc: "App activity, assigned media engagement and clients who may be going quiet.",
     icon: Activity,
   },
   {
     href: "/reports/financials",
-    title: "Monthly P&L / Revenue",
-    desc: "Revenue, MRR, package income, and renter rent for the month. Print-ready.",
+    title: "Monthly Revenue",
+    desc: "Recurring plan value, package activity, renter rent and delivered sessions. Not a P&L.",
+    icon: DollarSign,
+  },
+  {
+    href: "/reports/payroll",
+    title: "Payroll Prep",
+    desc: "Completed-session evidence, trainer hours, late cancels and owner-reviewed export for payroll.",
     icon: DollarSign,
   },
   {
@@ -36,8 +66,8 @@ const REPORTS = [
   },
   {
     href: "/reports/tax",
-    title: "Tax Summary",
-    desc: "Yearly payments by month and source — hand it to your accountant.",
+    title: "Accountant Payment Summary",
+    desc: "Succeeded payment ledger summarized by month and source. Not a tax return.",
     icon: DollarSign,
   },
   {
@@ -51,11 +81,8 @@ const REPORTS = [
 export default function ReportsPage() {
   return (
     <AppShell expectedRole="owner">
-      <div className="max-w-3xl mx-auto py-6">
-        <h1 className="text-2xl font-semibold text-cream mb-1">Reports</h1>
-        <p className="text-sm text-cream-faint mb-6">
-          Business intelligence and printable client documents.
-        </p>
+      <div className="max-w-4xl mx-auto py-6">
+        <div className="rounded-3xl bg-band px-6 py-7 text-white shadow-lg mb-6"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Owner intelligence</p><h1 className="mt-2 text-4xl font-bold">Reports</h1><p className="mt-2 text-sm text-white/75">Growth, revenue, retention, utilization and client outcomes in one place.</p></div>
         <div className="flex flex-col gap-3">
           {REPORTS.map((r) => {
             const Icon = r.icon;

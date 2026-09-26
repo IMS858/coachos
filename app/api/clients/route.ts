@@ -4,6 +4,7 @@ import {
   createServiceClient,
 } from "@/lib/supabase/server";
 import { sendLoginInvite } from "@/lib/invite";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * POST /api/clients
@@ -208,6 +209,7 @@ export async function POST(request: NextRequest) {
 
   // The account exists now, so send the set-password invite. The link comes
   // back regardless of delivery so the UI can offer it as a copyable fallback.
+  await recordAudit({actorId:user.id,action:"client.created",entityType:"client",entityId:newUserId,changes:{status,billing_type:billingType,initial_plan:Boolean(body.initial_plan)}});
   const invite = await sendLoginInvite(email, fullName);
 
   return NextResponse.json({

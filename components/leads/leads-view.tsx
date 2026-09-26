@@ -19,6 +19,8 @@ interface Lead {
   appointments_booked: number;
   last_visited: string | null;
   prior_trainer: string | null;
+  source: string | null;
+  last_contacted_at: string | null;
 }
 
 const STAGE_TONE: Record<string, "neutral" | "moderate" | "optimal"> = {
@@ -295,6 +297,8 @@ export function LeadsView({ leads: initialLeads }: { leads: Lead[] }) {
                       {l.appointments_booked > 0 && (
                         <span>{l.appointments_booked} prior visits</span>
                       )}
+                      {l.source && <span>Source: {l.source.replaceAll("_", " ")}</span>}
+                      <span>{l.last_contacted_at ? `Last touch ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(l.last_contacted_at))}` : "Never contacted"}</span>
                     </div>
                   </div>
                   <Button

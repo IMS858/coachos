@@ -1,13 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Reading = Record<string, unknown>;
 type Props = { assessmentId: string; measurements: Reading[]; workouts: Reading[] };
-export function DeviceReview({ assessmentId, measurements, workouts }: Props) {
+export function DeviceReview(props: Props) {
+  return <DeviceReviewEditor key={JSON.stringify([props.assessmentId,props.measurements,props.workouts])} {...props} />;
+}
+function DeviceReviewEditor({ assessmentId, measurements, workouts }: Props) {
   const router = useRouter();
   const [entries, setEntries] = useState({ activforce: measurements, voltra: workouts });
-  useEffect(() => { setEntries({ activforce: measurements, voltra: workouts }); }, [measurements, workouts]);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   async function review(device: "activforce" | "voltra", index: number, decision: "approved" | "rejected") {

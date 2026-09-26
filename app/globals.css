@@ -30,7 +30,7 @@
   /* Surfaces. The site can sit on flat white because it has full-bleed photos
      and air between sections; a dense app can't — so the GROUND is tinted and
      CARDS are white, which is what gives a card its edge. */
-  --color-navy: #eef1f4;        /* page ground (tinted) */
+  --color-navy: #e9eef3;        /* page ground (cool IMS tint) */
   --color-navy-soft: #ffffff;   /* cards (lift off it)  */
   --color-navy-elev: #f7f9fb;   /* inputs inside cards  */
   --color-navy-deep: #e4e8ed;   /* recessed panels      */
@@ -39,7 +39,7 @@
 
   --color-surface: #ffffff;
   --color-surface-soft: #f7f9fb;
-  --color-ground: #eef1f4;
+  --color-ground: #e9eef3;
 
   /* Ink */
   --color-cream: #17191c;       /* primary text       */
@@ -248,14 +248,14 @@ h1, h2, h3, h4 {
    survive even if token generation fails. Values mirror @theme; keep in sync.
    ============================================================================= */
 
-html, body { background-color: #eef1f4; color: #17191c; }
+html, body { background-color: #e9eef3; color: #17191c; }
 
-.bg-navy       { background-color: #eef1f4; }
+.bg-navy       { background-color: #e9eef3; }
 .bg-navy-soft  { background-color: #ffffff; }
 .bg-navy-elev  { background-color: #f7f9fb; }
 .bg-navy-deep  { background-color: #e4e8ed; }
 .bg-ghost      { background-color: #e4e8ed; }
-.bg-paper      { background-color: #eef1f4; }
+.bg-paper      { background-color: #e9eef3; }
 .bg-paper-deep { background-color: #ffffff; }
 .bg-sky        { background-color: #1c6a9c; }
 
@@ -322,3 +322,24 @@ html, body { background-color: #eef1f4; color: #17191c; }
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* Program studio shares the current IMS palette and spacing. */
+.ims-studio-panel, .ims-studio-stat {
+  border: 1px solid var(--color-divider);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(23 25 28 / 0.05);
+}
+.ims-studio-stat { display: grid; gap: .5rem; padding: 1.25rem; }
+.ims-studio-stat span { font-size: .8rem; color: var(--color-ink-dim); }
+.ims-studio-stat strong { font-size: 1.5rem; font-family: var(--font-display); }
+.ims-week-tab { min-height: 44px; padding: .6rem 1rem; border: 1px solid var(--color-divider); border-radius: .6rem; }
+.ims-week-tab-active { background: var(--color-sky); border-color: var(--color-sky); color: white; }
+.ims-exercise-row { border: 1px solid var(--color-divider); border-radius: .75rem; background: var(--color-surface-soft); }
+
+/* IMS visual depth: restrained blue identity without turning operational screens into marketing pages. */
+main > header:not(.band) { border-top: 3px solid var(--color-sky); }
+.card-surface, .bg-navy-soft { border-color: #d2dae2; }
+
+@keyframes imsAuthDrift { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.08) translate3d(-1.2%,1%,0); } }
+@media (prefers-reduced-motion: reduce) { .motion-safe\\:animate-\\[imsAuthDrift_18s_ease-in-out_infinite_alternate\\] { animation: none !important; } }

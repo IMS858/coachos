@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Users, CreditCard, CircleDollarSign, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,21 +36,26 @@ export default async function ClientsPage({
   const search = params.q?.trim() ?? "";
   const statusFilter = params.status ?? "all";
 
+  const isOwner = profile?.role === "owner";
+  const assignedQ = !isOwner ? await supabase.from("clients").select("id").eq("primary_trainer_id", user.id) : { data: null, error: null };
+  if (assignedQ.error) throw new Error("Assigned clients could not be loaded.");
+  const assignedIds = !isOwner ? (assignedQ.data ?? []).map((row: any) => row.id) : null;
   let query = supabase
     .from("client_billing_summary")
     .select("*")
     .order("full_name", { ascending: true });
+  if (!isOwner) query = assignedIds?.length ? query.in("client_id", assignedIds) : query.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
 
   if (statusFilter !== "all") query = query.eq("status", statusFilter);
   if (search) query = query.ilike("full_name", `%${search}%`);
 
-  const { data: rows } = await query;
+  const { data: rows, error: clientsError } = await query;
   const allClients = rows ?? [];
 
-  const totalMrr = allClients.reduce(
+  const totalMrr = isOwner ? allClients.reduce(
     (sum: number, c: any) => sum + (c.total_monthly_cents ?? 0),
     0
-  );
+  ) : 0;
   const counts = {
     total: allClients.length,
     active: allClients.filter((r: any) => r.status === "active").length,
@@ -62,7 +67,7 @@ export default async function ClientsPage({
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
+        <div className="rounded-3xl border border-sky/15 bg-gradient-to-br from-white via-white to-sky/5 p-5 shadow-sm sm:p-6"><div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
             <p className="text-sm text-cream-dim mt-1">
@@ -71,9 +76,7 @@ export default async function ClientsPage({
               {counts.withPackage} with packages ·{" "}
               {counts.unconfigured} unconfigured
             </p>
-            <p className="text-sm text-cream-faint mt-0.5">
-              Combined MRR: <span className="text-cream font-medium">{formatCurrency(totalMrr)}</span>
-            </p>
+            {isOwner ? <p className="text-sm text-cream-faint mt-0.5">Combined MRR: <span className="text-cream font-medium">{formatCurrency(totalMrr)}</span></p> : <p className="text-sm text-cream-faint mt-0.5">Your assigned coaching roster</p>}
           </div>
           <Link href="/clients/new">
             <Button>
@@ -81,19 +84,27 @@ export default async function ClientsPage({
               New client
             </Button>
           </Link>
+        </div></div>
+
+        <div className={"grid grid-cols-2 gap-3 "+(isOwner?"lg:grid-cols-4":"lg:grid-cols-3")}>
+          <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><Users className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.active}</p><p className="text-xs text-cream-faint">Active clients</p></div>
+          <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><CreditCard className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.withPackage}</p><p className="text-xs text-cream-faint">With packages</p></div>
+          {isOwner && <div className="rounded-2xl border border-divider bg-white p-4 shadow-sm"><CircleDollarSign className="h-5 w-5 text-sky" /><p className="mt-3 text-2xl font-bold text-cream">{formatCurrency(totalMrr)}</p><p className="text-xs text-cream-faint">Monthly recurring</p></div>}
+          <Link href="/clients?status=all" className="rounded-2xl border border-divider bg-white p-4 shadow-sm transition hover:border-sky/50"><AlertCircle className="h-5 w-5 text-sky" /><p className="mt-3 text-3xl font-bold text-cream">{counts.unconfigured}</p><p className="text-xs text-cream-faint">Need a plan</p></Link>
         </div>
 
-        <ClientsFilter initialSearch={search} initialStatus={statusFilter} />
+                <ClientsFilter initialSearch={search} initialStatus={statusFilter} />
 
         <Card>
           <CardContent className="p-0">
+          {clientsError && <div role="alert" className="border-b border-status-limited/30 p-5 text-sm text-status-limited">Client records could not be loaded. Refresh to retry; no client data was changed.</div>}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-divider text-left text-xs uppercase tracking-wider text-cream-faint">
                     <th className="px-6 py-3 font-medium">Name</th>
                     <th className="px-6 py-3 font-medium">Plans</th>
-                    <th className="px-6 py-3 font-medium text-right">Monthly</th>
+                    {isOwner && <th className="px-6 py-3 font-medium text-right">Monthly</th>}
                     <th className="px-6 py-3 font-medium">Status</th>
                     <th className="px-6 py-3 font-medium">Last seen</th>
                     <th className="px-6 py-3 font-medium" />
@@ -102,7 +113,7 @@ export default async function ClientsPage({
                 <tbody className="divide-y divide-divider">
                   {allClients.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-16">
+                      <td colSpan={isOwner ? 6 : 5} className="px-6 py-16">
                         <div className="flex flex-col items-center gap-3 text-center">
                           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky/10 to-sky-light/10 border border-sky/30">
                             <Plus className="h-6 w-6 text-sky-light" />
@@ -133,12 +144,12 @@ export default async function ClientsPage({
                   {allClients.map((c: any) => (
                     <tr
                       key={c.client_id}
-                      className="hover:bg-navy-elev transition-colors"
+                      className="transition-colors hover:bg-sky/[0.035]"
                     >
                       <td className="px-6 py-3">
                         <Link
                           href={`/clients/${c.client_id}`}
-                          className="flex items-center gap-3 font-medium text-cream hover:text-sky-light"
+                          className="flex items-center gap-3 font-semibold text-cream hover:text-sky"
                         >
                           <Avatar name={c.full_name} size="sm" />
                           {c.full_name}
@@ -147,12 +158,7 @@ export default async function ClientsPage({
                       <td className="px-6 py-3">
                         <PlansCell row={c} />
                       </td>
-                      <td className="px-6 py-3 text-right font-medium text-cream">
-                        {c.total_monthly_cents > 0
-                          ? formatCurrency(c.total_monthly_cents)
-                          : <span className="text-cream-faint">—</span>
-                        }
-                      </td>
+                      {isOwner && <td className="px-6 py-3 text-right font-medium text-cream">{c.total_monthly_cents > 0 ? formatCurrency(c.total_monthly_cents) : <span className="text-cream-faint">—</span>}</td>}
                       <td className="px-6 py-3">
                         <StatusBadge status={c.status} />
                       </td>
@@ -214,7 +220,7 @@ function PlansCell({ row }: { row: any }) {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  if (status === "active") return <Badge tone="optimal">Active</Badge>;
+  if (status === "active") return <Badge tone="sky">Active</Badge>;
   if (status === "lead") return <Badge tone="moderate">Lead</Badge>;
   if (status === "paused") return <Badge tone="moderate">Paused</Badge>;
   if (status === "churned") return <Badge tone="limited">Churned</Badge>;

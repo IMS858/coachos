@@ -30,6 +30,18 @@ function age(dob: string | null): number | null {
   return a;
 }
 
+  const Row = ({ label, items }: { label: string; items: string[] }) =>
+    items.length === 0 ? null : (
+      <div>
+        <div className="text-[11px] uppercase tracking-widest text-cream-faint">{label}</div>
+        <ul className="mt-1 flex flex-col gap-0.5">
+          {items.map((v, i) => (
+            <li key={i} className="prose-ims text-sm text-cream">{v}</li>
+          ))}
+        </ul>
+      </div>
+    );
+
 export async function MedicalPanel({ clientId }: { clientId: string }) {
   const svc = createServiceClient();
   const { data } = await svc
@@ -71,17 +83,7 @@ export async function MedicalPanel({ clientId }: { clientId: string }) {
     );
   }
 
-  const Row = ({ label, items }: { label: string; items: string[] }) =>
-    items.length === 0 ? null : (
-      <div>
-        <div className="text-[11px] uppercase tracking-widest text-cream-faint">{label}</div>
-        <ul className="mt-1 flex flex-col gap-0.5">
-          {items.map((v, i) => (
-            <li key={i} className="prose-ims text-sm text-cream">{v}</li>
-          ))}
-        </ul>
-      </div>
-    );
+
 
   return (
     <div className="rounded-lg border border-divider bg-navy-soft p-5 flex flex-col gap-3">

@@ -103,6 +103,9 @@ export function MessageThread({
       return;
     }
     setDraft("");
+    // A new message makes this conversation active again if staff had cleared it.
+    void fetch(`/api/messages/${clientId}/archive`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: false }) }).catch(() => {});
+    void fetch("/api/messages/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message_id: data?.id }) }).catch(() => {});
     // Append optimistically (realtime may also deliver it; de-duped by id)
     if (data) {
       setMessages((prev) =>

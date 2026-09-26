@@ -8,19 +8,17 @@ import {
   CalendarPlus,
   TrendingUp,
   MessageCircle,
-  User,
-  ClipboardList,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/dashboard", label: "Today", icon: Home },
-  { href: "/plan", label: "Plan", icon: Dumbbell },
-  { href: "/workouts", label: "Log", icon: ClipboardList },
-  { href: "/book", label: "Book", icon: CalendarPlus },
+  { href: "/plan", label: "Train", icon: Dumbbell },
   { href: "/progress", label: "Progress", icon: TrendingUp },
-  { href: "/messages", label: "Inbox", icon: MessageCircle },
-
+  { href: "/messages", label: "Coach", icon: MessageCircle },
+  { href: "/book", label: "Book", icon: CalendarPlus },
+  { href: "/account", label: "Me", icon: UserRound },
 ];
 
 export function ClientBottomNav() {
@@ -36,7 +34,7 @@ export function ClientBottomNav() {
               <Link
                 href={item.href}
                 className={cn(
-                  "relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] transition-all",
+                  "relative flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[10px] transition-all",
                   active ? "bg-white/10 text-white" : "text-cream-dim hover:text-white"
                 )}
               >

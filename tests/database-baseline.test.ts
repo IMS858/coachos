@@ -1,0 +1,2 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";import path from "node:path";const root=path.join(import.meta.dirname,"..");
+test("fresh database baseline keeps dev seed out of production replay",()=>{const seed=fs.readFileSync(path.join(root,"packages/db/migrations/0003_dev_seed.sql"),"utf8"),marker=fs.readFileSync(path.join(root,"docs/DATABASE-BASELINE-REPAIR.md"),"utf8");assert.match(seed,/RUN THIS ONLY IN DEV \/ STAGING/);assert.match(marker,/0001_initial_schema/);assert.match(marker,/do not apply 0003_dev_seed/i);});

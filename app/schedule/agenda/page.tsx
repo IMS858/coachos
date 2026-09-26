@@ -28,14 +28,14 @@ export default async function ScheduleAgenda({searchParams}:{searchParams:Promis
   supabase.from("profiles").select("id,full_name,role").in("role",["owner","trainer"]).order("full_name")
  ]);
  const trainerIds=new Set((staff??[]).map(t=>t.id));
- const trainerFilter=params.trainer&&trainerIds.has(params.trainer)?params.trainer:"all";
+ const trainerFilter=params.trainer&&trainerIds.has(params.trainer)?params.trainer:viewer.role==="trainer"&&trainerIds.has(user.id)?user.id:"all";
  const visible=(sessions??[]).filter(s=>trainerFilter==="all"||s.trainer_id===trainerFilter);
  const ids=[...new Set(visible.map(s=>s.client_id).filter(Boolean))];
  const {data:clients,error:clientError}=ids.length?await supabase.from("profiles").select("id,full_name").in("id",ids):{data:[],error:null};
  const clientNames=new Map((clients??[]).map(c=>[c.id,c.full_name]));
  const trainerNames=new Map((staff??[]).map(t=>[t.id,t.full_name]));
  const filterQuery=trainerFilter==="all"?"":"&trainer="+encodeURIComponent(trainerFilter);
- const counts={total:visible.length,confirmed:visible.filter(s=>s.status==="confirmed"||s.status==="scheduled").length,requested:visible.filter(s=>s.status==="requested").length};
+ const counts={total:visible.length,confirmed:visible.filter(s=>s.status==="confirmed"||s.status==="scheduled").length,requested:visible.filter(s=>s.status==="requested").length,completed:visible.filter(s=>s.status==="completed").length};
  return <AppShell><main className="mx-auto max-w-5xl space-y-6 pb-16">
   <header className="rounded-2xl border border-divider bg-navy-soft p-6">
    <p className="text-xs font-semibold uppercase tracking-widest text-sky">IMS / Scheduling</p>
@@ -48,12 +48,12 @@ export default async function ScheduleAgenda({searchParams}:{searchParams:Promis
     </div>
    </div>
    <div className="mt-5 flex flex-wrap gap-2">
-    <Link href={`/schedule?date=${selected}`} className="rounded-lg border border-divider px-4 py-2 text-sm text-cream">Trainer grid</Link>
+    <Link href={`/schedule?date=${selected}&trainer=${encodeURIComponent(trainerFilter)}`} className="rounded-lg border border-divider px-4 py-2 text-sm text-cream">Trainer grid</Link>
     <Link href="/sessions/new" className="rounded-lg bg-sky px-4 py-2 text-sm font-semibold text-navy">+ New session</Link>
    </div>
   </header>
-  <section className="grid grid-cols-3 gap-3" aria-label="Day summary">
-   {[{label:"Sessions",value:counts.total},{label:"Scheduled",value:counts.confirmed},{label:"Requests",value:counts.requested}].map(item=><div key={item.label} className="rounded-xl border border-divider bg-navy-soft p-4"><p className="text-xs text-cream-dim">{item.label}</p><p className="mt-2 text-3xl font-semibold text-cream">{item.value}</p></div>)}
+  <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Day summary">
+   {[{label:"Sessions",value:counts.total},{label:"Upcoming",value:counts.confirmed},{label:"Completed",value:counts.completed},{label:"Requests",value:counts.requested}].map(item=><div key={item.label} className="rounded-xl border border-divider bg-navy-soft p-4"><p className="text-xs text-cream-dim">{item.label}</p><p className="mt-2 text-3xl font-semibold text-cream">{item.value}</p></div>)}
   </section>
   <nav aria-label="Trainer filter" className="flex flex-wrap gap-2">
    {[{id:"all",full_name:"All trainers"},...(staff??[])].map(t=><Link key={t.id} href={`/schedule/agenda?date=${selected}${t.id==="all"?"":"&trainer="+encodeURIComponent(t.id)}`}

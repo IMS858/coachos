@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Star, Play, FileText, AlertCircle } from "lucide-react";
@@ -91,7 +92,7 @@ function ExerciseCard({ exercise, isStaff }: { exercise: Exercise; isStaff: bool
       {/* Thumbnail / video preview area */}
       <div className="relative aspect-video bg-gradient-to-br from-navy-elev to-navy-deep border-b border-divider flex items-center justify-center">
         {exercise.thumbnail_url ? (
-          <img
+          <Image fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             src={exercise.thumbnail_url}
             alt=""
             className="w-full h-full object-cover"

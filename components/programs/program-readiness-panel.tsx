@@ -47,7 +47,7 @@ export function ProgramReadinessPanel({programId}:{programId:string}) {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="text-lg font-semibold text-cream">Coach program preflight</h2>
-        <p className="mt-1 text-sm text-cream-dim">Check the draft, assessment, PDF and unsynchronized edits before coach review.</p>
+        <p className="mt-1 text-sm text-cream-dim">Check the requirements for this program pathway before coach review. Quick programs do not require an assessment; assessment-led programs do.</p>
       </div>
       <button type="button" disabled={busy} onClick={check}
         className="min-h-11 rounded-lg bg-sky px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50">

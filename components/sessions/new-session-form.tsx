@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { ptWallClockToUtc } from "@/lib/recurring";
+import { PACIFIC, pacificDate } from "@/lib/time/pacific";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -49,38 +51,44 @@ interface Trainer {
 interface Props {
   initialMode: "schedule" | "log";
   initialClientId?: string;
+  initialTrainerId?: string;
+  initialDate?: string;
   clients: Client[];
   trainers: Trainer[];
   currentUserId: string;
 }
 
+function scheduleTimeForDate(date?: string) {
+  const fallback = defaultScheduleTime();
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return fallback;
+  return `${date}${fallback.slice(10)}`;
+}
+
 const SERVICE_TYPES = [
   { value: "training", label: "Training", billable: true },
-  { value: "massage", label: "Massage", billable: true },
-  { value: "pilates", label: "Pilates", billable: true },
-  { value: "recovery", label: "Recovery", billable: false },
   { value: "assessment", label: "Assessment", billable: false },
 ] as const;
 
 export function NewSessionForm({
   initialMode,
   initialClientId,
+  initialTrainerId,
+  initialDate,
   clients,
   trainers,
   currentUserId,
 }: Props) {
   const router = useRouter();
 
+  const requestRef = useRef<{id:string;fingerprint:string}|null>(null);
   const [mode, setMode] = useState<"schedule" | "log">(initialMode);
   const [clientId, setClientId] = useState(initialClientId ?? "");
-  const [trainerId, setTrainerId] = useState(currentUserId);
+  const [trainerId, setTrainerId] = useState(initialTrainerId ?? currentUserId);
   const [scheduledAt, setScheduledAt] = useState(() =>
-    initialMode === "log" ? defaultLogTime() : defaultScheduleTime()
+    initialMode === "log" ? defaultLogTime() : scheduleTimeForDate(initialDate)
   );
   const [duration, setDuration] = useState(60);
-  const [serviceType, setServiceType] = useState<
-    "training" | "massage" | "pilates" | "recovery" | "assessment"
-  >("training");
+  const [serviceType, setServiceType] = useState<"training" | "assessment">("training");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +104,7 @@ export function NewSessionForm({
   const targetPackage = useMemo(() => {
     if (mode !== "log") return null;
     if (!selectedClient) return null;
-    if (!["training", "massage", "pilates"].includes(serviceType)) return null;
+    if (serviceType !== "training") return null;
     return (
       selectedClient.active_plans.find(
         (p) => p.kind === "package" && p.service_type === serviceType
@@ -107,7 +115,7 @@ export function NewSessionForm({
   // Re-default the time when mode toggles
   function switchMode(next: "schedule" | "log") {
     setMode(next);
-    setScheduledAt(next === "log" ? defaultLogTime() : defaultScheduleTime());
+    setScheduledAt(next === "log" ? defaultLogTime() : scheduleTimeForDate(initialDate));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -127,15 +135,16 @@ export function NewSessionForm({
       return;
     }
 
+    let sessionInstant: Date;
+    try { sessionInstant = ptWallClockToUtc(scheduledAt.slice(0,10),scheduledAt.slice(11,16)); }
+    catch { setError("Choose a valid Pacific time. This time may not exist during daylight saving changes.");return; }
     setSubmitting(true);
+    try {
 
     // Standing/weekly booking → create a recurring series instead of one session.
     if (mode === "schedule" && repeat === "weekly") {
-      const dt = new Date(scheduledAt);
-      const baseWeekday = dt.getDay(); // local weekday of the picked date
-      const hh = String(dt.getHours()).padStart(2, "0");
-      const mm = String(dt.getMinutes()).padStart(2, "0");
-      const time = `${hh}:${mm}`;
+      const baseWeekday = new Date(`${scheduledAt.slice(0,10)}T12:00:00Z`).getUTCDay();
+      const time = scheduledAt.slice(11,16);
       const weekdays = Array.from(new Set([baseWeekday, ...extraDays]));
       const slots = weekdays.map((weekday) => ({ weekday, time }));
 
@@ -148,6 +157,7 @@ export function NewSessionForm({
           session_type: serviceType,
           duration_minutes: duration,
           slots,
+          start_date: scheduledAt.slice(0,10),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -165,13 +175,16 @@ export function NewSessionForm({
       return;
     }
 
-    const isPackageBilled = ["training", "massage", "pilates"].includes(serviceType);
+    const isPackageBilled = serviceType === "training";
 
+    const fingerprint = JSON.stringify({mode,clientId,trainerId,scheduledAt:sessionInstant.toISOString(),duration,serviceType,notes});
+    if (!requestRef.current || requestRef.current.fingerprint !== fingerprint) requestRef.current={id:crypto.randomUUID(),fingerprint};
     const payload = {
+      request_id: requestRef.current.id,
       mode,
       client_id: clientId,
       trainer_id: trainerId,
-      scheduled_at: new Date(scheduledAt).toISOString(),
+      scheduled_at: sessionInstant.toISOString(),
       duration_minutes: duration,
       session_type: serviceType,
       service_type: isPackageBilled ? serviceType : null,
@@ -194,6 +207,7 @@ export function NewSessionForm({
       setError(err.error ?? "Could not save session.");
       setSubmitting(false);
     }
+    } catch { setError("Connection interrupted. Retry to save the same session safely.");setSubmitting(false); }
   }
 
   return (
@@ -252,7 +266,7 @@ export function NewSessionForm({
           {/* Service type */}
           <div>
             <Label>Service type</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {SERVICE_TYPES.map((st) => {
                 const hasPackage =
                   st.billable &&
@@ -296,7 +310,7 @@ export function NewSessionForm({
           {/* Date / time / duration */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
-              <Label>{mode === "log" ? "When did it happen?" : "When?"}</Label>
+              <Label>{mode === "log" ? "When did it happen? (Pacific)" : "When? (Pacific)"}</Label>
               <input
                 type="datetime-local"
                 required
@@ -310,6 +324,7 @@ export function NewSessionForm({
               <Input
                 type="number"
                 min={1}
+                max={480}
                 value={duration}
                 onChange={(e) => setDuration(Number.parseInt(e.target.value) || 60)}
               />
@@ -514,9 +529,6 @@ function ClientSearch({
       .slice(0, 30);
   }, [clients, query]);
 
-  useEffect(() => {
-    setHighlightIndex(0);
-  }, [query]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "ArrowDown") {
@@ -540,7 +552,7 @@ function ClientSearch({
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); setHighlightIndex(0); }}
           onKeyDown={handleKeyDown}
           placeholder="Type a name…"
           autoFocus
@@ -551,7 +563,7 @@ function ClientSearch({
       <div className="max-h-72 overflow-y-auto rounded-md border border-divider bg-navy-deep">
         {filtered.length === 0 && (
           <div className="px-3 py-6 text-center text-sm text-cream-faint italic">
-            No clients match "{query}"
+            No clients match &quot;{query}&quot;
           </div>
         )}
         {filtered.map((c, idx) => (
@@ -684,7 +696,7 @@ function CounterPreview({
   clientName: string;
 }) {
   // Non-billable services
-  if (!["training", "massage", "pilates"].includes(serviceType)) {
+  if (serviceType !== "training") {
     return (
       <div className="mt-3 rounded-md border border-divider bg-navy-deep px-3 py-2 text-xs text-cream-dim">
         <Clock className="inline h-3 w-3 mr-1" />
@@ -712,7 +724,7 @@ function CounterPreview({
   return (
     <div className="mt-3 rounded-md border border-status-optimal/30 bg-status-optimal/5 px-3 py-2 text-xs text-status-optimal flex items-center gap-2">
       <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-      Will tick {clientName}'s {serviceType} counter from{" "}
+      Will tick {clientName}&apos;s {serviceType} counter from{" "}
       <span className="font-semibold">#{current}</span> →{" "}
       <span className="font-semibold">#{next}</span>
     </div>
@@ -785,8 +797,7 @@ function planLabel(plan: ActivePlan): string {
  * Format date for datetime-local input (the browser expects local time, no Z).
  */
 function toLocalDateTimeInput(d: Date): string {
-  const tzOffsetMs = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+  return `${pacificDate(d)}T${new Intl.DateTimeFormat("en-GB",{timeZone:PACIFIC,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(d)}`;
 }
 
 function defaultLogTime(): string {

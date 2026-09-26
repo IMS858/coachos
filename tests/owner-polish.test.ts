@@ -1,0 +1,4 @@
+import test from "node:test";import assert from "node:assert/strict";import {readFileSync} from "node:fs";
+test("owner control center exists and migration is intentionally absent",()=>{const page=readFileSync("app/(owner)/settings/page.tsx","utf8");assert.match(page,/Owner control center/);assert.match(page,/AI & Research/);assert.doesNotMatch(page,/Vagaro|Migration Center/);});
+test("Action Center is promoted without becoming the first navigation item",()=>{const side=readFileSync("components/layout/app-sidebar.tsx","utf8"),mobile=readFileSync("components/layout/staff-bottom-nav.tsx","utf8");assert.ok(side.indexOf('label: "Today"')<side.indexOf('label: "Action Center"'));assert.match(mobile,/href: "\/action-center", label: "Actions"/);});
+test("client profile names the quick programming path explicitly",()=>{const page=readFileSync("app/clients/[id]/page.tsx","utf8");assert.match(page,/Quick programming/);assert.match(page,/Coach actions/);});

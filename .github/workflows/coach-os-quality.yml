@@ -2,23 +2,44 @@ name: Coach OS quality gate
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
+permissions:
+  contents: read
+concurrency:
+  group: coach-os-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  typecheck:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ims_test_only
+          POSTGRES_DB: ims_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      IMS_TEST_DATABASE_URL: postgresql://postgres:ims_test_only@127.0.0.1:5432/ims_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - run: npm install --no-audit --no-fund
-      - name: Security and device contract regression tests
-        run: node --test tests/*.test.cjs
-      - name: Cross-system cardio assessment regression tests
-        run: npx tsx --test tests/cardio-assessment.test.ts
-      - name: TypeScript with inline error annotations
-        shell: bash
-        run: |
-          set -o pipefail
-          npx tsc --noEmit --pretty false 2>&1 | sed -E 's|^(.+)\\(([0-9]+),([0-9]+)\\): error TS[0-9]+: (.*)$|::error file=\\1,line=\\2,col=\\3::\\4|'
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Parse every source and test file
+        run: node scripts/verify-source.cjs
+      - name: Security, device and integration regression tests
+        run: npm test
+      - name: Lint
+        run: npm run lint -- --max-warnings 0
+      - name: Production build and TypeScript validation
+        run: npm run build
+      - name: Standalone TypeScript validation
+        run: npm run typecheck

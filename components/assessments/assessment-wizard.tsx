@@ -148,6 +148,42 @@ export function AssessmentWizard({
     } finally { setSaving(false); }
   }
 
+  async function saveDraft() {
+    if (saving) return;
+    if (!id && !selectedClient) {setError("Select a client before saving.");return;}
+    setSaving(true);setError(null);
+    try {
+      const res=await fetch(id ? "/api/assessments/"+id : "/api/assessments",{
+        method:id?"PATCH":"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({data,section_status:sections,...(id?{status:"in_progress"}:{client_id:selectedClient})}),
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(json.error||"Draft save failed");
+      setDirty(false);setSavedAt(new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}));
+      if(!id&&json.id){setId(json.id);router.replace("/assessments/"+json.id);}
+    }catch(e){setError(e instanceof Error?e.message:"Save failed; entries remain on screen.");}
+    finally{setSaving(false);}
+  }
+
+  async function deferSection() {
+    if(saving)return;
+    if(!id&&!selectedClient){setError("Select a client first.");return;}
+    setSaving(true);setError(null);
+    const updated={...sections,[SECTION_KEYS[step]]:"deferred"};
+    try{
+      const res=await fetch(id?"/api/assessments/"+id:"/api/assessments",{
+        method:id?"PATCH":"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({data,section_status:updated,...(id?{status:"in_progress"}:{client_id:selectedClient})}),
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(json.error||"Could not defer section");
+      setSections(updated);setDirty(false);
+      if(!id&&json.id){setId(json.id);router.replace("/assessments/"+json.id);}
+      setStep(Math.min(step+1,STEPS.length-1));
+    }catch(e){setError(e instanceof Error?e.message:"Save failed; section not deferred.");}
+    finally{setSaving(false);}
+  }
+
   async function next() {
     const savedId = await save(false);
     if (savedId && step < STEPS.length - 1) setStep(step + 1);
@@ -184,6 +220,12 @@ export function AssessmentWizard({
           <div style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
       </header>
+      <section className="rounded-xl border border-divider bg-navy-soft p-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-sky">Flexible assessment · Visit 1 / Visit 2</p>
+        <h3 className="mt-1 font-semibold text-cream">Assess what matters today. Finish testing later.</h3>
+        <p className="mt-1 text-sm text-cream-dim">Visit 1: goals, health, pain and movement. Visit 2: strength, conditioning and optional Bod Pod. Defer unavailable sections; never invent measurements.</p>
+        <button type="button" disabled={saving||(!id&&!selectedClient)} onClick={saveDraft} className="mt-3 rounded-lg border border-sky px-4 py-2 text-sm font-semibold text-sky disabled:opacity-40">{saving?"Saving…":"Save draft & finish later"}</button>
+      </section>
       {/* Step progress */}
       <div className="assessment-step-nav flex flex-wrap gap-1.5 mb-2">
         {STEPS.map((label, i) => {
@@ -257,8 +299,8 @@ export function AssessmentWizard({
             <div><label className={labelCls}>Current type</label><Input value={g.training_type_current} onChange={(e) => upd((d) => (d.goals.training_type_current = e.target.value))} placeholder="e.g. Peloton, gym, walking" /></div>
           </div>
           <div><label className={labelCls}>Target sessions/week</label><Input type="number" value={g.target_sessions_per_week} onChange={(e) => upd((d) => (d.goals.target_sessions_per_week = Number(e.target.value)))} /></div>
-          <div><label className={labelCls}>What's worked for them before</label><Input value={g.what_worked} onChange={(e) => upd((d) => (d.goals.what_worked = e.target.value))} placeholder="Exercises, programs, modalities" /></div>
-          <div><label className={labelCls}>What hasn't worked / what they dislike</label><Input value={g.what_didnt} onChange={(e) => upd((d) => (d.goals.what_didnt = e.target.value))} placeholder="Exercises that hurt, things they've failed at" /></div>
+          <div><label className={labelCls}>What&apos;s worked for them before</label><Input value={g.what_worked} onChange={(e) => upd((d) => (d.goals.what_worked = e.target.value))} placeholder="Exercises, programs, modalities" /></div>
+          <div><label className={labelCls}>What hasn&apos;t worked / what they dislike</label><Input value={g.what_didnt} onChange={(e) => upd((d) => (d.goals.what_didnt = e.target.value))} placeholder="Exercises that hurt, things they've failed at" /></div>
         </div>
       )}
 
@@ -400,7 +442,7 @@ export function AssessmentWizard({
           <div className="mt-4 pt-4 border-t border-divider">
             <h4 className="text-sm font-medium text-cream mb-2">FRA Priorities — rank your top 3-5</h4>
             <p className="text-xs text-cream-faint mb-3">
-              Format: "Joint Direction Side" (e.g. Hip IR L+R, Shoulder ER Right, Thoracic Extension)
+              Format: &quot;Joint Direction Side&quot; (e.g. Hip IR L+R, Shoulder ER Right, Thoracic Extension)
             </p>
             {[0, 1, 2, 3, 4].map((i) => (
               <Input
@@ -645,7 +687,7 @@ export function AssessmentWizard({
         <Button variant="secondary" size="sm" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
           ← Back
         </Button>
-        <div className="text-xs text-cream-faint">{step + 1} / {STEPS.length}</div>
+        <div className="flex items-center gap-2"><button type="button" disabled={saving||(!id&&!selectedClient)} onClick={deferSection} className="rounded-lg border border-divider px-3 py-2 text-xs text-cream disabled:opacity-40">Defer section</button><div className="text-xs text-cream-faint">{step + 1} / {STEPS.length}</div></div>
         {step < STEPS.length - 1 ? (
           <Button size="sm" onClick={next} disabled={saving || (!id && !selectedClient)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & next →"}

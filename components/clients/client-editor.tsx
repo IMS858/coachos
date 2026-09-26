@@ -30,7 +30,6 @@ const SUBSCRIPTION_TIERS = [
   { value: "essentials_2x", label: "Essentials (2x/wk)", rate: 78000, sessionsPerWeek: 2 },
   { value: "standard_3x", label: "Standard (3x/wk)", rate: 116900, sessionsPerWeek: 3 },
   { value: "premium_4x", label: "Premium (4x/wk)", rate: 155900, sessionsPerWeek: 4 },
-  { value: "recovery_monthly", label: "Recovery only", rate: 10000, sessionsPerWeek: null },
   { value: "custom", label: "Custom plan", rate: null, sessionsPerWeek: null },
 ] as const;
 
@@ -45,11 +44,7 @@ const PACKAGE_PRESETS = [
 /** Sentinel for a package that doesn't match a preset — count and price are typed in. */
 const CUSTOM_PACKAGE = -1;
 
-const SERVICE_TYPES = [
-  { value: "training", label: "Training" },
-  { value: "massage", label: "Massage" },
-  { value: "pilates", label: "Pilates" },
-] as const;
+const SERVICE_TYPES = [{ value: "training", label: "Personal Training" }] as const;
 
 interface ProfileData {
   id: string;
@@ -273,7 +268,7 @@ export function ClientEditor({
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-sm text-cream-faint italic">
-                  No active plans. Click "Add plan" to start.
+                  No active plans. Click &quot;Add plan&quot; to start.
                 </p>
               </CardContent>
             </Card>

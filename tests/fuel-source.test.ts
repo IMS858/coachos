@@ -1,0 +1,7 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFuelPdf,MAX_FUEL_PDF_BYTES,validSourceReceipt} from "../lib/fuel/source";
+function request(body:string|Uint8Array,headers:Record<string,string>={}){return new Request("https://ims.example.invalid/upload",{method:"POST",body:body as BodyInit,headers:{"content-type":"application/pdf",...headers}});}
+test("PDF source reader preserves exact bytes and does not optimize or parse prescriptions",async()=>{const bytes=new TextEncoder().encode("%PDF-1.7\nSynthetic original bytes\n%%EOF"),actual=await readFuelPdf(request(bytes));assert.deepEqual(actual,bytes);});
+test("source reader checks actual stream size, not only Content-Length",async()=>{assert.equal(MAX_FUEL_PDF_BYTES,3*1024*1024);const bytes=new Uint8Array(MAX_FUEL_PDF_BYTES+1);bytes.set(new TextEncoder().encode("%PDF-1.7"));await assert.rejects(readFuelPdf(request(bytes,{"content-length":"8"})),/3 MB/);await assert.rejects(readFuelPdf(request("%PDF-1.7",{"content-length":String(MAX_FUEL_PDF_BYTES+1)})),/3 MB/);});
+test("source reader and receipt reject wrong types, missing PDF signature and fake success",async()=>{await assert.rejects(readFuelPdf(request("not a PDF")),/not a PDF/);await assert.rejects(readFuelPdf(request("%PDF-1.7",{"content-type":"text/plain"})),/PDF original/);assert.equal(validSourceReceipt({ok:true},"id","client","hash",8),false);assert.equal(validSourceReceipt({ok:true,id:"id",client_id:"client",sha256:"hash",byte_size:8,deduped:false},"id","client","hash",8),true);});

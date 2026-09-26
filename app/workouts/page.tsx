@@ -1,65 +1,22 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppShell } from "@/components/layout/app-shell";
-
-export const dynamic = "force-dynamic";
-
-/** Client-only workout history. RLS and explicit client_id both restrict records. */
-export default async function WorkoutHistoryPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/workouts");
-  const { data: profile } = await supabase.from("profiles")
-    .select("role").eq("id", user.id).maybeSingle();
-  if (profile?.role !== "client") redirect("/dashboard");
-
-  const { data: logs, error } = await supabase.from("workout_logs")
-    .select("id, exercise_name, set_number, actual_reps, actual_load_lb, actual_rpe, notes, created_at")
-    .eq("client_id", user.id)
-    .order("created_at", { ascending: false }).limit(100);
-
-  const byDate = new Map<string, typeof logs>();
-  for (const log of logs ?? []) {
-    const day = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Los_Angeles", month: "long", day: "numeric", year: "numeric"
-    }).format(new Date(log.created_at));
-    byDate.set(day, [...(byDate.get(day) ?? []), log]);
-  }
-
-  return <AppShell>
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-8">
-      <div>
-        <Link href="/progress" className="text-sm text-sky-light">← My progress</Link>
-        <div className="mt-4 rounded-2xl bg-band p-6 text-white shadow-lg"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Your training record</p><h1 className="mt-2 text-4xl font-bold text-white">Workout history</h1><p className="mt-2 text-sm text-white/75">Track your consistency, loads and effort over time.</p></div>
-
-      </div>
-      <div className="grid grid-cols-2 gap-3"><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Recorded sets</p><p className="mt-2 text-3xl font-bold tabular text-cream">{logs?.length ?? 0}</p></div><div className="rounded-2xl border border-divider bg-white p-4"><p className="text-xs uppercase tracking-wider text-cream-faint">Training days</p><p className="mt-2 text-3xl font-bold tabular text-cream">{byDate.size}</p></div></div>
-      {error && <div role="alert" className="rounded-xl border border-divider p-5 text-cream">
-        Workout history is unavailable right now. Please try again later.
-      </div>}
-      {!error && byDate.size === 0 && <div className="rounded-xl border border-divider p-6 text-cream-dim">
-        No workouts logged yet. Once you record your sets with your coach, they will appear here.
-      </div>}
-      {!error && Array.from(byDate).map(([day, entries]) =>
-        <section key={day} className="overflow-hidden rounded-2xl border border-divider bg-white shadow-sm">
-          <h2 className="bg-navy-elev px-4 py-3 text-base font-semibold text-cream">{day}</h2>
-          <ul className="divide-y divide-divider">
-            {(entries ?? []).map(log => <li key={log.id} className="px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <span className="font-medium text-cream">{log.exercise_name}</span>
-                <span className="shrink-0 text-sm text-cream-dim">Set {log.set_number}</span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-3 text-sm text-cream-dim">
-                {log.actual_reps !== null && <span>{log.actual_reps} reps</span>}
-                {log.actual_load_lb !== null && <span>{log.actual_load_lb} lb</span>}
-                {log.actual_rpe !== null && <span>RPE {log.actual_rpe}</span>}
-              </div>
-              {log.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-cream-dim">{log.notes}</p>}
-            </li>)}
-          </ul>
-        </section>
-      )}
-    </main>
-  </AppShell>;
+import {redirect} from "next/navigation";
+import {createClient} from "@/lib/supabase/server";
+import {AppShell} from "@/components/layout/app-shell";
+import {performedSummary} from "@/lib/coaching/session-execution";
+import {performanceDays,type PerformanceEvidence} from "@/lib/coaching/performance-evidence";
+export const dynamic="force-dynamic";
+export default async function WorkoutHistoryPage(){
+ const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login?next=/workouts");
+ const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error)throw new Error("Account lookup unavailable.");if(!me.data||me.data.deleted_at||me.data.role!=="client")redirect("/dashboard");
+ const [logsQ,coachedQ]=await Promise.all([
+  db.from("workout_logs").select("id,exercise_name,set_number,actual_reps,actual_load_lb,actual_rpe,notes,created_at").eq("client_id",user.id).order("created_at",{ascending:false}).limit(100),
+  // Raw session_exercise_performance contains staff observations; never select it for clients.
+  db.rpc("get_my_coached_performance"),
+ ]);
+ const coached:PerformanceEvidence[]=coachedQ.data??[];
+ const logs=logsQ.data??[],day=(at:string)=>new Date(at).toLocaleDateString("en-US",{timeZone:"America/Los_Angeles",month:"long",day:"numeric",year:"numeric"});
+ return <AppShell><main className="mx-auto w-full max-w-3xl space-y-5 pb-12"><Link href="/progress" className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">← My progress</Link><header className="rounded-3xl bg-band p-6 text-white"><p className="text-xs uppercase tracking-widest text-white/60">Your training record</p><h1 className="mt-2 text-4xl font-bold">Workout history</h1><p className="mt-2 text-sm text-white/75">Your recorded work, with your original program prescription kept separate.</p></header>
+ <section className="rounded-2xl border border-divider bg-white p-5"><h2 className="text-xl font-semibold">What you actually performed with your coach</h2><p className="mt-2 text-sm leading-6 text-cream-dim">Your original program prescription stays intact. This read-only history includes completed sessions and approved, client-visible exercises only.</p>
+ {coachedQ.error?<p role="alert" className="mt-4 rounded-xl border border-status-limited/30 p-3 text-sm text-status-limited">Coached history is unavailable. No zero total was substituted.</p>:<><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-surface-soft p-3"><p className="text-2xl font-bold">{coached.length}</p><p className="text-xs text-cream-faint">loaded exercise records</p></div><div className="rounded-xl bg-surface-soft p-3"><p className="text-2xl font-bold">{performanceDays(coached)}</p><p className="text-xs text-cream-faint">days in these records</p></div></div>{coached.length?<div className="mt-4 divide-y divide-divider">{coached.map(row=><article key={row.id} className="py-4"><div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{row.exercise_name}</h3><time dateTime={row.performed_at} className="text-xs text-cream-faint">{day(row.performed_at)}</time></div><p className="mt-2 text-sm text-cream-dim">{performedSummary(row)}</p></article>)}</div>:<p className="mt-4 text-sm text-cream-dim">No shareable coached exercise results yet. Private drafts and coach observations stay out of this view.</p>}<p className="mt-3 text-xs text-cream-faint">Most recent 100 eligible exercise records, ordered by session date—not data-entry date.</p></>}
+ </section><section className="rounded-2xl border border-divider bg-white p-5"><h2 className="text-xl font-semibold">Your logged sets</h2>{logsQ.error?<p role="alert" className="mt-3 text-sm text-status-limited">Set history could not be loaded. Try again later.</p>:<><p className="mt-2 text-xs text-cream-faint">{logs.length} loaded sets · latest 100. This set log is separate from coached exercise summaries; the two totals are not added together.</p><div className="mt-3 divide-y divide-divider">{logs.map(log=><article key={log.id} className="py-3"><p className="font-semibold">{log.exercise_name} · Set {log.set_number}</p><p className="mt-1 text-xs text-cream-faint">{day(log.created_at)}</p><p className="mt-2 text-sm text-cream-dim">{[log.actual_reps!==null?`${log.actual_reps} reps`:"",log.actual_load_lb!==null?`${log.actual_load_lb} lb`:"",log.actual_rpe!==null?`RPE ${log.actual_rpe}`:""].filter(Boolean).join(" · ")}</p>{log.notes&&<p className="mt-1 text-sm">{log.notes}</p>}</article>)}</div>{!logs.length&&<p className="mt-4 text-sm text-cream-dim">No set-log records yet.</p>}</>}</section></main></AppShell>;
 }
