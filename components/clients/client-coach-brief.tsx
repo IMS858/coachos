@@ -3,6 +3,7 @@ import {AlertTriangle,ArrowRight,CalendarDays,ClipboardCheck,Dumbbell,Sparkles} 
 import {createClient} from "@/lib/supabase/server";
 import {buildCoachActions,coachingMode} from "@/lib/coaching/intelligence";
 import {isExerciseSet} from "@/lib/exercises/catalog";
+import {activeTrainingPackageBalance,packageBalanceLabel} from "@/lib/plans/package-balance";
 
 const tone={
  attention:"border-status-moderate/35 bg-status-moderate/8",
@@ -17,7 +18,7 @@ export async function ClientCoachBrief({clientId}:{clientId:string}){
  if(viewer.error||!viewer.data||viewer.data.deleted_at||!["owner","trainer"].includes(viewer.data.role))return null;
  const now=new Date().toISOString();
  const [plansQ,nextQ,lastQ,assessQ,programsQ,remoteQ]=await Promise.all([
-  db.from("plans").select("kind,total_sessions,sessions_used,status").eq("client_id",clientId).eq("status","active"),
+  db.from("plans").select("id,kind,service_type,total_sessions,sessions_used,current_session_number,status").eq("client_id",clientId).eq("status","active"),
   db.from("sessions").select("id,scheduled_at").eq("client_id",clientId).in("status",["scheduled","confirmed"]).gte("scheduled_at",now).order("scheduled_at").limit(1).maybeSingle(),
   db.from("sessions").select("id,scheduled_at,completed_at").eq("client_id",clientId).eq("status","completed").order("scheduled_at",{ascending:false}).limit(1).maybeSingle(),
   db.from("assessments").select("id,status,assessment_date").eq("client_id",clientId).order("assessment_date",{ascending:false}).limit(1).maybeSingle(),
@@ -25,8 +26,8 @@ export async function ClientCoachBrief({clientId}:{clientId:string}){
   db.from("client_media").select("id").eq("client_id",clientId).eq("uploaded_by",clientId).limit(1),
  ]);
  if([plansQ,nextQ,lastQ,assessQ,programsQ,remoteQ].some(q=>q.error))return <section className="rounded-3xl border border-status-limited/30 bg-white p-5"><h2 className="font-semibold text-cream">Coach brief</h2><p role="alert" className="mt-2 text-sm text-status-limited">Coaching priorities could not be loaded. No action state was inferred.</p></section>;
- const packages=(plansQ.data??[]).filter(p=>p.kind==="package");
- const packageRemaining=packages.length?Math.min(...packages.map(p=>Math.max(0,Number(p.total_sessions??0)-Number(p.sessions_used??0)))):null;
+ const packageEvidence=activeTrainingPackageBalance(plansQ.data??[]);
+ const packageRemaining=packageEvidence.status==="known"?packageEvidence.remaining:null;
  const programs=programsQ.data??[],sets=programs.filter(p=>isExerciseSet(p.data)),realPrograms=programs.filter(p=>!isExerciseSet(p.data));
  const input={
   now,
@@ -43,7 +44,7 @@ export async function ClientCoachBrief({clientId}:{clientId:string}){
  const actions=buildCoachActions(clientId,input),mode=coachingMode(input);
  const facts=[
   {label:"Coaching mode",value:mode,icon:Sparkles},
-  {label:"Package runway",value:packageRemaining===null?"No active package":`${packageRemaining} remaining`,icon:CalendarDays},
+  {label:"Package runway",value:packageBalanceLabel(packageEvidence),icon:CalendarDays},
   {label:"Assessment",value:input.latestAssessmentAt?new Date(input.latestAssessmentAt+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"No completed record",icon:ClipboardCheck},
   {label:"Programming",value:input.activePrograms?`${input.activePrograms} active`:input.draftPrograms?`${input.draftPrograms} draft`:input.savedExerciseSets?`${input.savedExerciseSets} saved set${input.savedExerciseSets===1?"":"s"}`:"Not started",icon:Dumbbell},
  ];
