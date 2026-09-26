@@ -53,6 +53,7 @@ export function buildFuelToday(data: FuelTodayData) {
   const daily = data.daily.status === "ready" ? data.daily.value : null;
   const context = todayDayContext(data.daily, data.sessions, data.date);
   const targets = active ? dailyTargets(active.content, data.date, context.day) : null;
+  const meals = active && context.day !== "unclassified" ? active.content.meals.filter(meal => meal.day === "either" || meal.day === context.day) : [];
   // Do not judge yesterday's prescription against today's newly released version.
   const earlierPlan = Boolean(daily && version && daily.plan_version_id !== version.id);
   const habits = active ? HABITS.filter(h => active.content.habits.includes(h)) : [];
@@ -89,5 +90,5 @@ export function buildFuelToday(data: FuelTodayData) {
   }
   return {released, version, phase, active, daily, context, targets, earlierPlan, habits,
     score, next, nextIsToday, checkin, reviewDue, action,
-    guidance: active?.content.guidance ?? ""};
+    guidance: active?.content.guidance ?? "", meals};
 }
