@@ -68,10 +68,11 @@ export function PendingRequests({ requests }: { requests: RequestRow[] }) {
                   day: "numeric",
                   hour: "numeric",
                   minute: "2-digit",
+                  timeZone: "America/Los_Angeles",
                 })}
                 {r.notes_pre && <span> · &quot;{r.notes_pre}&quot;</span>}
               </div>
-              <div className="mt-1 text-[11px] text-cream-faint">{r.package_label ? `${r.package_label} · ${r.sessions_remaining ?? "—"} left` : "No active session package found"}</div>
+              <div className="mt-1 text-[11px] text-cream-faint">{r.package_label ? (r.sessions_remaining === null ? r.package_label : `${r.package_label} · ${r.sessions_remaining} left`) : "No active session package found"}</div>
             </div>
             <div className="flex flex-col items-end gap-1"><div className="flex gap-2">
               <Button
