@@ -5,7 +5,7 @@ import HealthKit
 @MainActor final class HealthStore: ObservableObject {
     @Published var syncState = "Not connected"
     private let store = HKHealthStore()
-    private var calendar: Calendar = { var value=Calendar(identifier:.gregorian);value.timeZone=.current;return value }()
+    private var calendar: Calendar = { var value = Calendar(identifier: .gregorian); value.timeZone = .current; return value }()
     private var readTypes: Set<HKObjectType> {
         var set:Set<HKObjectType>=[HKObjectType.workoutType()]
         [HKQuantityTypeIdentifier.stepCount,.activeEnergyBurned,.appleExerciseTime,.bodyMass].compactMap{HKQuantityType.quantityType(forIdentifier:$0)}.forEach{set.insert($0)}
@@ -15,7 +15,7 @@ import HealthKit
     func connectAndSync() async {
         guard HKHealthStore.isHealthDataAvailable() else {syncState="Apple Health unavailable";return}
         do {
-            var refreshed=Calendar(identifier:.gregorian);refreshed.timeZone=.current;calendar=refreshed
+            var refreshed = Calendar(identifier: .gregorian); refreshed.timeZone = .current; calendar = refreshed
             try await store.requestAuthorization(toShare:[],read:readTypes)
             syncState="Syncing Health data that is available to IMS…"
             try await syncRecent(days:14)
@@ -60,7 +60,7 @@ import HealthKit
                 if let error{continuation.resume(throwing:error);return}
                 let asleep=(samples as? [HKCategorySample] ?? []).filter{s in
                     if #available(iOS 16.0,*) { return [HKCategoryValueSleepAnalysis.asleepCore.rawValue,HKCategoryValueSleepAnalysis.asleepDeep.rawValue,HKCategoryValueSleepAnalysis.asleepREM.rawValue,HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue].contains(s.value) }
-                    return s.value==HKCategoryValueSleepAnalysis.asleep.rawValue
+                    return s.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue
                 }.map{($0.startDate,$0.endDate)}.sorted{$0.0<$1.0}
                 guard !asleep.isEmpty else{continuation.resume(returning:nil);return}
                 var merged:[(Date,Date)]=[]
