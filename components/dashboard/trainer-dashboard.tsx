@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sessionPrepSummary } from "@/lib/coaching/intelligence";
 import { isExerciseSet } from "@/lib/exercises/catalog";
+import { activeTrainingPackageBalance } from "@/lib/plans/package-balance";
 
 /**
  * Trainer Dashboard — "Today" view.
@@ -87,15 +88,15 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
 const classesQ=await supabase.from("class_occurrences").select("id,starts_at,ends_at,capacity,status,class_templates(name,category)").eq("trainer_id",user.id).gte("starts_at",startOfDay.toISOString()).lte("starts_at",endOfDay.toISOString()).neq("status","cancelled").order("starts_at");
   const todayClientIds = [...new Set(sessions.flatMap((row: any) => row.clients?.id ? [row.clients.id as string] : []))];
   const [prepPlansQ, prepAssessQ, prepProgramsQ] = todayClientIds.length ? await Promise.all([
-    supabase.from("plans").select("client_id,kind,total_sessions,sessions_used,status").in("client_id",todayClientIds).eq("status","active"),
+    supabase.from("plans").select("id,client_id,kind,service_type,total_sessions,sessions_used,current_session_number,status").in("client_id",todayClientIds).eq("status","active"),
     supabase.from("assessments").select("client_id,status,assessment_date").in("client_id",todayClientIds).order("assessment_date",{ascending:false}),
     supabase.from("programs").select("client_id,status,data").in("client_id",todayClientIds).order("updated_at",{ascending:false}).limit(500),
   ]) : [{data:[],error:null},{data:[],error:null},{data:[],error:null}];
   const prepUnavailable = [prepPlansQ,prepAssessQ,prepProgramsQ].some(q=>q.error);
-  const packageRemaining = new Map<string,number>();
+  const packageRemaining = new Map<string,number|null>();
   if(!prepUnavailable) for(const clientId of todayClientIds){
-    const packages=(prepPlansQ.data??[]).filter((p:any)=>p.client_id===clientId&&p.kind==="package");
-    if(packages.length) packageRemaining.set(clientId,Math.min(...packages.map((p:any)=>Math.max(0,Number(p.total_sessions??0)-Number(p.sessions_used??0)))));
+    const evidence=activeTrainingPackageBalance((prepPlansQ.data??[]).filter((p:any)=>p.client_id===clientId));
+    packageRemaining.set(clientId,evidence.status==="known"?evidence.remaining:null);
   }
   const latestAssessment = new Map<string,string>();
   if(!prepUnavailable) for(const a of prepAssessQ.data??[]) if(a.status==="complete"&&!latestAssessment.has(a.client_id)) latestAssessment.set(a.client_id,a.assessment_date);
@@ -127,10 +128,16 @@ const classesQ=await supabase.from("class_occurrences").select("id,starts_at,end
               Quick Log
             </Button>
           </Link>
-          <Link href="/sessions/new?mode=schedule">
+          <Link href={"/schedule?date="+pacificDate+"&trainer="+user.id}>
             <Button variant="secondary" size="md">
               <Calendar className="h-4 w-4" />
-              Schedule
+              Calendar
+            </Button>
+          </Link>
+          <Link href="/sessions/new?mode=schedule">
+            <Button variant="secondary" size="md">
+              <Plus className="h-4 w-4" />
+              Book
             </Button>
           </Link>
           <Link href="/clients">
@@ -153,8 +160,7 @@ const classesQ=await supabase.from("class_occurrences").select("id,starts_at,end
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Schedule</CardTitle>
-            <CardDescription>Tap a card to log the session</CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Today&apos;s schedule</CardTitle><CardDescription>Tap a session to coach, log and close it</CardDescription></div><Link href={"/schedule?date="+pacificDate+"&trainer="+user.id} className="text-sm font-semibold text-sky">Open calendar →</Link></div>
           </CardHeader>
           <CardContent className="space-y-2">{prepUnavailable && <p role="alert" className="rounded-xl border border-status-limited/30 bg-status-limited/5 p-3 text-xs text-status-limited">Session prep evidence could not be loaded. Schedule data is still shown, but package/program/assessment context is unavailable.</p>}
             {sessions.length > 0 ? (
