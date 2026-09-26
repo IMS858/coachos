@@ -16,3 +16,15 @@ Before an Xcode/TestFlight archive:
 4. Set the production/staging base URL in build configuration rather than hard-coding secrets.
 5. Add Apple Team ID and APNs credentials to the server environment only.
 6. Replace web-backed training surfaces progressively with native views; do not ship as a website-only wrapper.
+
+
+## Apple Health / HealthKit release requirements
+
+The source includes a read-only HealthKit evidence layer. Before TestFlight/App Store distribution:
+- Add the HealthKit capability and use `IMSFitness.entitlements` for the app target.
+- Add `NSHealthShareUsageDescription` to the target Info settings. Suggested purpose: "IMS Fitness uses the activity, workout, sleep and weight data you choose to share to give your coach context between training sessions and body-composition assessments."
+- Do not request `NSHealthUpdateUsageDescription` unless IMS later writes HealthKit samples; the current integration is read-only.
+- Enable HealthKit Background Delivery only when observer queries are wired at app launch and device-tested. The entitlement alone does not create background sync.
+- Test authorization, limited-history access, revoked access, no-data days, timezone changes and background delivery on a physical iPhone/Apple Watch. HealthKit background delivery is not supported by the Simulator.
+- Keep Coach OS semantics fail-closed: HealthKit does not reveal which read types were denied, so absent samples must remain unavailable/not reported, never zero.
+- The embedded login webview must finish cookie adoption before native API sync is treated as authenticated.
