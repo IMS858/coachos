@@ -5,6 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const REPORTS = [
   {
+    href: "/reports/training-value",
+    title: "Training Value — $93 Estimate",
+    desc: "Completed and upcoming private training analyzed separately by client, coach and month. Not collected revenue.",
+    icon: Activity,
+  },
+  {
     href: "/reports/operations",
     title: "Operations Health",
     desc: "Package renewals, payment exceptions, no-shows and client setup gaps that need attention.",
