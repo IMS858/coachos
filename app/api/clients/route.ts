@@ -70,6 +70,36 @@ export async function POST(request: NextRequest) {
   }
   const status = body.status === "lead" ? "lead" : "active";
 
+  // Validate the optional plan before creating an auth identity. A bad plan must
+  // never leave behind a real client with a 400 response.
+  if (body.initial_plan) {
+    const ip = body.initial_plan;
+    if (!["subscription", "package"].includes(ip.kind)) {
+      return NextResponse.json({ error: "initial_plan kind must be subscription or package" }, { status: 400 });
+    }
+    if (typeof ip.tier !== "string" || !ip.tier.trim()) {
+      return NextResponse.json({ error: "tier required for initial plan" }, { status: 400 });
+    }
+    if (ip.kind === "subscription") {
+      if (!Number.isFinite(ip.monthly_rate_cents) || ip.monthly_rate_cents <= 0) {
+        return NextResponse.json({ error: "monthly_rate_cents required for initial subscription" }, { status: 400 });
+      }
+      if (ip.tier === "custom" && !ip.custom_label?.trim()) {
+        return NextResponse.json({ error: "custom_label required for custom subscription" }, { status: 400 });
+      }
+    } else {
+      if (ip.service_type !== "training") {
+        return NextResponse.json({ error: "Coach OS packages currently support training only" }, { status: 400 });
+      }
+      if (!Number.isInteger(ip.total_sessions) || ip.total_sessions <= 0) {
+        return NextResponse.json({ error: "total_sessions required for package" }, { status: 400 });
+      }
+      if (ip.current_session_number != null && (!Number.isInteger(ip.current_session_number) || ip.current_session_number < 0 || ip.current_session_number > ip.total_sessions)) {
+        return NextResponse.json({ error: "current_session_number must be between 0 and total_sessions" }, { status: 400 });
+      }
+    }
+  }
+
   // Use service-role for the user-creation step (regular auth.admin requires service role)
   const supabase = createServiceClient();
 
@@ -174,9 +204,9 @@ export async function POST(request: NextRequest) {
         planInsert.custom_label = ip.custom_label.trim();
       }
     } else {
-      if (!ip.service_type || !["training", "massage", "pilates"].includes(ip.service_type)) {
+      if (ip.service_type !== "training") {
         return NextResponse.json(
-          { error: "service_type must be training/massage/pilates" },
+          { error: "Coach OS packages currently support training only" },
           { status: 400 }
         );
       }
