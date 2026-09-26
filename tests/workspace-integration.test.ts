@@ -19,11 +19,14 @@ test("new incoming unread messages after clearing a thread resurface", () => {
   assert.deepEqual(actionableMessages(rows,[{client_id:client,archived_at:"2026-09-24T13:00:00Z"}]).map(row => row.id),["new"]);
 });
 test("new business pages and operational counters share the same source-aware workspace", () => {
-  for (const file of ["components/dashboard/owner-dashboard.tsx","app/action-center/page.tsx","app/messages/page.tsx","app/reports/leads/page.tsx"]) {
+  // Action Center now isolates source failures in its loader rather than the page component.
+  for (const file of ["components/dashboard/owner-dashboard.tsx","lib/action-center/load.ts","app/messages/page.tsx","app/reports/leads/page.tsx"]) {
     assert.match(readFileSync(file,"utf8"),/loadLeadWorkspace\(/,file);
   }
+  assert.match(readFileSync("app/action-center/page.tsx","utf8"),/await loadActionCenter\(/);
 });
 test("private exercise selections stay out of pending program-completion queues", () => {
-  assert.match(readFileSync("app/action-center/page.tsx","utf8"),/data->>source\.neq\.ims_exercise_set/);
+  assert.match(readFileSync("lib/action-center/load.ts","utf8"),/data->>source\.neq\.ims_exercise_set/);
+  assert.match(readFileSync("app/action-center/page.tsx","utf8"),/await loadActionCenter\(/);
   assert.match(readFileSync("components/clients/client-program-link.tsx","utf8"),/data->>source\.neq\.ims_exercise_set/);
 });
