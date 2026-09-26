@@ -88,7 +88,7 @@ export async function TrainerDashboard({ fullName }: { fullName: string }) {
 const classesQ=await supabase.from("class_occurrences").select("id,starts_at,ends_at,capacity,status,class_templates(name,category)").eq("trainer_id",user.id).gte("starts_at",startOfDay.toISOString()).lte("starts_at",endOfDay.toISOString()).neq("status","cancelled").order("starts_at");
   const todayClientIds = [...new Set(sessions.flatMap((row: any) => row.clients?.id ? [row.clients.id as string] : []))];
   const [prepPlansQ, prepAssessQ, prepProgramsQ] = todayClientIds.length ? await Promise.all([
-    supabase.from("plans").select("id,client_id,kind,service_type,total_sessions,sessions_used,current_session_number,status").in("client_id",todayClientIds).eq("status","active"),
+    supabase.from("plans").select("id,client_id,kind,service_type,tier,custom_label,total_sessions,sessions_used,current_session_number,status").in("client_id",todayClientIds).eq("status","active"),
     supabase.from("assessments").select("client_id,status,assessment_date").in("client_id",todayClientIds).order("assessment_date",{ascending:false}),
     supabase.from("programs").select("client_id,status,data").in("client_id",todayClientIds).order("updated_at",{ascending:false}).limit(500),
   ]) : [{data:[],error:null},{data:[],error:null},{data:[],error:null}];
