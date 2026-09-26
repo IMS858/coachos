@@ -60,12 +60,12 @@ test("actual server report rejects trainer/client/deleted viewers before reading
 });
 test("actual server report calculates separate estimates and pending work", async () => {
   const h = harness({sessions: [session("1", "completed", -3), session("2", "scheduled", 3), session("3", "scheduled", -2)]});
-  const output = text(await h.page()); assert.match(output, /Completed training estimate \$93/); assert.match(output, /Upcoming schedule estimate \$93/); assert.match(output, /past booking without completion/); assert.doesNotMatch(output, /\$186/);
+  const output = text(await h.page()).replace(/\s+/g, " "); assert.match(output, /Completed training estimate \$93/); assert.match(output, /Upcoming schedule estimate \$93/); assert.match(output, /past booking without completion/); assert.doesNotMatch(output, /\$186/);
 });
 test("actual server report refuses a failed read instead of showing value cards", async () => {
-  const h = harness({failRead: true}); const output = text(await h.page()); assert.match(output, /Training value is unavailable/); assert.match(output, /No partial or zero-dollar/); assert.doesNotMatch(output, /Completed training estimate/);
+  const h = harness({failRead: true}); const output = text(await h.page()).replace(/\s+/g, " "); assert.match(output, /Training value is unavailable/); assert.match(output, /No partial or zero-dollar/); assert.doesNotMatch(output, /Completed training estimate/);
 });
 test("actual server report loads multiple pages before computing", async () => {
   const h = harness({sessions: Array.from({length: 251}, (_, i) => session(String(i), "completed", -2))});
-  const output = text(await h.page()); assert.match(output, /251 operational session records loaded/); assert.match(output, /\$23,343/);
+  const output = text(await h.page()).replace(/\s+/g, " "); assert.match(output, /251 operational session records loaded/); assert.match(output, /\$23,343/);
 });
