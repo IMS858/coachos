@@ -37,14 +37,14 @@ import HealthKit
             };store.execute(query)
         };return result
     }
-    private func latestWeight(start:Date,end:Date) async throws -> Double? {
-        guard let type=HKQuantityType.quantityType(forIdentifier:.bodyMass) else{return nil}
+    private func latestWeight(start:Date,end:Date) async throws -> (Double?,String?) {
+        guard let type=HKQuantityType.quantityType(forIdentifier:.bodyMass) else{return (nil,nil)}
         let predicate=HKQuery.predicateForSamples(withStart:start,end:end,options:.strictStartDate)
         return try await withCheckedThrowingContinuation{continuation in
             let query=HKSampleQuery(sampleType:type,predicate:predicate,limit:1,sortDescriptors:[NSSortDescriptor(key:HKSampleSortIdentifierEndDate,ascending:false)]){_,samples,error in
                 if let error{continuation.resume(throwing:error);return}
                 let sample=samples?.first as? HKQuantitySample
-                continuation.resume(returning:sample?.quantity.doubleValue(for:HKUnit.pound()))
+                continuation.resume(returning:(sample?.quantity.doubleValue(for:HKUnit.pound()),sample?.sourceRevision.source.name))
             };store.execute(query)
         }
     }
@@ -57,8 +57,11 @@ import HealthKit
                 let asleep=(samples as? [HKCategorySample] ?? []).filter{s in
                     if #available(iOS 16.0,*) { return [HKCategoryValueSleepAnalysis.asleepCore.rawValue,HKCategoryValueSleepAnalysis.asleepDeep.rawValue,HKCategoryValueSleepAnalysis.asleepREM.rawValue,HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue].contains(s.value) }
                     return s.value==HKCategoryValueSleepAnalysis.asleep.rawValue
-                }
-                continuation.resume(returning:asleep.isEmpty ? nil : asleep.reduce(0){$0+$1.endDate.timeIntervalSince($1.startDate)}/3600)
+                }.map{($0.startDate,$0.endDate)}.sorted{$0.0<$1.0}
+                guard !asleep.isEmpty else{continuation.resume(returning:nil);return}
+                var merged:[(Date,Date)]=[]
+                for interval in asleep { if let last=merged.last,interval.0<=last.1 { merged[merged.count-1]=(last.0,max(last.1,interval.1)) } else { merged.append(interval) } }
+                continuation.resume(returning:merged.reduce(0){$0+$1.1.timeIntervalSince($1.0)}/3600)
             };store.execute(query)
         }
     }
@@ -80,11 +83,11 @@ import HealthKit
         async let sleep=sleepHours(start:start,end:end)
         async let workout=workouts(start:start,end:end)
         let values=try await (steps,energy,exercise,weight,sleep,workout)
-        var available:[String]=[];if values.0 != nil{available.append("steps")};if values.1 != nil{available.append("active_energy")};if values.2 != nil{available.append("exercise_minutes")};if values.3 != nil{available.append("weight")};if values.4 != nil{available.append("sleep")};if values.5.1 != nil{available.append("workouts")}
+        var available:[String]=[];if values.0 != nil{available.append("steps")};if values.1 != nil{available.append("active_energy")};if values.2 != nil{available.append("exercise_minutes")};if values.3.0 != nil{available.append("weight")};if values.4 != nil{available.append("sleep")};if values.5.1 != nil{available.append("workouts")}
         guard !available.isEmpty else{return}
         let formatter=DateFormatter();formatter.calendar=calendar;formatter.locale=Locale(identifier:"en_US_POSIX");formatter.dateFormat="yyyy-MM-dd"
         var request=URLRequest(url:SessionStore.apiBaseURL.appending(path:"/api/mobile/health"));request.httpMethod="POST";request.setValue("application/json",forHTTPHeaderField:"Content-Type")
-        request.httpBody=try JSONSerialization.data(withJSONObject:["day":formatter.string(from:start),"steps":values.0 as Any,"active_energy_kcal":values.1 as Any,"exercise_minutes":values.2 as Any,"weight_lb":values.3 as Any,"sleep_hours":values.4 as Any,"workout_minutes":values.5.0 as Any,"workout_count":values.5.1 as Any,"available_types":available])
+        request.httpBody=try JSONSerialization.data(withJSONObject:["day":formatter.string(from:start),"steps":values.0 as Any,"active_energy_kcal":values.1 as Any,"exercise_minutes":values.2 as Any,"weight_lb":values.3.0 as Any,"weight_source":values.3.1 as Any,"sleep_hours":values.4 as Any,"workout_minutes":values.5.0 as Any,"workout_count":values.5.1 as Any,"available_types":available,"time_zone":TimeZone.current.identifier,"utc_offset_minutes":TimeZone.current.secondsFromGMT(for:start)/60])
         let (_,response)=try await URLSession.shared.data(for:request);guard (response as? HTTPURLResponse)?.statusCode==200 else{throw URLError(.badServerResponse)}
     }
 }
