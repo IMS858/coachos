@@ -42,17 +42,18 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     .order("created_at", { ascending: false });
   if (plansError) throw new Error("Client plans could not be loaded.");
   const packageEvidence = activeTrainingPackageBalance((plans ?? []) as any[]);
+  const todayPt = new Intl.DateTimeFormat("en-CA",{timeZone:"America/Los_Angeles"}).format(new Date());
   const actionClass = "flex min-h-24 min-w-0 flex-col gap-3 rounded-2xl border border-divider bg-white p-4 text-left shadow-sm transition hover:border-sky/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky";
 
   return <AppShell><div className="flex min-w-0 flex-col gap-6">
     <Link href="/clients" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-cream-dim hover:text-cream"><ArrowLeft aria-hidden="true" className="h-4 w-4" />All clients</Link>
     <section className="rounded-3xl border border-sky/15 bg-gradient-to-br from-white via-white to-sky/5 p-4 shadow-sm sm:p-5"><p className="mb-3 text-xs font-semibold uppercase tracking-[.16em] text-sky">Coach actions</p><nav aria-label="Client actions" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      <Link href={`/sessions/new?client_id=${id}`} className={actionClass}><CalendarPlus aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Book training</span></Link>
+      <Link href={`/sessions/new?client_id=${id}&trainer_id=${user.id}&date=${todayPt}`} className={actionClass}><CalendarPlus aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Book training</span></Link>
       <Link href={`/library?client_id=${id}`} className={actionClass}><Dumbbell aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Quick programming</span></Link>
       <Link href={`/messages/${id}`} className={actionClass}><MessageCircle aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Message client</span></Link>
       {viewerProfile.role === "owner" && <Link href={`/checkout?client_id=${id}`} className={actionClass}><CreditCard aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Client checkout</span></Link>}
       <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
-    </nav><div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-surface-soft p-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-cream-faint">Training package</p><p className="mt-1 text-sm font-semibold text-cream">{packageBalanceLabel(packageEvidence)}</p></div><Link href={"/schedule?trainer="+user.id} className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">Coach calendar →</Link></div></section>
+    </nav><div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-surface-soft p-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-cream-faint">Training package</p><p className="mt-1 text-sm font-semibold text-cream">{packageBalanceLabel(packageEvidence)}</p></div><Link href={"/schedule?date="+todayPt+"&trainer="+user.id} className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">Coach calendar →</Link></div></section>
     <ClientCoachBrief clientId={id}/>
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>
