@@ -51,12 +51,14 @@ interface Trainer {
 interface Props {
   initialMode: "schedule" | "log";
   initialClientId?: string;
+  initialTrainerId?: string;
+  initialDate?: string;
   clients: Client[];
   trainers: Trainer[];
   currentUserId: string;
 }
 
-const SERVICE_TYPES = [
+function scheduleTimeForDate(date?: string) {\n  const fallback = defaultScheduleTime();\n  if (!date || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return fallback;\n  return `${date}${fallback.slice(10)}`;\n}\n\nconst SERVICE_TYPES = [
   { value: "training", label: "Training", billable: true },
   { value: "assessment", label: "Assessment", billable: false },
 ] as const;
@@ -64,6 +66,8 @@ const SERVICE_TYPES = [
 export function NewSessionForm({
   initialMode,
   initialClientId,
+  initialTrainerId,
+  initialDate,
   clients,
   trainers,
   currentUserId,
@@ -73,9 +77,9 @@ export function NewSessionForm({
   const requestRef = useRef<{id:string;fingerprint:string}|null>(null);
   const [mode, setMode] = useState<"schedule" | "log">(initialMode);
   const [clientId, setClientId] = useState(initialClientId ?? "");
-  const [trainerId, setTrainerId] = useState(currentUserId);
+  const [trainerId, setTrainerId] = useState(initialTrainerId ?? currentUserId);
   const [scheduledAt, setScheduledAt] = useState(() =>
-    initialMode === "log" ? defaultLogTime() : defaultScheduleTime()
+    initialMode === "log" ? defaultLogTime() : scheduleTimeForDate(initialDate)
   );
   const [duration, setDuration] = useState(60);
   const [serviceType, setServiceType] = useState<"training" | "assessment">("training");
