@@ -1,6 +1,6 @@
 export type WearableProvider="apple_health"|"whoop"|"garmin"|"fitbit"|"oura"|"hume"|"coros"|"withings"|"other";
 export type ConnectionStatus="not_connected"|"pending"|"connected"|"stale"|"revoked"|"error";
-export type DataConnection={id:string;client_id:string;provider:WearableProvider;transport:string;status:ConnectionStatus;granted_categories:string[];last_synced_at:string|null;connected_at:string|null};
+export type DataConnection={id:string;client_id:string;provider:WearableProvider;transport:string;status:ConnectionStatus;observed_categories:string[];last_synced_at:string|null;connected_at:string|null};
 export const PROVIDERS:{id:WearableProvider;label:string;route:"native"|"cloud"|"bridge";description:string}[]=[
  {id:"apple_health",label:"Apple Health / Watch",route:"native",description:"Native iPhone connection for activity, sleep, workouts and weight you choose to share."},
  {id:"whoop",label:"WHOOP",route:"cloud",description:"Cloud wearable connection for WHOOP-provided recovery, sleep, strain and workouts."},
