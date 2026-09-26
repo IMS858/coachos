@@ -12,7 +12,7 @@ const labels: Record<CalendarReviewState, string> = {
   unreviewed: "Unreviewed", held: "On hold", stale: "Stale / invalid review",
   reviewed: "Reviewed · fresh checks still required", excluded: "Owner-excluded", imported: "Recorded imported state",
 };
-const coverageLabels = {
+const coverageLabels: Record<string, string> = {
   undeclared: "Source totals have not been declared",
   invalid_declaration: "Source count declaration is invalid",
   count_mismatch: "Staged evidence does not match declared counts",
