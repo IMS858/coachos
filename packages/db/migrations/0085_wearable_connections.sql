@@ -6,7 +6,7 @@ create table if not exists public.client_data_connections(
  transport text not null check(transport in ('native_healthkit','terra','direct_oauth','apple_health_bridge')),
  status text not null default 'not_connected' check(status in ('not_connected','pending','connected','stale','revoked','error')),
  external_user_ref text,
- granted_categories text[] not null default '{}',
+ observed_categories text[] not null default '{}',
  last_synced_at timestamptz,
  connected_at timestamptz,
  revoked_at timestamptz,
