@@ -13,3 +13,11 @@ export async function POST(request:NextRequest){
  if(error){const invalid=["22023","22007"].includes(error.code);return NextResponse.json({error:invalid?"Health summary was not accepted. No values were inferred.":"Health sync unavailable. Existing evidence was not changed."},{status:invalid?400:503});}
  return NextResponse.json(data,{headers:{"Cache-Control":"private, no-store"}});
 }
+
+
+export async function DELETE(){
+ const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});
+ const {data,error}=await db.rpc("clear_my_client_health_data");
+ if(error)return NextResponse.json({error:"Health data could not be cleared. Existing evidence was not reported as deleted."},{status:503});
+ return NextResponse.json(data,{headers:{"Cache-Control":"private, no-store"}});
+}
