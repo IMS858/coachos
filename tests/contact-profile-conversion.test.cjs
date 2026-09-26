@@ -8,3 +8,5 @@ test("failed downstream conversion rolls back newly-created identity",()=>{asser
 test("contact profile does not treat history as present purchase intent",()=>{assert.match(profile,/historical relationship record/);assert.match(profile,/does not infer a package, balance, payment, appointment or current purchase intent/);});
 
 test("conversion has a durable one-contact-one-client receipt before downstream creation",()=>{const sql=fs.readFileSync("packages/db/migrations/0084_contact_client_conversion_receipt.sql","utf8");assert.match(sql,/lead_id uuid primary key/);assert.match(sql,/client_id uuid not null unique/);assert.match(convert,/lead_client_conversions/);assert.match(convert,/CONTACT_ALREADY_CONVERTED/);assert.match(convert,/No duplicate client was kept/);});
+
+test("legacy converted contacts without a verified link show reconciliation instead of Add as client",()=>{assert.match(profile,/Conversion needs reconciliation/);assert.match(profile,/will not create another identity/);assert.match(profile,/contact\.stage==="converted"/);});
