@@ -13,13 +13,13 @@ import HealthKit
         return set
     }
     func connectAndSync() async {
-        guard HKHealthStore.isHealthDataAvailable() else {syncState="Apple Health unavailable";return}
+        guard HKHealthStore.isHealthDataAvailable() else {syncState="Apple Health unobserved";return}
         do {
             try await store.requestAuthorization(toShare:[],read:readTypes)
-            syncState="Syncing available Health data…"
+            syncState="Syncing observed Health data…"
             try await syncRecent(days:14)
             syncState="Apple Health connected"
-        } catch { syncState="Health sync unavailable" }
+        } catch { syncState="Health sync unobserved" }
     }
     private func syncRecent(days:Int) async throws {
         let now=Date(), start=calendar.date(byAdding:.day,value:-(days-1),to:calendar.startOfDay(for:now))!
@@ -55,7 +55,7 @@ import HealthKit
             let query=HKSampleQuery(sampleType:type,predicate:predicate,limit:HKObjectQueryNoLimit,sortDescriptors:nil){_,samples,error in
                 if let error{continuation.resume(throwing:error);return}
                 let asleep=(samples as? [HKCategorySample] ?? []).filter{s in
-                    if #available(iOS 16.0,*) { return [HKCategoryValueSleepAnalysis.asleepCore.rawValue,HKCategoryValueSleepAnalysis.asleepDeep.rawValue,HKCategoryValueSleepAnalysis.asleepREM.rawValue,HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue].contains(s.value) }
+                    if #observed(iOS 16.0,*) { return [HKCategoryValueSleepAnalysis.asleepCore.rawValue,HKCategoryValueSleepAnalysis.asleepDeep.rawValue,HKCategoryValueSleepAnalysis.asleepREM.rawValue,HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue].contains(s.value) }
                     return s.value==HKCategoryValueSleepAnalysis.asleep.rawValue
                 }.map{($0.startDate,$0.endDate)}.sorted{$0.0<$1.0}
                 guard !asleep.isEmpty else{continuation.resume(returning:nil);return}
@@ -83,11 +83,11 @@ import HealthKit
         async let sleep=sleepHours(start:start,end:end)
         async let workout=workouts(start:start,end:end)
         let values=try await (steps,energy,exercise,weight,sleep,workout)
-        var available:[String]=[];if values.0 != nil{available.append("steps")};if values.1 != nil{available.append("active_energy")};if values.2 != nil{available.append("exercise_minutes")};if values.3.0 != nil{available.append("weight")};if values.4 != nil{available.append("sleep")};if values.5.1 != nil{available.append("workouts")}
-        guard !available.isEmpty else{return}
+        var observed:[String]=[];if values.0 != nil{observed.append("steps")};if values.1 != nil{observed.append("active_energy")};if values.2 != nil{observed.append("exercise_minutes")};if values.3.0 != nil{observed.append("weight")};if values.4 != nil{observed.append("sleep")};if values.5.1 != nil{observed.append("workouts")}
+        guard !observed.isEmpty else{return}
         let formatter=DateFormatter();formatter.calendar=calendar;formatter.locale=Locale(identifier:"en_US_POSIX");formatter.dateFormat="yyyy-MM-dd"
         var request=URLRequest(url:SessionStore.apiBaseURL.appending(path:"/api/mobile/health"));request.httpMethod="POST";request.setValue("application/json",forHTTPHeaderField:"Content-Type")
-        request.httpBody=try JSONSerialization.data(withJSONObject:["day":formatter.string(from:start),"steps":values.0 as Any,"active_energy_kcal":values.1 as Any,"exercise_minutes":values.2 as Any,"weight_lb":values.3.0 as Any,"weight_source":values.3.1 as Any,"sleep_hours":values.4 as Any,"workout_minutes":values.5.0 as Any,"workout_count":values.5.1 as Any,"available_types":available,"time_zone":TimeZone.current.identifier,"utc_offset_minutes":TimeZone.current.secondsFromGMT(for:start)/60])
+        request.httpBody=try JSONSerialization.data(withJSONObject:["day":formatter.string(from:start),"steps":values.0 as Any,"active_energy_kcal":values.1 as Any,"exercise_minutes":values.2 as Any,"weight_lb":values.3.0 as Any,"weight_source":values.3.1 as Any,"sleep_hours":values.4 as Any,"workout_minutes":values.5.0 as Any,"workout_count":values.5.1 as Any,"observed_types":observed,"time_zone":TimeZone.current.identifier,"utc_offset_minutes":TimeZone.current.secondsFromGMT(for:start)/60])
         let (_,response)=try await URLSession.shared.data(for:request);guard (response as? HTTPURLResponse)?.statusCode==200 else{throw URLError(.badServerResponse)}
     }
 }
