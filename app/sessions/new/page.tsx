@@ -83,6 +83,9 @@ export default async function NewSessionPage({
     .select("id, full_name")
     .in("role", ["trainer", "owner"])
     .order("full_name");
+  const trainers = trainersData ?? [];
+  const initialTrainerId = trainers.some((trainer) => trainer.id === params.trainer_id) ? params.trainer_id : undefined;
+  const initialDate = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "") ? params.date : undefined;
 
   return (
     <AppShell>
@@ -109,8 +112,10 @@ export default async function NewSessionPage({
         <NewSessionForm
           initialMode={mode as "schedule" | "log"}
           initialClientId={params.client_id}
+          initialTrainerId={initialTrainerId}
+          initialDate={initialDate}
           clients={clients}
-          trainers={trainersData ?? []}
+          trainers={trainers}
           currentUserId={viewerProfile.id}
         />
       </div>
