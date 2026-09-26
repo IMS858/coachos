@@ -257,7 +257,7 @@ export default async function SchedulePage({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href={`/schedule/agenda?date=${selected}`}><Button variant="secondary"><ListChecks className="h-4 w-4" /> Daily agenda</Button></Link>
+            <Link href={`/schedule/agenda?date=${selected}${trainerQS}`}><Button variant="secondary"><ListChecks className="h-4 w-4" /> Daily agenda</Button></Link>
             <Link href="/schedule/standing"><Button variant="secondary"><Repeat2 className="h-4 w-4" /> Standing bookings</Button></Link>
             <Link href="/classes/manage"><Button variant="secondary"><GraduationCap className="h-4 w-4"/> Classes</Button></Link>
             <Link href="/sessions/new">
@@ -269,7 +269,7 @@ export default async function SchedulePage({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider bg-white p-3 shadow-sm"><Link href={`/schedule?date=${selected}&trainer=all`} className={`inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold ${selectedTrainerId === "all" ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}>All trainers</Link>{trainers.map((trainer) => <Link key={trainer.id} href={`/schedule?date=${selected}&trainer=${trainer.id}`} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${selectedTrainerId === trainer.id ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}><Avatar name={trainer.full_name} size="sm"/><span>{trainer.id === user.id ? "My schedule" : trainer.full_name}</span></Link>)}</div>
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-divider bg-white p-3 shadow-sm"><Link href={`/schedule?date=${selected}&trainer=all`} aria-current={selectedTrainerId === "all" ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold ${selectedTrainerId === "all" ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}>All trainers</Link>{trainers.map((trainer) => <Link key={trainer.id} href={`/schedule?date=${selected}&trainer=${trainer.id}`} aria-current={selectedTrainerId === trainer.id ? "page" : undefined} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${selectedTrainerId === trainer.id ? "bg-sky text-white" : "bg-surface-soft text-cream"}`}><Avatar name={trainer.full_name} size="sm"/><span>{trainer.id === user.id ? "My schedule" : trainer.full_name}</span></Link>)}</div>
 
         {dayClasses.length>0&&<section className="rounded-2xl border border-sky/20 bg-sky/5 p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-sky">Group coaching today</p><h2 className="mt-1 font-semibold text-cream">{dayClasses.length} class{dayClasses.length===1?"":"es"} on the selected schedule</h2></div><GraduationCap className="h-5 w-5 text-sky"/></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{dayClasses.map((row:any)=><div key={row.id} className="rounded-xl bg-white p-3"><p className="text-sm font-semibold text-cream">{row.class_templates?.name??"Class"}</p><p className="mt-1 text-xs text-cream-dim">{fmtTime(row.starts_at)} · capacity {row.capacity}</p></div>)}</div></section>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
