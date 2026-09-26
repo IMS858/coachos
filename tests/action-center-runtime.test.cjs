@@ -37,8 +37,8 @@ function harness({tables={},fail=[],truncated=null,nullData=null,noCount=null,me
   };return q;
  }};
  const mocks={'@/lib/leads/queries':{loadLeadWorkspace:async()=>{helperCalls.push('leads');if(leadError)throw Error('private lead detail');return growth;}},'@/lib/messages/actionable':{loadStaffUnreadMessages:async()=>{helperCalls.push('messages');if(messageError)throw Error('private message detail');return messages;}},'@/lib/media/review-links':{mediaReviewHref:id=>{if(!/^[a-f0-9-]{36}$/.test(id))throw Error('Invalid media');return'/coaching/media/'+id;}}};
- const module=load('lib/action-center/load.ts',mocks);
- return{db,calls,helperCalls,mocks,run:(role='owner')=>module.loadActionCenter(db,{id:role==='owner'?owner:trainer,role},now)};
+ const loaded=load('lib/action-center/load.ts',mocks);
+ return{db,calls,helperCalls,mocks,run:(role='owner')=>loaded.loadActionCenter(db,{id:role==='owner'?owner:trainer,role},now)};
 }
 const get=(data,id)=>data.queues.find(q=>q.id===id);
 test('the deployed missing-media-column failure only disables its own queue',async()=>{
@@ -98,7 +98,7 @@ function text(node){if(Array.isArray(node))return node.map(text).join(' ');if(no
 function nodes(node){if(Array.isArray(node))return node.flatMap(nodes);if(node&&typeof node==='object')return[node,...nodes(node.props?.children)];return[];}
 function pageHarness({role='owner',user=true,deleted=null,profileError=null,result=null}={}){
  const calls=[];const db={auth:{getUser:async()=>({data:{user:user?{id:owner}:null}})},from(table){calls.push(table);const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:{role,deleted_at:deleted},error:profileError})};return q;}};
- const module=load('app/action-center/page.tsx',{'@/lib/supabase/server':{createClient:async()=>db},'next/navigation':{redirect:to=>{throw Error('redirect:'+to)}},'@/lib/action-center/load':{loadActionCenter:async()=>{calls.push('queues');return result;}}});return{calls,run:module.default};
+ const loaded=load('app/action-center/page.tsx',{'@/lib/supabase/server':{createClient:async()=>db},'next/navigation':{redirect:to=>{throw Error('redirect:'+to)}},'@/lib/action-center/load':{loadActionCenter:async()=>{calls.push('queues');return result;}}});return{calls,run:loaded.default};
 }
 for(const [title,options] of [['anonymous',{user:false}],['client',{role:'client'}],['deleted owner',{deleted:'2026-01-01'}],['failed authorization',{profileError:{}}]])test('actual page blocks '+title+' before queue reads',async()=>{const h=pageHarness(options);await assert.rejects(h.run());assert(!h.calls.includes('queues'));});
 test('actual Action Center renders unknown counts, scoped partial warning and an available message',async()=>{
