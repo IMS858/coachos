@@ -13,7 +13,7 @@ Before an Xcode/TestFlight archive:
 1. Create the Xcode project/target with bundle ID `com.imsfitness.app`.
 2. Add these Swift sources to the target.
 3. Configure Associated Domains and Push Notifications entitlements.
-4. Set the production/staging base URL in build configuration rather than hard-coding secrets.
+4. Set one `IMS_BASE_URL` production/staging origin in build configuration rather than hard-coding secrets. Web login and native API requests must use the same origin so the authenticated cookie session is not split across hosts.
 5. Add Apple Team ID and APNs credentials to the server environment only.
 6. Replace web-backed training surfaces progressively with native views; do not ship as a website-only wrapper.
 
