@@ -4,7 +4,8 @@ import SwiftUI
 @MainActor final class SessionStore: ObservableObject {
     @Published var isAuthenticated = false
     @Published var route = "/dashboard"
-    private let baseURL = URL(string: ProcessInfo.processInfo.environment["IMS_API_BASE_URL"] ?? "https://coachos-opal.vercel.app")!
+    static let apiBaseURL = URL(string: ProcessInfo.processInfo.environment["IMS_API_BASE_URL"] ?? "https://coachos-opal.vercel.app")!
+    private let baseURL = SessionStore.apiBaseURL
 
     func bootstrap() async {
         var request = URLRequest(url: baseURL.appending(path: "/api/mobile/session"))
