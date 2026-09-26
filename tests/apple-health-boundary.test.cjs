@@ -9,3 +9,5 @@ test("iOS sends only days with available evidence",()=>{assert.match(swift,/guar
 test("Fuel UI preserves Bod Pod as anchor and blocks automatic Watch/BIA prescription",()=>{assert.match(card,/Bod Pod remains the IMS body-composition anchor/);assert.match(card,/does not turn Watch calories or BIA estimates into automatic nutrition changes/);});
 
 test("native Health sync and embedded login share one Coach OS origin",()=>{const session=fs.readFileSync("ios/IMSFitness/SessionStore.swift","utf8"),web=fs.readFileSync("ios/IMSFitness/WebSurface.swift","utf8");assert.match(session,/IMS_BASE_URL/);assert.match(web,/SessionStore\.apiBaseURL/);assert.doesNotMatch(web,/IMS_WEB_BASE_URL/);assert.match(session,/adoptWebCookies/);});
+
+test("Health sync rejects empty/value-less evidence and oversized or impossible dates",()=>{assert.match(sql,/Empty Health summaries are not evidence/);assert.match(sql,/Health summary exceeds size limit/);assert.match(sql,/jsonb_typeof\(p_payload->\'steps\'\)/);assert.match(api,/content-length/);assert.match(api,/TextEncoder/);assert.match(api,/toISOString\(\)\.slice\(0,10\)===value/);});
