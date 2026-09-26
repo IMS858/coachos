@@ -19,7 +19,7 @@ export async function POST(request:NextRequest,{params}:{params:Promise<{id:stri
  const email=String(body.email??lead.email??"").trim().toLowerCase();if(!EMAIL.test(email))return NextResponse.json({error:"A valid email is required before adding a client."},{status:400});
  const {data:coach,error:coachError}=await svc.from("profiles").select("id,role,deleted_at").eq("id",trainerId).maybeSingle();
  if(coachError||!coach||coach.deleted_at||!["owner","trainer"].includes(coach.role))return NextResponse.json({error:"Choose an active IMS coach."},{status:400});
- const {data:existing,error:existingError}=await svc.from("profiles").select("id,role").ilike("email",email).is("deleted_at",null);
+ const {data:existing,error:existingError}=await svc.from("profiles").select("id,role").eq("email",email).is("deleted_at",null);
  if(existingError)return NextResponse.json({error:"Duplicate client check failed. Nothing was created."},{status:500});
  if((existing??[]).length)return NextResponse.json({error:"An active Coach OS identity already uses this email. Review that profile before converting."},{status:409});
  const password=Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b=>b.toString(16).padStart(2,"0")).join("");
