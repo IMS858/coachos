@@ -20,6 +20,7 @@ const ownerMore = [
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/library", label: "Exercise Library", icon: Dumbbell },
   { href: "/programs", label: "Programs", icon: Dumbbell },
+  { href: "/fuel", label: "Fuel & Performance", icon: Activity },
   { href: "/classes/manage", label: "Classes", icon: GraduationCap },
   { href: "/messages", label: "Communications", icon: MessageCircle },
   { href: "/team", label: "Team Hub", icon: BookOpen },
@@ -34,6 +35,7 @@ const trainerMore = [
   { href: "/library", label: "Exercise Library", icon: Dumbbell },
   { href: "/assessments", label: "Assessments", icon: ClipboardList },
   { href: "/programs", label: "Programs", icon: Dumbbell },
+  { href: "/fuel", label: "Fuel & Performance", icon: Activity },
   { href: "/messages", label: "Communications", icon: MessageCircle },
   { href: "/team", label: "Team Hub", icon: BookOpen },
 ];

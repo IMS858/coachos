@@ -21,6 +21,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/contacts", label: "Contacts", icon: Users },
     { href: "/library", label: "Exercise Library", icon: Dumbbell },
     { href: "/programs", label: "Programs", icon: ClipboardList },
+    { href: "/fuel", label: "Fuel & Performance", icon: Activity },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/classes/manage", label: "Classes", icon: GraduationCap },
     { href: "/reports", label: "Reports", icon: BarChart3 },
@@ -41,6 +42,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/library", label: "Exercise Library", icon: Dumbbell },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/programs", label: "Programs", icon: Dumbbell },
+    { href: "/fuel", label: "Fuel & Performance", icon: Activity },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/classes/manage", label: "Classes", icon: GraduationCap },
     { href: "/messages", label: "Communications", icon: MessageCircle },
@@ -49,6 +51,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   client: [
     { href: "/dashboard", label: "Today", icon: Activity },
     { href: "/plan", label: "My Plan", icon: Dumbbell },
+    { href: "/fuel", label: "Fuel", icon: Activity },
     { href: "/progress", label: "Progress", icon: BarChart3 },
     { href: "/messages", label: "Messages", icon: MessageCircle },
     { href: "/account", label: "Account", icon: Settings },

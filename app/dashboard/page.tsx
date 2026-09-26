@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { OwnerDashboard } from "@/components/dashboard/owner-dashboard";
 import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
 import { ClientDashboard } from "@/components/dashboard/client-dashboard";
+import { FuelTodayCard } from "@/components/fuel/today-card";
 import type { UserRole } from "@/lib/types/database";
 
 export default async function DashboardPage({
@@ -83,7 +84,7 @@ export default async function DashboardPage({
         <TrainerDashboard fullName={profile.full_name} />
       )}
       {view === "client" && (
-        <ClientDashboard fullName={profile.full_name} />
+        <div className="space-y-5"><ClientDashboard fullName={profile.full_name} /><FuelTodayCard /></div>
       )}
     </AppShell>
   );
