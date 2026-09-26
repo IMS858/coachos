@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PendingRequests } from "@/components/schedule/pending-requests";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { activeTrainingPackageBalance, packageBalanceLabel } from "@/lib/plans/package-balance";
 
 // Always fetch live data so newly-created records appear immediately.
 export const dynamic = "force-dynamic";
@@ -167,6 +168,21 @@ export default async function SchedulePage({
       (names ?? []).map((n) => [n.id, n.full_name])
     );
   }
+  const { data: weekPlans, error: weekPlansError } = clientIds.length
+    ? await supabase.from("plans")
+        .select("id,client_id,kind,tier,custom_label,service_type,total_sessions,sessions_used,current_session_number,status")
+        .in("client_id", clientIds)
+        .eq("status", "active")
+    : { data: [] as any[], error: null };
+  const packageEvidenceByClient = new Map<string, ReturnType<typeof activeTrainingPackageBalance>>();
+  if (!weekPlansError) {
+    for (const clientId of clientIds) {
+      packageEvidenceByClient.set(
+        clientId,
+        activeTrainingPackageBalance((weekPlans ?? []).filter((plan: any) => plan.client_id === clientId))
+      );
+    }
+  }
 
   const trainingWeekSessions = weekSessions.filter((s) => s.session_type === "training");
   const scopedWeekSessions = selectedTrainerId === "all" ? trainingWeekSessions : trainingWeekSessions.filter((s) => s.trainer_id === selectedTrainerId);
@@ -209,18 +225,16 @@ export default async function SchedulePage({
     : { data: [] as any[] };
   const nameById = new Map((requestProfiles ?? []).map((p: any) => [p.id, p.full_name]));
   const requestPlanIds = [...new Set((requestRows ?? []).map((r:any)=>r.client_id))];
-  const { data: requestPlans } = requestPlanIds.length ? await supabase.from("plans").select("client_id,tier,custom_label,total_sessions,sessions_used,kind,status").in("client_id",requestPlanIds).eq("status","active") : { data: [] as any[] };
-  const packageByClient = new Map<string, any>();
-  for (const p of requestPlans ?? []) if (p.kind === "package" && !packageByClient.has(p.client_id)) packageByClient.set(p.client_id,p);
+  const { data: requestPlans } = requestPlanIds.length ? await supabase.from("plans").select("id,client_id,tier,custom_label,service_type,total_sessions,sessions_used,current_session_number,kind,status").in("client_id",requestPlanIds).eq("status","active") : { data: [] as any[] };
   const scopedRequestRows = selectedTrainerId === "all" ? (requestRows ?? []) : (requestRows ?? []).filter((r:any) => r.trainer_id === selectedTrainerId);
-  const pendingRequests = scopedRequestRows.map((r: any) => { const plan=packageByClient.get(r.client_id); const remaining=plan?.total_sessions == null ? null : Math.max(0,Number(plan.total_sessions)-Number(plan.sessions_used??0)); return ({
+  const pendingRequests = scopedRequestRows.map((r: any) => { const clientPlans=(requestPlans??[]).filter((plan:any)=>plan.client_id===r.client_id); const evidence=activeTrainingPackageBalance(clientPlans); const plan=clientPlans.find((candidate:any)=>candidate.id===evidence.planId); return ({
     id: r.id,
     scheduled_at: r.scheduled_at,
     session_type: r.session_type,
     notes_pre: r.notes_pre,
     client_name: nameById.get(r.client_id) ?? "Client",
-    package_label: plan?.custom_label || plan?.tier?.replaceAll("_"," ") || null,
-    sessions_remaining: remaining,
+    package_label: evidence.status==="none" ? null : plan?.custom_label || plan?.tier?.replaceAll("_"," ") || packageBalanceLabel(evidence),
+    sessions_remaining: evidence.status==="known" ? evidence.remaining : null,
   }); });
 
   return (
@@ -462,6 +476,11 @@ export default async function SchedulePage({
                             {String(s.session_type).replace("_", " ")}
                             {s.status === "completed" && " ✓"}
                           </div>
+                          {!weekPlansError && packageEvidenceByClient.get(s.client_id)?.status !== "none" && (
+                            <div className="mt-0.5 truncate text-[10px] opacity-70">
+                              {packageBalanceLabel(packageEvidenceByClient.get(s.client_id)!)}
+                            </div>
+                          )}
                         </Link>
                       );
                     })}
