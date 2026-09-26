@@ -17,8 +17,7 @@ struct WebSurface: UIViewRepresentable {
     }
     func updateUIView(_ web: WKWebView, context: Context) {
         guard web.url == nil else { return }
-        let base = ProcessInfo.processInfo.environment["IMS_WEB_BASE_URL"] ?? "https://coachos-opal.vercel.app"
-        if let url = URL(string: base + path) { web.load(URLRequest(url: url)) }
+        if let url = URL(string: path, relativeTo: SessionStore.apiBaseURL)?.absoluteURL { web.load(URLRequest(url: url)) }
     }
     final class Coordinator:NSObject,WKNavigationDelegate {
         let session:SessionStore;init(session:SessionStore){self.session=session}
