@@ -1,7 +1,7 @@
 -- Synthetic minimal schema matching the inspected production column/enum contract.
-create role anon;
-create role authenticated;
-create role service_role bypassrls;
+do $$begin create role anon; exception when duplicate_object then null; end$$;
+do $$begin create role authenticated; exception when duplicate_object then null; end$$;
+do $$begin create role service_role bypassrls; exception when duplicate_object then null; end$$;
 create schema auth;
 create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
 create table auth.users(id uuid primary key);
