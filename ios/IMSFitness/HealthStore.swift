@@ -22,6 +22,9 @@ import HealthKit
             syncState="Apple Health connected"
         } catch { syncState="Health sync unavailable" }
     }
+    func clearCoachOSData() async {
+        do { var request=URLRequest(url:SessionStore.apiBaseURL.appending(path:"/api/mobile/health"));request.httpMethod="DELETE";let (_,response)=try await URLSession.shared.data(for:request);guard (response as? HTTPURLResponse)?.statusCode==200 else{throw URLError(.badServerResponse)};syncState="Coach OS Health data cleared. Manage Apple Health permissions separately in Apple Health settings." } catch { syncState="Health data could not be cleared" }
+    }
     private func syncRecent(days:Int) async throws {
         let now=Date(), start=calendar.date(byAdding:.day,value:-(days-1),to:calendar.startOfDay(for:now))!
         for offset in 0..<days {
