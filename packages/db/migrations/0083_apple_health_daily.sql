@@ -1,4 +1,4 @@
--- Optional Apple Health evidence. Client-controlled, append-only daily summaries.
+-- Optional Apple Health evidence. Client-controlled latest daily snapshots with sync timestamps.
 -- No clinical records, diagnoses, nutrition intake, raw heart-rate streams or automatic prescriptions.
 create table if not exists public.client_health_daily(
  id uuid primary key default gen_random_uuid(),
@@ -37,8 +37,17 @@ begin
  if p_day is null or p_day>(now() at time zone 'America/Los_Angeles')::date+1 or p_day<(now() at time zone 'America/Los_Angeles')::date-90 then raise exception 'Health sync day outside allowed window' using errcode='22023';end if;
  if jsonb_typeof(p_payload) is distinct from 'object' or exists(select 1 from jsonb_object_keys(p_payload) k where k not in ('steps','active_energy_kcal','exercise_minutes','sleep_hours','weight_lb','workout_minutes','workout_count','observed_types','weight_source','time_zone','utc_offset_minutes')) then raise exception 'Unsupported health summary field' using errcode='22023';end if;
  if jsonb_typeof(coalesce(p_payload->'observed_types','[]'::jsonb)) is distinct from 'array' then raise exception 'Invalid observed health types' using errcode='22023';end if;
- select coalesce(array_agg(v order by v),'{}') into types from jsonb_array_elements_text(coalesce(p_payload->'observed_types','[]'::jsonb)) v;
+ select coalesce(array_agg(distinct v order by v),'{}') into types from jsonb_array_elements_text(coalesce(p_payload->'observed_types','[]'::jsonb)) v;
  if exists(select 1 from unnest(types) v where v not in ('steps','active_energy','exercise_minutes','sleep','weight','workouts')) then raise exception 'Unsupported observed health type' using errcode='22023';end if;
+ if ('steps'=any(types)) is distinct from (p_payload ? 'steps')
+  or ('active_energy'=any(types)) is distinct from (p_payload ? 'active_energy_kcal')
+  or ('exercise_minutes'=any(types)) is distinct from (p_payload ? 'exercise_minutes')
+  or ('sleep'=any(types)) is distinct from (p_payload ? 'sleep_hours')
+  or ('weight'=any(types)) is distinct from (p_payload ? 'weight_lb')
+  or ('workouts'=any(types)) is distinct from ((p_payload ? 'workout_minutes') and (p_payload ? 'workout_count'))
+  or ((p_payload ? 'weight_source') and not('weight'=any(types))) then
+  raise exception 'Observed Health types and submitted values do not agree' using errcode='22023';
+ end if;
  perform pg_advisory_xact_lock(hashtextextended(actor::text||':'||p_day::text,0));
  select * into prior from public.client_health_daily where client_id=actor and day=p_day and source='apple_health' for update;
  if found then
