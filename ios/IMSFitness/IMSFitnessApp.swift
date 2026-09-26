@@ -38,6 +38,7 @@ struct ClientTabs: View {
 #if canImport(HealthKit)
 struct ProgressHealthView: View {
     @StateObject private var health=HealthStore()
+    @State private var confirmClear=false
     var body: some View {
         NavigationStack {
             VStack(spacing:0) {
@@ -45,12 +46,12 @@ struct ProgressHealthView: View {
                     Text("APPLE HEALTH").font(.caption.bold()).foregroundStyle(.secondary)
                     Text("Optional activity & recovery context").font(.headline)
                     Text("Share only the Health data you choose. Missing access is never treated as zero or failure. Bod Pod remains the IMS body-composition anchor.").font(.caption).foregroundStyle(.secondary)
-                    Button("Connect / refresh Apple Health"){Task{await health.connectAndSync()}}.buttonStyle(.borderedProminent)
+                    HStack { Button("Connect / refresh Apple Health"){Task{await health.connectAndSync()}}.buttonStyle(.borderedProminent);Button("Clear IMS Health data",role:.destructive){confirmClear=true}.buttonStyle(.bordered) }
                     Text(health.syncState).font(.caption).foregroundStyle(.secondary)
                 }.padding()
                 Divider()
                 WebSurface(path:"/progress")
-            }.navigationTitle("Progress").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle("Progress").navigationBarTitleDisplayMode(.inline).confirmationDialog("Clear Apple Health data stored in Coach OS?",isPresented:$confirmClear,titleVisibility:.visible){Button("Clear Coach OS copy",role:.destructive){Task{await health.clearCoachOSData()}};Button("Cancel",role:.cancel){}} message:{Text("This deletes synced Apple Health daily summaries from Coach OS. It does not change Apple Health permissions or data on your iPhone.")}
         }
     }
 }
