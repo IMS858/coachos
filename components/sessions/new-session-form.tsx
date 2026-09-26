@@ -58,7 +58,13 @@ interface Props {
   currentUserId: string;
 }
 
-function scheduleTimeForDate(date?: string) {\n  const fallback = defaultScheduleTime();\n  if (!date || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return fallback;\n  return `${date}${fallback.slice(10)}`;\n}\n\nconst SERVICE_TYPES = [
+function scheduleTimeForDate(date?: string) {
+  const fallback = defaultScheduleTime();
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return fallback;
+  return `${date}${fallback.slice(10)}`;
+}
+
+const SERVICE_TYPES = [
   { value: "training", label: "Training", billable: true },
   { value: "assessment", label: "Assessment", billable: false },
 ] as const;
