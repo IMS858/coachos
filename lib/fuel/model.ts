@@ -65,3 +65,16 @@ export function bodyCompWarning(row: BodyComp): string | null {
  const implied=row.weight_lb*(1-row.body_fat_pct/100);
  return Math.abs(implied-row.lean_mass_lb)>1?"Reported body-composition fields differ by more than rounding. Review the source; no value was replaced.":null;
 }
+
+
+export type BodyCompDelta={method:string;from:string;to:string;days:number;weight:number|null;bodyFat:number|null;leanMass:number|null};
+function roundedDelta(a:number|null,b:number|null,digits=1):number|null{return a===null||b===null?null:Math.round((b-a)*10**digits)/10**digits;}
+/** Compare like with like only. Different devices remain separate measurement series. */
+export function bodyCompDeltas(rows:BodyComp[]):BodyCompDelta[]{
+ const groups=new Map<string,BodyComp[]>();
+ for(const row of rows){const method=row.method.trim().toLowerCase()||"unknown";groups.set(method,[...(groups.get(method)??[]),row]);}
+ const output:BodyCompDelta[]=[];
+ for(const [method,series] of groups){series.sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));if(series.length<2)continue;const a=series.at(-2)!,b=series.at(-1)!;const days=Math.round((Date.parse(b.recorded_at+"T12:00:00Z")-Date.parse(a.recorded_at+"T12:00:00Z"))/86400000);output.push({method,from:a.recorded_at,to:b.recorded_at,days,weight:roundedDelta(a.weight_lb,b.weight_lb),bodyFat:roundedDelta(a.body_fat_pct,b.body_fat_pct),leanMass:roundedDelta(a.lean_mass_lb,b.lean_mass_lb)});}
+ return output.sort((a,b)=>b.to.localeCompare(a.to));
+}
+export function bodyCompMethodLabel(method:string):string{return ({bod_pod:"Bod Pod · IMS anchor",dexa:"DXA",inbody:"InBody",scale:"Home scale / BIA trend",calipers:"Calipers"} as Record<string,string>)[method]??method.replaceAll("_"," ");}
