@@ -1,9 +1,10 @@
-import Link from "next/link";import {redirect} from "next/navigation";import {createClient} from "@/lib/supabase/server";import {Users,ShieldCheck,Mail,SlidersHorizontal,BrainCircuit,Video,Palette,History,ArrowRight,BadgeDollarSign} from "lucide-react";
+import Link from "next/link";import {redirect} from "next/navigation";import {createClient} from "@/lib/supabase/server";import {Users,ShieldCheck,Mail,SlidersHorizontal,BrainCircuit,Video,Palette,History,ArrowRight,BadgeDollarSign,Activity} from "lucide-react";
 export const dynamic="force-dynamic";
 const sections=[
  {href:"/settings/services",title:"Services & pricing",copy:"Training services, packages and what clients can purchase.",icon:SlidersHorizontal},
  {href:"/settings/email",title:"Access & logins",copy:"Client invitations, account access and email diagnostics.",icon:Mail},
  {href:"/clients",title:"People & coaching",copy:"Client relationships, programming paths and account status.",icon:Users},
+ {href:"/fuel",title:"Fuel & Performance",copy:"Habit and academy plan templates, private evidence, client check-ins and coach-reviewed releases.",icon:Activity},
  {href:"/settings/staff",title:"Staff & roles",copy:"Team roles, coaching load, schedules and payroll mapping readiness.",icon:Users},
  {href:"/action-center",title:"Operations",copy:"Follow-ups, reviews and work that needs owner attention.",icon:ShieldCheck},
  {href:"/settings/readiness",title:"Operational readiness",copy:"Staff, client, programming, payroll and audit evidence in one portability view.",icon:ShieldCheck},

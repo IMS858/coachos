@@ -12,7 +12,7 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{clientId
 }
 export async function POST(request:NextRequest,{params}:{params:Promise<{clientId:string}>}){const {clientId}=await params;if(!FUEL_UUID.test(clientId))return reply({error:"Invalid client."},400);if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin."},403);const auth=await access(clientId);if(auth.error)return auth.error;
  const id=request.headers.get("x-source-id")??"";let name:string,bytes:Uint8Array;
- try{name=decodeURIComponent(request.headers.get("x-source-name")??"").trim();if(!FUEL_UUID.test(id)||!name||name.length>160||/[\r\n\x00]/.test(name))throw Error("Invalid original file identity.");bytes=await readFuelPdf(request);}catch(cause){return reply({error:cause instanceof Error?cause.message:"Invalid PDF upload."},400);}
+ try{name=decodeURIComponent(request.headers.get("x-source-name")??"").trim();const controlCharacter=[...name].some(character=>character.charCodeAt(0)<32||character.charCodeAt(0)===127);if(!FUEL_UUID.test(id)||!name||name.length>160||controlCharacter)throw Error("Invalid original file identity.");bytes=await readFuelPdf(request);}catch(cause){return reply({error:cause instanceof Error?cause.message:"Invalid PDF upload."},400);}
  const hash=createHash("sha256").update(bytes).digest("hex"),path=`${clientId}/${auth.user!.id}/${id}.pdf`;
  try{
   const existing=await auth.db!.from("fuel_source_documents").select("id,client_id,created_by,original_name,sha256,byte_size").eq("id",id).maybeSingle();if(existing.error)return reply({error:"Source registry unavailable. Upload was not attempted."},503);
