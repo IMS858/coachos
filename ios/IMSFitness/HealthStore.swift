@@ -5,7 +5,7 @@ import HealthKit
 @MainActor final class HealthStore: ObservableObject {
     @Published var syncState = "Not connected"
     private let store = HKHealthStore()
-    private let calendar: Calendar = { var value=Calendar(identifier:.gregorian);value.timeZone=.current;return value }()
+    private var calendar: Calendar = { var value=Calendar(identifier:.gregorian);value.timeZone=.current;return value }()
     private var readTypes: Set<HKObjectType> {
         var set:Set<HKObjectType>=[HKObjectType.workoutType()]
         [HKQuantityTypeIdentifier.stepCount,.activeEnergyBurned,.appleExerciseTime,.bodyMass].compactMap{HKQuantityType.quantityType(forIdentifier:$0)}.forEach{set.insert($0)}
@@ -15,6 +15,7 @@ import HealthKit
     func connectAndSync() async {
         guard HKHealthStore.isHealthDataAvailable() else {syncState="Apple Health unavailable";return}
         do {
+            var refreshed=Calendar(identifier:.gregorian);refreshed.timeZone=.current;calendar=refreshed
             try await store.requestAuthorization(toShare:[],read:readTypes)
             syncState="Syncing Health data that is available to IMS…"
             try await syncRecent(days:14)
