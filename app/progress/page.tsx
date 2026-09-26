@@ -7,17 +7,20 @@ import {ClientClassParticipation} from "@/components/classes/client-class-partic
 import {buildProgressReport} from "@/lib/queries/progress";
 import {repeatedPerformance,type PerformanceEvidence} from "@/lib/coaching/performance-evidence";
 import {AppleHealthCard} from "@/components/fuel/apple-health-card";
+import {HealthConnections} from "@/components/health/health-connections";
+import type {DataConnection} from "@/lib/health/connections";
 export const dynamic="force-dynamic";
 export default async function ProgressPage(){
  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login?next=/progress");
  const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error)throw new Error("Account lookup unavailable.");if(!me.data||me.data.deleted_at||me.data.role!=="client")redirect("/dashboard");
  const now=new Date(),from=new Date(now.getTime()-28*86400000).toISOString();
- const [assessQ,bodyQ,countQ,recentQ,coachedQ]=await Promise.all([
+ const [assessQ,bodyQ,countQ,recentQ,coachedQ,connectionsQ]=await Promise.all([
   db.from("assessments").select("id,assessment_date,data").eq("client_id",user.id).eq("status","complete").order("assessment_date").limit(500),
   db.from("body_comp_records").select("recorded_at,weight_lb,body_fat_pct,lean_mass_lb").eq("client_id",user.id).order("recorded_at").limit(500),
   db.from("sessions").select("id",{count:"exact",head:true}).eq("client_id",user.id).eq("status","completed").lte("scheduled_at",now.toISOString()),
   db.from("sessions").select("id",{count:"exact",head:true}).eq("client_id",user.id).eq("status","completed").gte("scheduled_at",from).lte("scheduled_at",now.toISOString()),
   db.rpc("get_my_coached_performance"),
+  db.from("client_data_connections").select("id,client_id,provider,transport,status,granted_categories,last_synced_at,connected_at").eq("client_id",user.id).order("provider"),
  ]);
  const reportUnavailable=!!(assessQ.error||bodyQ.error||countQ.error||countQ.count===null);
  const report=reportUnavailable?null:buildProgressReport(assessQ.data??[],bodyQ.data??[],countQ.count!);
@@ -28,7 +31,7 @@ export default async function ProgressPage(){
  <section className="rounded-2xl border border-divider bg-white p-5"><h2 className="text-xl font-semibold">Your repeated training work</h2><p className="mt-2 text-sm leading-6 text-cream-dim">Latest versus previous completed-session evidence for the same exercise. Different loads, repetitions or effort are context to discuss with your coach, not an automatic strength or safety rating.</p>
  {coachedQ.error?<p role="alert" className="mt-4 text-sm text-status-limited">Performance history is unavailable. Your measurements below remain separate.</p>:comparisons.groups.length?<div className="mt-4 grid gap-3 sm:grid-cols-2">{comparisons.groups.slice(0,6).map(item=><article key={item.exerciseId} className="rounded-xl bg-surface-soft p-4"><h3 className="font-semibold">{item.latest.exercise_name}</h3><p className="mt-3 text-xs font-semibold text-sky">Latest</p><p className="mt-1 text-sm">{item.latestText}</p><p className="mt-3 text-xs text-cream-faint">Previous</p><p className="mt-1 text-sm text-cream-dim">{item.priorText}</p></article>)}</div>:<p className="mt-4 rounded-xl bg-surface-soft p-4 text-sm text-cream-dim">Repeat an approved exercise across completed coached sessions to see a comparison here. Missing evidence is not a lack of progress.</p>}
  <p className="mt-3 text-xs text-cream-faint">Comparisons use up to 100 shareable exercise records and distinct session identities. Private coach notes never appear here.</p></section>
- <AppleHealthCard clientId={user.id}/>
+ {connectionsQ.error?<section role="alert" className="rounded-2xl border border-status-limited/30 bg-white p-5 text-sm text-status-limited">Wearable connection status is unavailable. No disconnected or zero-data state was inferred.</section>:<HealthConnections connections={(connectionsQ.data??[]) as DataConnection[]}/>}\n <AppleHealthCard clientId={user.id}/>
  <ClientClassParticipation/>
  <section><h2 className="mb-3 text-xl font-semibold">Recorded measurements</h2>{report?<><ProgressReportView report={report} forClient/><p className="mt-3 text-xs text-cream-faint">Completed assessments and body-composition records only; up to 500 of each. Assessments are optional for programming-only clients.</p></>:<p role="alert" className="rounded-2xl border border-status-limited/30 bg-white p-5 text-sm text-status-limited">Measurement evidence could not be loaded. No zero values or improvement claims were substituted.</p>}</section>
  <Link href="/messages" className="inline-flex min-h-12 items-center rounded-xl border border-sky/30 px-4 text-sm font-semibold text-sky">Discuss progress with my coach →</Link></div></AppShell>;
