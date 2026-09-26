@@ -13,7 +13,7 @@ export default async function ContactProfile({params}:{params:Promise<{id:string
  if(error)throw new Error("Contact profile could not be loaded.");if(!contact||leadBucket(contact)!=="contacts")notFound();
  const {data:staff,error:staffError}=await db.from("profiles").select("id,full_name,role").in("role",["owner","trainer"]).is("deleted_at",null).order("full_name");
  if(staffError)throw new Error("Coach list could not be loaded.");
- const [existing,receipt]=await Promise.all([contact.email?db.from("profiles").select("id,full_name,role").ilike("email",contact.email.trim()).is("deleted_at",null):Promise.resolve({data:[],error:null}),db.from("lead_client_conversions").select("client_id").eq("lead_id",id).maybeSingle()]);
+ const [existing,receipt]=await Promise.all([contact.email?db.from("profiles").select("id,full_name,role").eq("email",contact.email.trim().toLowerCase()).is("deleted_at",null):Promise.resolve({data:[],error:null}),db.from("lead_client_conversions").select("client_id").eq("lead_id",id).maybeSingle()]);
  if(existing.error||receipt.error)throw new Error("Client conversion status could not be completed.");
  const receiptId=receipt.data?.client_id??null,clientMatch=receiptId?{id:receiptId}:((existing.data??[]).find(row=>row.role==="client")??null);
  return <AppShell><main className="mx-auto flex w-full max-w-4xl flex-col gap-5 pb-12">
