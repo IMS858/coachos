@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function NewSessionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; client_id?: string }>;
+  searchParams: Promise<{ mode?: string; client_id?: string; trainer_id?: string; date?: string }>;
 }) {
   const supabase = await createClient();
   const {
