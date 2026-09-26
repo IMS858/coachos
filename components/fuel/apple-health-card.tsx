@@ -1,0 +1,6 @@
+"use client";
+import {useState} from "react";
+export function AppleHealthCard(){
+ const [status,setStatus]=useState("Connect from the IMS iPhone app");
+ return <section className="rounded-2xl border border-divider bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wider text-sky">Optional evidence</p><h2 className="mt-2 text-lg font-semibold">Apple Health + Apple Watch</h2><p className="mt-2 text-sm leading-6 text-cream-dim">With your permission, the IMS iPhone app can share daily steps, active energy, exercise minutes, sleep duration, workouts and weight when those data are available. Missing Health data is never treated as zero or failure.</p><div className="mt-3 rounded-xl bg-surface-soft p-3 text-xs leading-5 text-cream-dim"><strong>Bod Pod remains the IMS body-composition anchor.</strong> Apple Health and home devices such as Hume provide between-test trend context. Coach OS does not turn Watch calories or BIA estimates into automatic nutrition changes.</div><p className="mt-3 text-xs text-cream-faint">{status}</p><button type="button" onClick={()=>setStatus("Open the IMS iPhone app → Health connection. Apple controls the permission sheet and you can change access anytime.")} className="mt-3 min-h-11 rounded-xl border border-divider px-4 text-sm font-semibold text-sky">How connection works</button></section>;
+}
