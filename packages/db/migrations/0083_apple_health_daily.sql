@@ -34,11 +34,11 @@ returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=auth.uid(); prior public.client_health_daily%rowtype; rid uuid; types text[];
 begin
  if actor is null or not exists(select 1 from public.clients c join public.profiles p on p.id=c.id where c.id=actor and c.status='active' and p.role='client' and p.deleted_at is null) then raise exception 'Active client authorization required' using errcode='42501';end if;
- if p_day is null or p_day>(now() at time zone 'America/Los_Angeles')::date or p_day<(now() at time zone 'America/Los_Angeles')::date-90 then raise exception 'Health sync day outside allowed window' using errcode='22023';end if;
+ if p_day is null or p_day>(now() at time zone 'America/Los_Angeles')::date+1 or p_day<(now() at time zone 'America/Los_Angeles')::date-90 then raise exception 'Health sync day outside allowed window' using errcode='22023';end if;
  if jsonb_typeof(p_payload) is distinct from 'object' or exists(select 1 from jsonb_object_keys(p_payload) k where k not in ('steps','active_energy_kcal','exercise_minutes','sleep_hours','weight_lb','workout_minutes','workout_count','observed_types','weight_source','time_zone','utc_offset_minutes')) then raise exception 'Unsupported health summary field' using errcode='22023';end if;
- if jsonb_typeof(coalesce(p_payload->'observed_types','[]'::jsonb)) is distinct from 'array' then raise exception 'Invalid available health types' using errcode='22023';end if;
+ if jsonb_typeof(coalesce(p_payload->'observed_types','[]'::jsonb)) is distinct from 'array' then raise exception 'Invalid observed health types' using errcode='22023';end if;
  select coalesce(array_agg(v order by v),'{}') into types from jsonb_array_elements_text(coalesce(p_payload->'observed_types','[]'::jsonb)) v;
- if exists(select 1 from unnest(types) v where v not in ('steps','active_energy','exercise_minutes','sleep','weight','workouts')) then raise exception 'Unsupported available health type' using errcode='22023';end if;
+ if exists(select 1 from unnest(types) v where v not in ('steps','active_energy','exercise_minutes','sleep','weight','workouts')) then raise exception 'Unsupported observed health type' using errcode='22023';end if;
  perform pg_advisory_xact_lock(hashtextextended(actor::text||':'||p_day::text,0));
  select * into prior from public.client_health_daily where client_id=actor and day=p_day and source='apple_health' for update;
  if found then
