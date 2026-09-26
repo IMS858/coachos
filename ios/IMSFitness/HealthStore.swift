@@ -87,7 +87,7 @@ import HealthKit
         guard !observed.isEmpty else{return}
         let formatter=DateFormatter();formatter.calendar=calendar;formatter.timeZone=calendar.timeZone;formatter.locale=Locale(identifier:"en_US_POSIX");formatter.dateFormat="yyyy-MM-dd"
         var request=URLRequest(url:SessionStore.apiBaseURL.appending(path:"/api/mobile/health"));request.httpMethod="POST";request.setValue("application/json",forHTTPHeaderField:"Content-Type")
-        request.httpBody=try JSONSerialization.data(withJSONObject:["day":formatter.string(from:start),"steps":values.0 as Any,"active_energy_kcal":values.1 as Any,"exercise_minutes":values.2 as Any,"weight_lb":values.3.0 as Any,"weight_source":values.3.1 as Any,"sleep_hours":values.4 as Any,"workout_minutes":values.5.0 as Any,"workout_count":values.5.1 as Any,"observed_types":observed,"time_zone":TimeZone.current.identifier,"utc_offset_minutes":TimeZone.current.secondsFromGMT(for:start)/60])
+        var payload:[String:Any]=["day":formatter.string(from:start),"observed_types":observed,"time_zone":calendar.timeZone.identifier,"utc_offset_minutes":calendar.timeZone.secondsFromGMT(for:start)/60];if let v=values.0{payload["steps"]=v};if let v=values.1{payload["active_energy_kcal"]=v};if let v=values.2{payload["exercise_minutes"]=v};if let v=values.3.0{payload["weight_lb"]=v};if let v=values.3.1{payload["weight_source"]=v};if let v=values.4{payload["sleep_hours"]=v};if let v=values.5.0{payload["workout_minutes"]=v};if let v=values.5.1{payload["workout_count"]=v};request.httpBody=try JSONSerialization.data(withJSONObject:payload)
         let (_,response)=try await URLSession.shared.data(for:request);guard (response as? HTTPURLResponse)?.statusCode==200 else{throw URLError(.badServerResponse)}
     }
 }
