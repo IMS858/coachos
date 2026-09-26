@@ -94,9 +94,12 @@ const classesQ=await supabase.from("class_occurrences").select("id,starts_at,end
   ]) : [{data:[],error:null},{data:[],error:null},{data:[],error:null}];
   const prepUnavailable = [prepPlansQ,prepAssessQ,prepProgramsQ].some(q=>q.error);
   const packageRemaining = new Map<string,number|null>();
+  const packageLabel = new Map<string,string>();
   if(!prepUnavailable) for(const clientId of todayClientIds){
     const evidence=activeTrainingPackageBalance((prepPlansQ.data??[]).filter((p:any)=>p.client_id===clientId));
     packageRemaining.set(clientId,evidence.status==="known"?evidence.remaining:null);
+    const packagePlan=(prepPlansQ.data??[]).find((p:any)=>p.client_id===clientId&&p.kind==="package"&&p.service_type==="training");
+    if(packagePlan)packageLabel.set(clientId,packagePlan.custom_label||packagePlan.tier?.replaceAll("_"," ")||"Training package");
   }
   const latestAssessment = new Map<string,string>();
   if(!prepUnavailable) for(const a of prepAssessQ.data??[]) if(a.status==="complete"&&!latestAssessment.has(a.client_id)) latestAssessment.set(a.client_id,a.assessment_date);
@@ -207,8 +210,9 @@ const classesQ=await supabase.from("class_occurrences").select("id,starts_at,end
                           </div>
                         )}
                         {!prepUnavailable && session.clients?.id && (() => {
-                          const prep=sessionPrepSummary({now:new Date().toISOString(),packageRemaining:packageRemaining.get(session.clients.id)??null,latestAssessmentAt:latestAssessment.get(session.clients.id)??null,activePrograms:activeProgramCount.get(session.clients.id)??0});
-                          return prep.length ? <div className="mt-2 flex flex-wrap gap-1.5">{prep.map((item:string)=><span key={item} className="rounded-full bg-white/8 px-2 py-1 text-[11px] text-cream-dim">{item}</span>)}</div> : null;
+                          const remainingValue=packageRemaining.get(session.clients.id);
+                          const prep=sessionPrepSummary({now:new Date().toISOString(),packageRemaining:remainingValue??null,latestAssessmentAt:latestAssessment.get(session.clients.id)??null,activePrograms:activeProgramCount.get(session.clients.id)??0});
+                          return <div className="mt-2 flex flex-wrap gap-1.5">{remainingValue!==undefined&&<span className="rounded-full bg-sky/10 px-2 py-1 text-[11px] font-semibold text-sky">{remainingValue===null?"Package needs review":`${packageLabel.get(session.clients.id)??"Package"} · ${remainingValue} left`}</span>}{prep.map((item:string)=><span key={item} className="rounded-full bg-white/8 px-2 py-1 text-[11px] text-cream-dim">{item}</span>)}</div>;
                         })()}
                       </div>
                       <ChevronRight className="h-4 w-4 text-cream-faint shrink-0 mt-1 group-hover:text-cream-dim" />
