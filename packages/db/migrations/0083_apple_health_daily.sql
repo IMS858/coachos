@@ -38,6 +38,8 @@ begin
  if jsonb_typeof(p_payload) is distinct from 'object' or exists(select 1 from jsonb_object_keys(p_payload) k where k not in ('steps','active_energy_kcal','exercise_minutes','sleep_hours','weight_lb','workout_minutes','workout_count','observed_types','weight_source','time_zone','utc_offset_minutes')) then raise exception 'Unsupported health summary field' using errcode='22023';end if;
  if jsonb_typeof(coalesce(p_payload->'observed_types','[]'::jsonb)) is distinct from 'array' then raise exception 'Invalid observed health types' using errcode='22023';end if;
  select coalesce(array_agg(distinct v order by v),'{}') into types from jsonb_array_elements_text(coalesce(p_payload->'observed_types','[]'::jsonb)) v;
+ if cardinality(types)=0 then raise exception 'Empty Health summaries are not evidence' using errcode='22023';end if;
+ if octet_length(p_payload::text)>10000 then raise exception 'Health summary exceeds size limit' using errcode='22023';end if;
  if exists(select 1 from unnest(types) v where v not in ('steps','active_energy','exercise_minutes','sleep','weight','workouts')) then raise exception 'Unsupported observed health type' using errcode='22023';end if;
  if ('steps'=any(types)) is distinct from (p_payload ? 'steps')
   or ('active_energy'=any(types)) is distinct from (p_payload ? 'active_energy_kcal')
@@ -45,7 +47,13 @@ begin
   or ('sleep'=any(types)) is distinct from (p_payload ? 'sleep_hours')
   or ('weight'=any(types)) is distinct from (p_payload ? 'weight_lb')
   or ('workouts'=any(types)) is distinct from ((p_payload ? 'workout_minutes') and (p_payload ? 'workout_count'))
-  or ((p_payload ? 'weight_source') and not('weight'=any(types))) then
+  or ((p_payload ? 'weight_source') and not('weight'=any(types)))
+  or ('steps'=any(types) and jsonb_typeof(p_payload->'steps') is distinct from 'number')
+  or ('active_energy'=any(types) and jsonb_typeof(p_payload->'active_energy_kcal') is distinct from 'number')
+  or ('exercise_minutes'=any(types) and jsonb_typeof(p_payload->'exercise_minutes') is distinct from 'number')
+  or ('sleep'=any(types) and jsonb_typeof(p_payload->'sleep_hours') is distinct from 'number')
+  or ('weight'=any(types) and jsonb_typeof(p_payload->'weight_lb') is distinct from 'number')
+  or ('workouts'=any(types) and (jsonb_typeof(p_payload->'workout_minutes') is distinct from 'number' or jsonb_typeof(p_payload->'workout_count') is distinct from 'number')) then
   raise exception 'Observed Health types and submitted values do not agree' using errcode='22023';
  end if;
  perform pg_advisory_xact_lock(hashtextextended(actor::text||':'||p_day::text,0));
