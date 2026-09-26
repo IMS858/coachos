@@ -5,7 +5,7 @@ import WebKit
 @MainActor final class SessionStore: ObservableObject {
     @Published var isAuthenticated = false
     @Published var route = "/dashboard"
-    static let apiBaseURL = URL(string: ProcessInfo.processInfo.environment["IMS_API_BASE_URL"] ?? "https://coachos-opal.vercel.app")!
+    static let apiBaseURL = URL(string: ProcessInfo.processInfo.environment["IMS_BASE_URL"] ?? ProcessInfo.processInfo.environment["IMS_API_BASE_URL"] ?? ProcessInfo.processInfo.environment["IMS_WEB_BASE_URL"] ?? "https://coachos-opal.vercel.app")!
     private let baseURL = SessionStore.apiBaseURL
 
     func adoptWebCookies(from store: WKHTTPCookieStore) async {
