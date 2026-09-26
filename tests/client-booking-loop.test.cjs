@@ -1,0 +1,1 @@
+const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs");const s=fs.readFileSync("app/clients/[id]/page.tsx","utf8");test("client profile booking and calendar keep coach/date context",()=>{assert.match(s,/trainer_id=\$\{user\.id\}&date=\$\{todayPt\}/);assert.match(s,/schedule\?date="+todayPt+"&trainer="+user\.id/)});
