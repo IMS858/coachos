@@ -13,13 +13,13 @@ import HealthKit
         return set
     }
     func connectAndSync() async {
-        guard HKHealthStore.isHealthDataAvailable() else {syncState="Apple Health unobserved";return}
+        guard HKHealthStore.isHealthDataAvailable() else {syncState="Apple Health unavailable";return}
         do {
             try await store.requestAuthorization(toShare:[],read:readTypes)
-            syncState="Syncing observed Health data…"
+            syncState="Syncing Health data that is available to IMS…"
             try await syncRecent(days:14)
             syncState="Apple Health connected"
-        } catch { syncState="Health sync unobserved" }
+        } catch { syncState="Health sync unavailable" }
     }
     private func syncRecent(days:Int) async throws {
         let now=Date(), start=calendar.date(byAdding:.day,value:-(days-1),to:calendar.startOfDay(for:now))!
@@ -55,7 +55,7 @@ import HealthKit
             let query=HKSampleQuery(sampleType:type,predicate:predicate,limit:HKObjectQueryNoLimit,sortDescriptors:nil){_,samples,error in
                 if let error{continuation.resume(throwing:error);return}
                 let asleep=(samples as? [HKCategorySample] ?? []).filter{s in
-                    if #observed(iOS 16.0,*) { return [HKCategoryValueSleepAnalysis.asleepCore.rawValue,HKCategoryValueSleepAnalysis.asleepDeep.rawValue,HKCategoryValueSleepAnalysis.asleepREM.rawValue,HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue].contains(s.value) }
+                    if #available(iOS 16.0,*) { return [HKCategoryValueSleepAnalysis.asleepCore.rawValue,HKCategoryValueSleepAnalysis.asleepDeep.rawValue,HKCategoryValueSleepAnalysis.asleepREM.rawValue,HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue].contains(s.value) }
                     return s.value==HKCategoryValueSleepAnalysis.asleep.rawValue
                 }.map{($0.startDate,$0.endDate)}.sorted{$0.0<$1.0}
                 guard !asleep.isEmpty else{continuation.resume(returning:nil);return}
