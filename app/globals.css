@@ -342,4 +342,3 @@ main > header:not(.band) { border-top: 3px solid var(--color-sky); }
 .card-surface, .bg-navy-soft { border-color: #d2dae2; }
 
 @keyframes imsAuthDrift { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.08) translate3d(-1.2%,1%,0); } }
-@media (prefers-reduced-motion: reduce) { .motion-safe\\:animate-\\[imsAuthDrift_18s_ease-in-out_infinite_alternate\\] { animation: none !important; } }
