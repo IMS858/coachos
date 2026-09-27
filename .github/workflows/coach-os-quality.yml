@@ -60,3 +60,9 @@ jobs:
         run: |
           SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
           xcrun swiftc -typecheck -parse-as-library -swift-version 5 -sdk "$SDK" -target arm64-apple-ios17.0-simulator ios/IMSFitness/*.swift
+      - name: Compile and link all iOS sources for the Apple Simulator
+        shell: bash
+        run: |
+          SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          xcrun swiftc -emit-executable -parse-as-library -swift-version 5 -sdk "$SDK" -target arm64-apple-ios17.0-simulator ios/IMSFitness/*.swift -o "$RUNNER_TEMP/IMSFitness-simulator"
+          test -s "$RUNNER_TEMP/IMSFitness-simulator"
