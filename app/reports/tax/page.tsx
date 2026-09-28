@@ -34,13 +34,17 @@ export default async function TaxReportPage({
 
         <h1 className="text-2xl font-semibold text-cream mb-1">Tax Summary — {year}</h1>
         <p className="text-sm text-cream-faint mb-6">
-          Succeeded payments for the year. {t.paymentCount} transactions.
+          {t.paymentCount > 0
+            ? `Coach OS succeeded payment receipts for the year. ${t.paymentCount} transactions.`
+            : "No Coach OS succeeded payment receipts are recorded for this year. External/Vagaro history is not treated as $0 collected."}
         </p>
 
         <Card className="mb-4">
           <CardContent className="py-5 text-center">
-            <div className="text-xs text-cream-faint">Total collected {year}</div>
-            <div className="text-3xl text-sky font-semibold">{formatCurrency(t.totalCents)}</div>
+            <div className="text-xs text-cream-faint">Coach OS collected evidence {year}</div>
+            <div className="text-3xl text-sky font-semibold">
+              {t.paymentCount > 0 ? formatCurrency(t.totalCents) : "Not established"}
+            </div>
           </CardContent>
         </Card>
 
@@ -50,7 +54,7 @@ export default async function TaxReportPage({
             {t.byMonthCents.map((cents, i) => (
               <div key={i} className="flex justify-between text-sm border-b border-divider/40 pb-1.5 last:border-0">
                 <span className="text-cream-dim">{MONTHS[i]}</span>
-                <span className="text-cream">{formatCurrency(cents)}</span>
+                <span className="text-cream">{t.paymentCount > 0 ? formatCurrency(cents) : "—"}</span>
               </div>
             ))}
           </CardContent>
@@ -60,7 +64,7 @@ export default async function TaxReportPage({
           <CardHeader><CardTitle className="text-base">By Source</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-2">
             {t.bySource.length === 0 ? (
-              <p className="text-sm text-cream-faint">No payments recorded for {year}.</p>
+              <p className="text-sm text-cream-faint">No Coach OS payment receipts recorded for {year}; external payment history remains unreconciled.</p>
             ) : (
               t.bySource.map((s) => (
                 <div key={s.source} className="flex justify-between text-sm">
@@ -73,7 +77,7 @@ export default async function TaxReportPage({
         </Card>
 
         <p className="text-xs text-cream-faint mt-4 no-print">
-          Not tax advice — give this to your accountant. Add ?year=2025 to the URL for prior years.
+          Not tax advice. This view reports Coach OS payment receipts only; imported source transactions and external accounting remain separate until reconciled. Add ?year=2025 to the URL for prior years.
         </p>
       </div>
     </AppShell>
