@@ -33,7 +33,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     .select("role, deleted_at").eq("id", user.id).single();
   if (viewerError || !viewerProfile || viewerProfile.deleted_at || !["owner", "trainer"].includes(viewerProfile.role)) redirect("/dashboard");
   const { data: profileRow, error: clientError } = await supabase.from("profiles")
-    .select("id, full_name, email, phone, avatar_url").eq("id", id)
+    .select("id, full_name, email, phone, avatar_url, contact_only").eq("id", id)
     .eq("role", "client").is("deleted_at", null).maybeSingle();
   if (clientError) throw new Error("Client profile could not be loaded.");
   if (!profileRow) notFound();
@@ -56,7 +56,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
       <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
     </nav><div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-surface-soft p-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-cream-faint">Training package</p><p className="mt-1 text-sm font-semibold text-cream">{packageBalanceLabel(packageEvidence)}</p></div><Link href={"/schedule?date="+todayPt+"&trainer="+user.id} className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">Coach calendar →</Link></div></section>
     <ClientCoachBrief clientId={id}/>
-    <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={profileRow} initialPlans={plans ?? []}/></section>
+    <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={{...profileRow, email: profileRow.email ?? ""}} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>
     <ClientEvidenceSummary clientId={id}/>
     <ClientCoachingTimeline clientId={id}/>
@@ -70,7 +70,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     <MedicalPanel clientId={id}/>
     <ClientVideoWorkflow clientId={id} clientName={profileRow.full_name}/>
     <div id="coach-video"><SendVideoPanel clientId={id} clientName={profileRow.full_name}/></div>
-    <ClientLoginPanel clientId={id} clientName={profileRow.full_name} hasEmail={Boolean(profileRow.email)} isOwner={viewerProfile.role === "owner"}/>
+    <section className="rounded-2xl border border-divider bg-white p-5">{profileRow.contact_only ? <><h2 className="font-semibold">Client record only</h2><p className="mt-2 text-sm text-cream-dim">Email is optional for coaching and scheduling. Add it in Contact whenever ready. Saving contact details does not create a portal login or send an invitation.</p></> : <ClientLoginPanel clientId={id} clientName={profileRow.full_name} hasEmail={Boolean(profileRow.email)} isOwner={viewerProfile.role === "owner"}/>}</section>
     <IntakeLinkButton clientId={id} clientName={profileRow.full_name} clientEmail={profileRow.email}/>
   </div></AppShell>;
 }

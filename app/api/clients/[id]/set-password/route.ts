@@ -38,64 +38,45 @@ export async function POST(
   const { id } = await params;
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user }, error: authError,
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: me } = await supabase
+  const { data: me, error: actorError } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, deleted_at")
     .eq("id", user.id)
     .maybeSingle();
-  if (me?.role !== "owner") {
+  if (actorError) return NextResponse.json({ error: "Owner authorization could not be verified." }, { status: 503 });
+  if (me?.role !== "owner" || me.deleted_at) {
     return NextResponse.json(
-      { error: "Only the owner can set a password directly." },
+      { error: "Only the active owner can set a password directly." },
       { status: 403 }
     );
   }
 
   const svc = createServiceClient();
-
-  // Never allow this against another staff account.
   const { data: target } = await svc
     .from("profiles")
-    .select("role, full_name, email")
+    .select("role, full_name, email, contact_only")
     .eq("id", id)
+    .is("deleted_at", null)
     .maybeSingle();
-  if (!target) {
-    return NextResponse.json({ error: "Client not found" }, { status: 404 });
-  }
+  if (!target) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  if (target.contact_only) return NextResponse.json({ error: "This client record has no login account. Portal setup is separate." }, { status: 409 });
   if (target.role !== "client") {
-    return NextResponse.json(
-      { error: "This only applies to client accounts." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "This only applies to client accounts." }, { status: 400 });
   }
 
   const body = await request.json().catch(() => ({}));
   const custom = typeof body.password === "string" ? body.password.trim() : "";
-  if (custom && custom.length < 8) {
-    return NextResponse.json(
-      { error: "Password must be at least 8 characters." },
-      { status: 400 }
-    );
-  }
+  if (custom && custom.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
   const password = custom || generatePassword();
-
   const { error } = await svc.auth.admin.updateUserById(id, { password });
   if (error) {
     console.error("[set-password]", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  console.log(
-    `[set-password] owner ${user.email} set a temporary password for client ${target.email}`
-  );
-
-  return NextResponse.json({
-    ok: true,
-    password,
-    email: target.email,
-    name: target.full_name,
-  });
+  console.log(`[set-password] owner ${user.email} set a temporary password for client ${target.email}`);
+  return NextResponse.json({ ok: true, password, email: target.email, name: target.full_name });
 }

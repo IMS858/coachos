@@ -13,8 +13,8 @@ type LooseRow = Record<string, any>;
 interface LooseTable { Row: LooseRow; Insert: LooseRow; Update: LooseRow; Relationships: []; }
 interface KnownTables {
  profiles: {
-  Row: {id:string;email:string;full_name:string;phone:string|null;role:UserRole;avatar_url:string|null;created_at:string;updated_at:string;deleted_at:string|null};
-  Insert: Partial<KnownTables["profiles"]["Row"]> & {id:string;email:string;full_name:string}; Update: Partial<KnownTables["profiles"]["Row"]>; Relationships: [];
+  Row: {id:string;email:string|null;contact_only:boolean;auth_user_id:string|null;full_name:string;phone:string|null;role:UserRole;avatar_url:string|null;created_at:string;updated_at:string;deleted_at:string|null};
+  Insert: Partial<Omit<KnownTables["profiles"]["Row"],"auth_user_id">> & {id:string;full_name:string}; Update: Partial<Omit<KnownTables["profiles"]["Row"],"auth_user_id">>; Relationships: [];
  };
  clients: {
   Row: {id:string;date_of_birth:string|null;emergency_contact_name:string|null;emergency_contact_phone:string|null;emergency_contact_relationship:string|null;address_line1:string|null;address_line2:string|null;city:string|null;state:string|null;zip:string|null;medical_conditions:unknown;medications:unknown;allergies:unknown;injury_history:unknown;physician_name:string|null;physician_phone:string|null;lead_source:string|null;referred_by_client_id:string|null;status:ClientStatus;billing_type:BillingType;primary_trainer_id:string|null;joined_at:string|null;last_session_at:string|null;stripe_customer_id:string|null;notes_internal:string|null;created_at:string;updated_at:string};
