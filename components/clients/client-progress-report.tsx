@@ -40,8 +40,23 @@ export async function ClientProgressReport({
     sessions ?? 0
   );
 
-  // Only render if there's something to show
-  if (!report.metrics.some((m) => m.current !== null)) return null;
+  const hasMeasuredEvidence = report.metrics.some((m) => m.current !== null);
+  if (!hasMeasuredEvidence) {
+    return (
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-cream">Progress Report</h2>
+        <div className="rounded-2xl border border-divider bg-white p-5">
+          <p className="font-semibold text-cream">No measured progress evidence yet.</p>
+          <p className="mt-2 text-sm leading-6 text-cream-dim">
+            No assessment or body-composition measurements are available for this report. Coach OS does not invent a baseline or trend from missing evidence.
+          </p>
+          <a href={`/assessments?client_id=${clientId}`} className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-sky">
+            Open assessments →
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
