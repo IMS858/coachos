@@ -52,6 +52,15 @@ function fmtDate(iso: string): string {
     day: "numeric",
   }).format(new Date(iso));
 }
+function fmtPlanDate(value: string): string {
+  const dateOnly = value.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+    const [year, month, day] = dateOnly.split("-").map(Number);
+    return new Intl.DateTimeFormat("en-US", { year:"numeric", month:"short", day:"numeric" })
+      .format(new Date(Date.UTC(year, month - 1, day, 12)));
+  }
+  return fmtDate(value);
+}
 function fmtTime(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
@@ -237,7 +246,7 @@ export async function SessionTracker({ clientId }: { clientId: string }) {
                     {p.expires_at && (
                       <span className="text-cream-faint">
                         {" · expires "}
-                        {fmtDate(p.expires_at)}
+                        {fmtPlanDate(p.expires_at)}
                       </span>
                     )}
                   </div>
