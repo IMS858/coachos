@@ -27,7 +27,7 @@ export function calculateNutrition(measurement:NutritionMeasurement,input:Nutrit
  const protein_g=Math.round(kg*1.6),fat_g=Math.round(kcal*0.3/9),carbs_g=Math.round((kcal-4*protein_g-9*fat_g)/4);
  if(carbs_g<130||protein_g*4/kcal>0.35)throw Error('Macro distribution needs individual review. No restricted diet was generated.');
  return {rules:NUTRITION_RULES,rmr:Math.round(rmr),maintenance:Math.round(maintenance),proposed:{kcal,protein_g,fat_g,carbs_g},activityFactor,goalFactor,proteinPerKg:1.6,assumptions:[
-  'Estimated resting energy: '+equation+'. This is an equation estimate, not measured metabolism.',
+  'Estimated resting energy: '+equation+'. Not measured metabolism; this is an equation estimate.',
   i.equation_method==='fat_free_mass'?`Inputs: confirmed Bod Pod fat-free / lean mass ${m.lean_mass_lb} lb; age ${i.age} used for adult-path eligibility only.`:`Inputs: ${m.weight_lb} lb; ${i.height_cm} cm; age ${i.age}; ${i.equation_coefficient} equation coefficient. Bod Pod body-fat values remain baseline context, not direct calorie requirements.`,
   `Coach-confirmed activity factor ${activityFactor}; maintenance estimate ${Math.round(maintenance)} kcal/day. Factor, 10% deficit / 5% surplus, eligibility cutoffs and 14-day review are product coaching heuristics, not validated individualized requirements.`,
   `Goal factor ${goalFactor}; rounded energy ${kcal} kcal. Proposed protein 1.6 g/kg body weight and fat 30% of energy; carbohydrate is the remainder. These starting rules require individual review, not automatic approval. Protein evidence: https://bjsm.bmj.com/content/52/6/376`,
