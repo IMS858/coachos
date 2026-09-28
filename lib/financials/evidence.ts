@@ -28,7 +28,7 @@ function addMoney(total: number | null, value: number) {
 /** Validate before aggregation. A source collision is a hold, never an extra receipt. */
 export function summarizeCollected(rows: readonly MoneyPayment[], window: MoneyWindow): PaymentEvidence {
   const start = evidenceInstant(window.start), end = evidenceInstant(window.end), asOf = evidenceInstant(window.asOf);
-  if (![start, end, asOf].every(Number.isFinite) || start >= end || asOf < start || asOf >= end) {
+  if (![start, end, asOf].every(Number.isFinite) || start >= end || asOf < start) {
     throw new Error("Invalid financial evidence window.");
   }
   const rowIds = new Set<string>(), references = new Map<string, number>();

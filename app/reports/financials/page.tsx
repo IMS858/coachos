@@ -1,108 +1,45 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { AppShell } from "@/components/layout/app-shell";
-import { createServiceClient } from "@/lib/supabase/server";
-import { getFinancialSnapshot } from "@/lib/queries/financials";
-import { PrintButton } from "@/components/reports/print-button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import {ArrowLeft} from "lucide-react";
+import {AppShell} from "@/components/layout/app-shell";
+import {requireOwnerData} from "@/lib/auth/require-owner";
+import {loadFinancialEvidence} from "@/lib/financials/load";
+import {formatPaymentAmount} from "@/lib/billing/payment-display";
+import {formatCurrency} from "@/lib/utils";
+import {PrintButton} from "@/components/reports/print-button";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
-
 export default async function FinancialsReportPage() {
-  const svc = createServiceClient();
-  const f = await getFinancialSnapshot(svc);
-
-  const monthLabel = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-  });
-
-  const rows: { label: string; value: number }[] = [
-    { label: "Membership contract value (not collected cash)", value: f.membershipMrrCents },
-    { label: "Renter contract value (not collected cash)", value: f.renterRentCents },
-    { label: "Linked package delivery estimate this month", value: f.packageEarnedThisMonthCents },
+  const db = await requireOwnerData();
+  const f = await loadFinancialEvidence(db);
+  const contracts = [
+    {label: "Membership contract value", evidence: f.subscriptions.status === "ready" ? f.subscriptions.value : null},
+    {label: "Renter contract value", evidence: f.renters.status === "ready" ? f.renters.value.value : null},
   ];
-
-  return (
-    <AppShell expectedRole="owner">
-      <div className="max-w-2xl mx-auto py-6 print-area">
-        <div className="flex items-center justify-between mb-4 no-print">
-          <Link href="/reports" className="text-sm text-cream-faint hover:text-cream flex items-center gap-1">
-            <ArrowLeft className="h-4 w-4" /> Reports
-          </Link>
-          <PrintButton label="Print / Save PDF" />
-        </div>
-
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-cream">Monthly Operating Value</h1>
-            <p className="text-sm text-cream-faint">
-              Innovative Movement Solutions · {monthLabel}
-            </p>
-          </div>
-        </div>
-
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle className="text-base">Revenue Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {rows.map((r) => (
-              <div key={r.label} className="flex justify-between text-sm border-b border-divider/40 pb-2 last:border-0">
-                <span className="text-cream-dim">{r.label}</span>
-                <span className="text-cream font-medium">{formatCurrency(r.value)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between text-base pt-2 mt-1 border-t border-divider">
-              <span className="text-cream font-semibold">Contract value + linked delivery estimate</span>
-              <span className="text-sky font-semibold">
-                {formatCurrency(f.totalMonthlyRevenueCents)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mb-4 rounded-2xl border border-sky/20 bg-sky/5 p-4 text-sm leading-6 text-cream-dim">
-          This report does not establish collected cash. Coach OS payment receipts, imported Vagaro transaction evidence,
-          contracted recurring value and linked-session delivery estimates remain separate until accounting reconciliation.
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card>
-            <CardContent className="py-4">
-              <div className="text-xs text-cream-faint">Recurring contract value</div>
-              <div className="text-xl text-cream font-semibold">
-                {formatCurrency(f.recurringMonthlyCents)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-4">
-              <div className="text-xs text-cream-faint">Package contract value started this month</div>
-              <div className="text-xl text-cream font-semibold">
-                {formatCurrency(f.packageBookedThisMonthCents)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-4">
-              <div className="text-xs text-cream-faint">Sessions this month</div>
-              <div className="text-xl text-cream font-semibold">{f.sessionsThisMonth}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-4">
-              <div className="text-xs text-cream-faint">Sessions this week</div>
-              <div className="text-xl text-cream font-semibold">{f.sessionsThisWeek}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-6 text-xs text-cream-faint text-center">
-          Generated {new Date().toLocaleDateString()} · Confidential
-        </div>
-      </div>
-    </AppShell>
-  );
+  return <AppShell expectedRole="owner"><main className="mx-auto max-w-2xl py-6 print-area">
+    <div className="mb-4 flex items-center justify-between no-print">
+      <Link href="/reports" className="flex items-center gap-1 text-sm text-cream-faint"><ArrowLeft className="h-4 w-4"/>Reports</Link>
+      <PrintButton label="Print / Save PDF"/>
+    </div>
+    <h1 className="text-2xl font-semibold text-cream">Monthly Operating Evidence</h1>
+    <p className="mb-5 mt-1 text-sm text-cream-dim">Innovative Movement Solutions · {f.window.label} · Pacific business dates</p>
+    <Card className="mb-4"><CardHeader><CardTitle>Recurring contract values — not collected cash</CardTitle></CardHeader><CardContent>
+      {contracts.map(({label, evidence}) => <div key={label} className="border-b border-divider py-3 text-sm">
+        <div className="flex justify-between gap-3"><span>{label}</span><span className="font-semibold">{evidence === null ? "Unavailable" : evidence.completeCents === null ? "Not established" : formatCurrency(evidence.completeCents)}</span></div>
+        {evidence && <p className="mt-1 text-xs text-cream-dim">{evidence.knownRecords} known rates · {evidence.unknownRecords} unknown rates{evidence.unknownRecords > 0 && evidence.knownCents !== null ? ` · known subtotal ${formatCurrency(evidence.knownCents)}` : ""}</p>}
+      </div>)}
+    </CardContent></Card>
+    <Card className="mb-4"><CardHeader><CardTitle>Recorded payment receipts</CardTitle></CardHeader><CardContent>
+      {f.payments.status === "unavailable" ? <p role="alert" className="text-sm text-status-limited">{f.payments.message}</p> : <>
+        {f.payments.value.summary.currencies.length === 0 ? <p className="text-sm">Collections are not established. No eligible payment receipts were found for this period; external history is not inferred to be $0.</p> : f.payments.value.summary.currencies.map(group => <div key={group.currency} className="mb-3 text-sm">
+          <p className="font-semibold">{group.currency} · {group.collectedRecords} collected receipts</p>
+          <p>Collected evidence: {group.collectedCents === null ? "Not established" : formatPaymentAmount(group.collectedCents, group.currency)}</p>
+          <p>Refund evidence: {group.refundedCents === null ? "No refund receipts recorded" : formatPaymentAmount(group.refundedCents, group.currency)}</p>
+        </div>)}
+        {f.payments.value.summary.issues.length > 0 && <p role="alert" className="mt-3 text-sm text-status-limited">{f.payments.value.summary.issues.length} ledger records need reconciliation and were excluded from totals.</p>}
+      </>}
+    </CardContent></Card>
+    <p className="text-sm leading-6 text-cream-dim">Contracted value, recorded collections, refunds, estimated training value and imported Vagaro evidence are different measures. This report does not add them into an asserted revenue total. It does not establish earned revenue, customer debt or tax liability.</p>
+    <div className="mt-5 flex flex-wrap gap-4 text-sm font-semibold text-sky no-print"><Link href="/financials">Full financial evidence →</Link><Link href="/reports/training-value">Training value estimates →</Link><Link href="/settings/migration/evidence?type=transaction">Vagaro source transactions →</Link></div>
+  </main></AppShell>;
 }
