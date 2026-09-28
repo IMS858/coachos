@@ -40,6 +40,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Registry-backed production dependency security audit
+        run: npm audit --omit=dev --audit-level=high
       - name: Parse every source and test file
         run: node scripts/verify-source.cjs
       - name: Security, device and integration regression tests
