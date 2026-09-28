@@ -25,29 +25,32 @@ export async function POST(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role,deleted_at")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.role === "client") {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
+  if (!profile || profile.deleted_at || profile.role === "client") {
+    return NextResponse.json({ error: "Active staff only" }, { status: 403 });
   }
 
-  // Service client: intake_tokens is locked down to public read-by-token only
+  // Authorization must be established with the caller-scoped client before the
+  // service client is used. RLS limits trainers to their assigned clients;
+  // owners retain studio-wide access.
+  const { data: authorizedClient, error: authorizedClientError } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (authorizedClientError || !authorizedClient) {
+    return NextResponse.json({ error: "Client not found or not assigned" }, { status: 404 });
+  }
+
+  // Service client: intake_tokens is locked down and is used only after the
+  // caller-scoped authorization check above.
   const svc = createServiceClient();
 
   // Parse optional body — POST may include { send: true } to email the link.
   // Tolerate an empty/missing body (button can call with no payload).
   const body = await request.json().catch(() => ({}) as { send?: boolean });
-
-  // Verify the client exists
-  const { data: client } = await svc
-    .from("clients")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  if (!client) {
-    return NextResponse.json({ error: "Client not found" }, { status: 404 });
-  }
 
   const nowIso = new Date().toISOString();
 
