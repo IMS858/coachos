@@ -152,7 +152,7 @@ const classesQ=await supabase.from("class_occurrences").select("id,starts_at,end
           <Link href="/action-center">
             <Button variant="secondary" size="md">
               <ListChecks className="h-4 w-4" />
-              Immediate{actionCount > 0 ? ` · ${actionCount}` : ""}
+              Actions{actionCount > 0 ? ` · ${actionCount}` : ""}
             </Button>
           </Link>
         </div>
@@ -230,7 +230,7 @@ const classesQ=await supabase.from("class_occurrences").select("id,starts_at,end
 
         <div className="flex flex-col gap-4">
           <Card>
-            <CardHeader><CardTitle>Immediate coaching actions</CardTitle><CardDescription>Draft programs, unread messages and booking requests only. Open Action Center for the full operations queue.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>Immediate coaching actions</CardTitle><CardDescription>Follow-up work stays separate from today’s coaching schedule. This number covers draft programs, unread messages and booking requests only; Action Center contains the full operations queue.</CardDescription></CardHeader>
             <CardContent><Link href="/action-center" className="flex min-h-11 items-center justify-between rounded-xl border border-divider px-3 text-sm font-semibold text-cream transition hover:border-sky/50"><span>{actionCount} immediate action{actionCount===1?"":"s"}</span><ChevronRight className="h-4 w-4 text-sky"/></Link></CardContent>
           </Card>
 
