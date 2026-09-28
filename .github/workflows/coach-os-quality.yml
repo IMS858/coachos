@@ -52,7 +52,10 @@ jobs:
       - name: Parse every source and test file
         run: node scripts/verify-source.cjs
       - name: Security, device and integration regression tests
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/test-diagnostics.txt"
       - name: Lint
         run: npm run lint -- --max-warnings 0
       - name: Production build and TypeScript validation
@@ -75,6 +78,7 @@ jobs:
             ${{ runner.temp }}/checked-sha.txt
             ${{ runner.temp }}/build-diagnostics.txt
             ${{ runner.temp }}/typecheck-diagnostics.txt
+            ${{ runner.temp }}/test-diagnostics.txt
           retention-days: 2
   native-source:
     runs-on: macos-15

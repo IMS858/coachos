@@ -37,6 +37,6 @@ export default async function SessionPage({params}:{params:Promise<{id:string}>}
  <nav aria-label="Session workflow" className="grid grid-cols-3 gap-2">{[["#session-prep","1 · Prepare"],["#session-training","2 · Train"],["#session-close","3 · Review & close"]].map(([href,label])=><a key={href} href={href} className="flex min-h-12 items-center justify-center rounded-xl border border-divider bg-white px-2 text-center text-sm font-semibold text-sky">{label}</a>)}</nav>
  <section id="session-prep" className="scroll-mt-24 space-y-3"><SessionCoachPrep clientId={session.client_id} scheduledAt={session.scheduled_at}/><SessionLastDebrief sessionId={session.id}/></section>
  <SessionTrainingExecution sessionId={session.id} asOf={asOf}/>
- <SessionDetail key={session.id+session.status} session={{...session,client:person,trainer:trainer??null}} activePlans={plansQ.data??[]}/>
+ <SessionDetail key={session.id+session.status} session={{...session,client:{...person,email:person.email??""},trainer:trainer??null}} activePlans={plansQ.data??[]}/>
  </main></SessionWorkspace></AppShell>;
 }

@@ -3,7 +3,7 @@ import {useRef, useState} from "react";
 import {useRouter} from "next/navigation";
 import {dollarsToCents, object, parseOwnerReview, PROPOSAL_KEYS, reviewPacificInstant, validReviewReceipt, type OwnerReviewRequest, type Proposal, type ReviewDecision, type ReviewKind} from "@/lib/migration/owner-review";
 
-export type ReviewOption = {id: string; full_name: string; email: string};
+export type ReviewOption = {id: string; full_name: string; email: string | null};
 export type SavedOwnerReview = {revision: number; source_hash: string; decision: ReviewDecision; proposal: Proposal; reason: string; created_at: string};
 type Props = {recordId: string; sourceHash: string; kind: ReviewKind; latest: SavedOwnerReview | null; clients: ReviewOption[]; trainers: ReviewOption[]; frozen: boolean};
 const inputClass = "mt-1 min-h-11 w-full rounded-xl border border-divider bg-white px-3 py-2 text-base text-cream disabled:opacity-60";
@@ -62,7 +62,7 @@ export function OwnerReviewForm({recordId, sourceHash, kind, latest, clients, tr
     } catch {setAmbiguous(true); setError("Connection interrupted. Retry this exact review to confirm whether it saved.");}
     finally {inFlight.current = false; setBusy(false);}
   }
-  const identity = (key: string, label: string, options: ReviewOption[]) => <label className="block text-sm font-medium text-cream">{label}<select aria-label={label} value={values[key] ?? ""} onChange={e => update(key, e.target.value)} className={inputClass}><option value="">Unresolved — keep on hold</option>{options.map(p => <option key={p.id} value={p.id}>{p.full_name} · {p.email}</option>)}</select></label>;
+  const identity = (key: string, label: string, options: ReviewOption[]) => <label className="block text-sm font-medium text-cream">{label}<select aria-label={label} value={values[key] ?? ""} onChange={e => update(key, e.target.value)} className={inputClass}><option value="">Unresolved — keep on hold</option>{options.map(p => <option key={p.id} value={p.id}>{p.full_name} · {p.email ?? "Email not added"}</option>)}</select></label>;
   return <section className="rounded-3xl border border-sky/20 bg-white p-5">
     <h2 className="text-xl font-semibold text-cream">Your proposed correction</h2>
     <p className="mt-2 text-sm leading-6 text-cream-dim">Save what you have verified. This records an owner review only; it does not create an appointment, change a package, mark anything paid or send a notification.</p>
