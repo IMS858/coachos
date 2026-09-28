@@ -49,7 +49,7 @@ grant execute on function public.reserve_fuel_report_read(uuid,uuid,uuid,uuid) t
 create or replace function public.save_fuel_nutrition_draft(p_client uuid,p_measure jsonb,p_plan jsonb,p_sources jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare source jsonb; refs text:=''; measured jsonb; saved jsonb;
 begin
- if not public.fuel_can_access(p_client,true) then raise exception 'Assigned active coach required' using errcode='42501';end if;
+ if public.fuel_can_access(p_client,true) is distinct from true then raise exception 'Assigned active coach required' using errcode='42501';end if;
  if p_measure->>'action' is distinct from 'record_body_comp' or p_plan->>'action' is distinct from 'save_plan' or p_measure->>'source_kind' is distinct from 'source_transcription' or p_measure->>'method' is distinct from 'bod_pod' then raise exception 'Only private nutrition drafting is allowed' using errcode='22023';end if;
  if jsonb_typeof(p_sources) is distinct from 'array' or jsonb_array_length(p_sources) not between 1 and 3 then raise exception 'Confirmed original sources required' using errcode='22023';end if;
  for source in select value from jsonb_array_elements(p_sources) order by value->>'id' loop
@@ -57,6 +57,9 @@ begin
   refs:=refs||case when refs='' then '' else ',' end||(source->>'id');
  end loop;
  measured:=public.execute_fuel_command(p_client,jsonb_set(p_measure,'{source_reference}',to_jsonb('documents:'||refs)));
+ -- A reload/new request must not record the same baseline again. An exact retry
+ -- returns the original entity and remains valid; a new duplicate rolls back in full.
+ if exists(select 1 from public.fuel_body_comp_sources b where b.client_id=p_client and b.id<>(measured->>'entity_id')::uuid and b.source_reference='documents:'||refs and b.reported_values->>'date'=p_measure->>'date') then raise exception 'This source test is already recorded. Use its existing baseline from Build Fuel; no duplicate saved.' using errcode='23505';end if;
  saved:=public.execute_fuel_command(p_client,jsonb_set(p_plan,'{source_reference}',to_jsonb('ims-adult-nutrition-draft-v1; body_comp:'||(measured->>'entity_id')||'; documents:'||refs)));
  return jsonb_build_object('ok',true,'client_id',p_client,'measurement',measured,'strategy',saved);
 end $$;

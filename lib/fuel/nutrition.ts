@@ -35,7 +35,7 @@ export function nutritionStrategy(name:string,m:NutritionMeasurement,i:Nutrition
  p.guidance=[`Bod Pod baseline: ${m.date}; weight ${m.weight_lb} lb; body fat ${m.body_fat_pct??'not recorded'}%; lean / fat-free mass ${m.lean_mass_lb??'not recorded'} lb. Source model: ${m.model_label||'not shown'}.`,
   ...n.assumptions,`Training context confirmed: ${i.training_days} days/week including outside training. No calendar-based rest inference.`,
   `Meal preference: ${i.diet}; ${i.meals_per_day} meals/day; ${i.budget} budget; ${i.prep} preparation. Preferences to discuss: ${i.preferences||'none entered'}.`,
-  'Use only tolerated foods. Check actual labels, preparation states and cross-contact; the menu is not an allergy-safety or micronutrient-adequacy certification. Three sample rotations are options, not a requirement to eat every menu in one day.',
+  'Use only tolerated foods. Check actual labels, preparation states and cross-contact; the menu is not an allergy-safety or micronutrient-adequacy certification. The sample menu is one day; the grocery list covers three repetitions. It is not a varied weekly diet.',
   'Review in two weeks, sooner for persistent fatigue, dizziness, excessive hunger, poor recovery or concerning symptoms. Seek appropriate professional advice; do not continue an automated deficit through symptoms. Plan a standardized Bod Pod retest with your coach; no projection is recorded as a result.',
   `Calculation version: ${NUTRITION_RULES}. Calorie/macro numbers are proposed estimates, not measured intake or expenditure.`].join('\n\n');return p;
 }

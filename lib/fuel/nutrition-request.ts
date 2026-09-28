@@ -11,6 +11,6 @@ export const nutritionRequestSchema=z.discriminatedUnion('action',[
 export type NutritionRequest=z.infer<typeof nutritionRequestSchema>;
 export function validNutritionReceipt(value:unknown,requestId:string,measurementRequestId:string,clientId:string):boolean{
  if(!value||typeof value!=='object')return false;const r=value as Record<string,any>;
- const receipt=(v:any,action:string,id:string)=>v&&v.ok===true&&v.action===action&&v.request_id===id&&v.client_id===clientId&&z.string().uuid().safeParse(v.entity_id).success&&Number.isSafeInteger(v.revision)&&v.revision>0&&typeof v.deduped==='boolean';
+ const receipt=(v:any,action:string,id:string)=>Boolean(v&&v.ok===true&&v.action===action&&v.request_id===id&&v.client_id===clientId&&z.string().uuid().safeParse(v.entity_id).success&&Number.isSafeInteger(v.revision)&&v.revision>0&&typeof v.deduped==='boolean');
  return r.ok===true&&r.client_id===clientId&&receipt(r.measurement,'record_body_comp',measurementRequestId)&&receipt(r.strategy,'save_plan',requestId);
 }
