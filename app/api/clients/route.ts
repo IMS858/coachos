@@ -42,22 +42,35 @@ export async function POST(request: NextRequest) {
   // 1. Verify caller is trainer/owner
   const supabaseUser = await createServerClient();
   const {
-    data: { user },
+    data: { user }, error: authLookupError,
   } = await supabaseUser.auth.getUser();
-  if (!user) {
+  if (authLookupError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: profile } = await supabaseUser
+  const { data: profile, error: profileError } = await supabaseUser
     .from("profiles")
-    .select("role")
+    .select("role,deleted_at")
     .eq("id", user.id)
-    .single();
-  if (!profile || profile.role === "client") {
+    .maybeSingle();
+  if (profileError) {
+    return NextResponse.json({ error: "Staff authorization unavailable" }, { status: 503 });
+  }
+  if (!profile || profile.deleted_at || !["owner", "trainer"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({}));
+
+  // Reject malformed bodies before any service-role access or identity creation.
+  if (!body || typeof body !== "object" || Array.isArray(body)
+    || (body.full_name != null && typeof body.full_name !== "string")
+    || (body.email != null && typeof body.email !== "string")
+    || (body.phone != null && typeof body.phone !== "string")
+    || (body.initial_plan != null && (typeof body.initial_plan !== "object" || Array.isArray(body.initial_plan)))
+    || (body.initial_plan?.custom_label != null && typeof body.initial_plan.custom_label !== "string")) {
+    return NextResponse.json({ error: "Invalid client fields" }, { status: 400 });
+  }
 
   // 2. Validate
   const fullName = (body.full_name ?? "").trim();
@@ -104,11 +117,14 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient();
 
   // 3. Check for existing email
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("profiles")
     .select("id")
     .eq("email", email)
     .maybeSingle();
+  if (existingError) {
+    return NextResponse.json({ error: "Client identity check unavailable" }, { status: 503 });
+  }
   if (existing) {
     return NextResponse.json(
       { error: "A client with this email already exists" },
