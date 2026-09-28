@@ -46,6 +46,14 @@ const CUSTOM_PACKAGE = -1;
 
 const SERVICE_TYPES = [{ value: "training", label: "Personal Training" }] as const;
 
+function formatCalendarDate(value: string): string {
+  const date = value.slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return value;
+  const [year,month,day]=date.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US",{year:"numeric",month:"short",day:"numeric"})
+    .format(new Date(Date.UTC(year,month-1,day,12)));
+}
+
 interface ProfileData {
   id: string;
   full_name: string;
@@ -313,7 +321,7 @@ export function ClientEditor({
                         </div>
                         <div className="text-xs text-cream-faint">
                           {plan.status} ·{" "}
-                          {new Date(plan.start_date).toLocaleDateString("en-US")}
+                          {formatCalendarDate(plan.start_date)}
                         </div>
                       </div>
                       {plan.status === "cancelled" && (
@@ -343,6 +351,7 @@ export function ClientEditor({
               <div>
                 <Label>Full name</Label>
                 <Input
+                  aria-label="Full name"
                   value={profile.full_name}
                   onChange={(e) =>
                     setProfile({ ...profile, full_name: e.target.value })
@@ -352,6 +361,7 @@ export function ClientEditor({
               <div>
                 <Label>Email</Label>
                 <Input
+                  aria-label="Email"
                   type="email"
                   value={profile.email}
                   onChange={(e) =>
@@ -362,6 +372,7 @@ export function ClientEditor({
               <div>
                 <Label>Phone</Label>
                 <Input
+                  aria-label="Phone"
                   type="tel"
                   value={profile.phone ?? ""}
                   onChange={(e) =>
@@ -372,6 +383,7 @@ export function ClientEditor({
               <div>
                 <Label>Photo URL</Label>
                 <Input
+                  aria-label="Photo URL"
                   type="url"
                   placeholder="https://… (paste an image link)"
                   value={profile.avatar_url ?? ""}
@@ -780,11 +792,7 @@ function PlanCard({
               ? `${formatCurrency(plan.monthly_rate_cents ?? 0)}/month`
               : `${plan.total_sessions}-session pack`}
             {" · started "}
-            {new Date(plan.start_date).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
+            {formatCalendarDate(plan.start_date)}
           </CardDescription>
         </div>
         <Button
@@ -900,10 +908,12 @@ function CounterInput({
         variant="secondary"
         size="icon"
         onClick={() => onChange(Math.max(0, value - 1))}
+        aria-label="Decrease session count"
       >
         <Minus className="h-4 w-4" />
       </Button>
       <Input
+        aria-label="Session count"
         type="number"
         min={0}
         value={value}
@@ -915,6 +925,7 @@ function CounterInput({
         variant="secondary"
         size="icon"
         onClick={() => onChange(value + 1)}
+        aria-label="Increase session count"
       >
         <Plus className="h-4 w-4" />
       </Button>
