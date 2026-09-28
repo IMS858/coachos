@@ -12,7 +12,7 @@ export default async function OperationalReadinessPage(){
  const [staffQ,clientsQ,programsQ,assessQ,rulesQ,auditQ,upcomingQ,requestsQ,paymentsQ,draftsQ]=await Promise.all([
   db.from("profiles").select("id").in("role",["owner","trainer"]).is("deleted_at",null),
   db.from("clients").select("id,primary_trainer_id").eq("status","active"),
-  db.from("programs").select("client_id,status").in("status",["published","active"]),
+  db.from("programs").select("client_id,status,data,pdf_client_url").in("status",["published","active"]),
   db.from("assessments").select("client_id,status").eq("status","complete"),
   db.from("trainer_compensation_rules").select("trainer_id,active").eq("active",true),
   db.from("audit_logs").select("id",{count:"exact",head:true}).gte("created_at",past30),
@@ -24,13 +24,18 @@ export default async function OperationalReadinessPage(){
  if([staffQ,clientsQ,programsQ,assessQ,rulesQ,auditQ,upcomingQ,requestsQ,paymentsQ,draftsQ].some(q=>q.error))throw new Error("Operational readiness data could not be loaded.");
  const staff=staffQ.data??[],clients=clientsQ.data??[],activeIds=new Set(clients.map(c=>c.id));
  const assigned=clients.filter(c=>Boolean(c.primary_trainer_id)).length;
- const programmed=new Set((programsQ.data??[]).filter(p=>activeIds.has(p.client_id)).map(p=>p.client_id)).size;
+ const usableProgram=(p:any)=>Boolean(
+   (typeof p.pdf_client_url==="string"&&p.pdf_client_url.trim()) ||
+   (p.data?.structured_program && ["object"].includes(typeof p.data.structured_program)) ||
+   (Array.isArray(p.data?.weekly_structure)&&p.data.weekly_structure.length>0)
+ );
+ const programmed=new Set((programsQ.data??[]).filter(p=>activeIds.has(p.client_id)&&usableProgram(p)).map(p=>p.client_id)).size;
  const assessed=new Set((assessQ.data??[]).filter(a=>activeIds.has(a.client_id)).map(a=>a.client_id)).size;
  const payrollReady=new Set((rulesQ.data??[]).map(r=>r.trainer_id)).size;
  const pct=(n:number,d:number)=>d?Math.round(n/d*100):0;
  const domains=[
   {title:"Staff coverage",value:staff.length+" active staff",detail:assigned+"/"+clients.length+" active clients have a primary trainer",href:"/settings/staff",icon:Users},
-  {title:"Program evidence",value:programmed+"/"+clients.length+" clients",detail:pct(programmed,clients.length)+"% of active clients have a published or active program",href:"/reports/outcomes",icon:Dumbbell},
+  {title:"Program evidence",value:programmed+"/"+clients.length+" clients",detail:pct(programmed,clients.length)+"% of active clients have a published/active program with a usable deliverable",href:"/reports/outcomes",icon:Dumbbell},
   {title:"Assessment evidence",value:assessed+"/"+clients.length+" clients",detail:pct(assessed,clients.length)+"% of active clients have a completed assessment",href:"/reports/outcomes",icon:ClipboardCheck},
   {title:"Payroll configuration",value:payrollReady+"/"+staff.length+" staff",detail:"Staff with an active explicit compensation rule",href:"/settings/payroll",icon:BadgeDollarSign},
   {title:"Operational history",value:String(auditQ.count??0)+" records",detail:"Audit records written in the last 30 days",href:"/settings/audit",icon:History},
