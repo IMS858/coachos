@@ -13,7 +13,10 @@ test("today opens the coach calendar without losing trainer context",()=>{
 });
 
 test("calendar session blocks open the coaching session and include package evidence",()=>{
-  assert.match(schedule,/href=\{\x60\/sessions\/\$\{s\.id\}\x60\}/);
+  assert.match(schedule,/href:\x60\/sessions\/\$\{s\.id\}\x60/);
+  assert.match(schedule,/events=\{calendarEvents\}/);
+  const grid=fs.readFileSync("components/schedule/day-grid.tsx","utf8");
+  assert.match(grid,/href=\{event.href\}/);
   assert.match(schedule,/activeTrainingPackageBalance/);
   assert.match(schedule,/packageBalanceLabel/);
 });
