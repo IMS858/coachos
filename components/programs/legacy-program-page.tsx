@@ -59,6 +59,10 @@ export default async function ProgramPage({
   const generated = (program as any).data;
   const isImsGenerator = generated?.source === "ims_generator";
   const isQuickLibraryProgram = generated?.source === "ims_library_program";
+  const hasImsDeliverable = Boolean(
+    (program as any).pdf_client_url ||
+    (generated?.structured_program && typeof generated.structured_program === "object")
+  );
   const hasGenerated =
     !isImsGenerator &&
     generated &&
@@ -117,6 +121,17 @@ export default async function ProgramPage({
         {isStaff && (program as any).client_id && <Link href={"/clients/" + (program as any).client_id} className="inline-flex w-fit rounded-lg bg-sky px-4 py-3 text-sm font-semibold text-white">Send client a coaching video</Link>}
         {isStaff && (program as any).status === "draft" && <ProgramReadinessPanel programId={id} />}
         {isStaff && <ProgramDecisionLog programId={id}/>}
+
+        {isImsGenerator && isStaff && !hasImsDeliverable && (
+          <div role="alert" className="rounded-2xl border border-status-limited/40 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-status-limited">Historical program metadata</p>
+            <h2 className="mt-2 text-lg font-semibold text-cream">No usable client workout is stored for this record.</h2>
+            <p className="mt-2 text-sm leading-6 text-cream-dim">
+              This published record contains generator/assessment metadata but no reviewed PDF or structured workout.
+              It is kept for history and is not counted as a current client deliverable.
+            </p>
+          </div>
+        )}
 
         {/* IMS Generator program — PDF-based */}
         {isImsGenerator && (
