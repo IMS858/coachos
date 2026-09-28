@@ -1,2 +1,7 @@
-import {NextResponse,type NextRequest} from "next/server";import {createClient} from "@/lib/supabase/server";import {CAPTURE_UUID} from "@/lib/exercises/capture";const reply=(b:unknown,s=200)=>NextResponse.json(b,{status:s,headers:{"Cache-Control":"private, no-store"}});
-export async function DELETE(request:NextRequest,{params}:{params:Promise<{id:string}>}){const {id}=await params;if(!CAPTURE_UUID.test(id))return reply({error:"Invalid standing booking"},400);const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)return reply({error:"Unauthorized"},401);if(request.headers.get("origin")!==request.nextUrl.origin)return reply({error:"Invalid request origin"},403);const {data,error}=await db.rpc("cancel_recurring_series",{p_series_id:id});if(error?.code==="PGRST202"||error?.code==="42883")return reply({error:"Standing-booking cancellation is not configured in this environment.",code:"RECURRING_CANCEL_UNAVAILABLE"},503);if(error)return reply({error:error.code==="42501"?"Only the assigned coach or owner may cancel this standing booking.":error.code==="P0002"?"Standing booking not found.":"Cancellation was not confirmed."},error.code==="42501"?403:error.code==="P0002"?404:503);return reply(data);}
+import {NextResponse,type NextRequest} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+export async function DELETE(request:NextRequest){
+ const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});
+ if(request.headers.get("origin")!==request.nextUrl.origin)return NextResponse.json({error:"Invalid request origin"},{status:403});
+ return NextResponse.json({error:"Open Standing bookings and review the current series before cancelling. A request ID and expected revision are required."},{status:409});
+}

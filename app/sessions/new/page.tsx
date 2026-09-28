@@ -1,3 +1,4 @@
+import {calendarDate,clockTime,calendarHref} from "@/lib/schedule/booking-context";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -16,13 +17,13 @@ export const dynamic = "force-dynamic";
  *   ?mode=schedule (default) or ?mode=log
  *   ?client_id=<uuid> pre-selects a client
  *
- * Loads all active clients with their active plans so the form can show
- * "Shows the training package impact before a completed log is saved" inline as soon as a client is picked.
+ * Loads caller-scoped clients; time-slot context is Pacific, never browser-local.
+ * Scheduling and confirmed completed-session logging are distinct commands.
  */
 export default async function NewSessionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; client_id?: string; trainer_id?: string; date?: string }>;
+  searchParams: Promise<{ mode?: string; client_id?: string; trainer_id?: string; date?: string; time?:string; repeat?:string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -32,10 +33,10 @@ export default async function NewSessionPage({
 
   const { data: viewerProfile } = await supabase
     .from("profiles")
-    .select("id, full_name, role")
+    .select("id, full_name, role,deleted_at")
     .eq("id", user.id)
     .single();
-  if (!viewerProfile || viewerProfile.role === "client") redirect("/dashboard");
+  if (!viewerProfile || viewerProfile.deleted_at || !["owner","trainer"].includes(viewerProfile.role)) redirect("/dashboard");
 
   const params = await searchParams;
   const mode = params.mode === "log" ? "log" : "schedule";
@@ -43,16 +44,17 @@ export default async function NewSessionPage({
   // Load active clients from the billing-summary view — the SAME source the
   // Clients page uses, so anyone visible there is selectable here. (The old
   // clients?profiles!inner(...) embed silently returned zero rows.)
-  const { data: clientsData } = await supabase
+  const { data: clientsData, error: clientsError } = await supabase
     .from("client_billing_summary")
     .select("client_id, full_name, email, status")
     .in("status", ["active", "lead"])
     .order("full_name", { ascending: true });
 
+  if(clientsError)throw Error("Client picker unavailable.");
   const clientIds = (clientsData ?? []).map((c: any) => c.client_id);
 
   // Load active plans for those clients (one batch)
-  const { data: plansData } = clientIds.length > 0
+  const { data: plansData, error: plansError } = clientIds.length > 0
     ? await supabase
         .from("plans")
         .select(
@@ -60,8 +62,9 @@ export default async function NewSessionPage({
         )
         .in("client_id", clientIds)
         .eq("status", "active")
-    : { data: [] as any[] };
+    : { data: [] as any[], error:null };
 
+  if(plansError)throw Error("Package evidence unavailable.");
   // Group plans by client
   const plansByClient: Record<string, any[]> = {};
   for (const plan of plansData ?? []) {
@@ -78,20 +81,21 @@ export default async function NewSessionPage({
   }));
 
   // Load trainers
-  const { data: trainersData } = await supabase
+  const { data: trainersData, error: trainersError } = await supabase
     .from("profiles")
     .select("id, full_name")
-    .in("role", ["trainer", "owner"])
+    .in("role", ["trainer", "owner"]).is("deleted_at",null)
     .order("full_name");
+  if(trainersError)throw Error("Trainer picker unavailable.");
   const trainers = trainersData ?? [];
   const initialTrainerId = trainers.some((trainer) => trainer.id === params.trainer_id) ? params.trainer_id : undefined;
-  const initialDate = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "") ? params.date : undefined;
+  const initialDate = calendarDate(params.date) ? params.date : undefined;
 
   return (
     <AppShell>
       <div className="flex flex-col gap-6 max-w-3xl">
         <Link
-          href="/dashboard"
+          href={calendarHref(initialDate??new Intl.DateTimeFormat("en-CA",{timeZone:"America/Los_Angeles"}).format(new Date()),initialTrainerId??"all")}
           className="inline-flex items-center gap-1.5 text-sm text-cream-dim hover:text-cream w-fit"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -104,7 +108,7 @@ export default async function NewSessionPage({
           </h1>
           <p className="text-sm text-cream-dim mt-1">
             {mode === "log"
-              ? "Record a session that already happened. Counter ticks immediately."
+              ? "Record work that actually happened. Any package use is handled by the audited completion command."
               : "Book a future session. No counter change until you mark it complete."}
           </p>
         </div>
@@ -114,6 +118,9 @@ export default async function NewSessionPage({
           initialClientId={params.client_id}
           initialTrainerId={initialTrainerId}
           initialDate={initialDate}
+          initialTime={clockTime(params.time)?params.time:undefined}
+          initialRepeat={params.repeat==="weekly"}
+          asOf={new Date().toISOString()}
           clients={clients}
           trainers={trainers}
           currentUserId={viewerProfile.id}

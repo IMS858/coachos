@@ -78,3 +78,15 @@ No new hosted database migration is required. Source parsing, behavioral/authori
 ESLint, standalone TypeScript, production build and native simulator compile/link remain release
 gates. CI is not a substitute for authenticated iPhone/Safari and real generator acceptance. This
 implementation does not create real Fuel strategies, measurements or client releases during QA.
+
+### Final authoring pass
+
+The client-first builder now also offers explicit coach-entered training/rest
+calorie and macro fields, alongside the default habit-led approach. Values are
+copied exactly, unknown fields remain null, arithmetic warnings do not alter
+source values, and no Bod Pod-driven calorie computation is introduced. The
+coach must confirm the client context; publishing remains a separate exact
+saved-version review. Unsaved provenance changes block publication just like
+unsaved content changes. Excess meal/grocery inputs raise an actionable error
+instead of silently truncating the proposed strategy. No paid AI meal generator,
+food database or automatic PDF extraction is claimed by this authoring release.

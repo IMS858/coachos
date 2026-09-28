@@ -66,18 +66,20 @@ function weekdayInPT(ymd: string): number {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
 }
 
-export function buildSeriesOccurrences(opts: { slots: RecurringSlot[]; startDate: string; horizonWeeks?: number; now?: Date }): { occurrences: string[]; generatedUntil: string } {
-  const horizonWeeks = opts.horizonWeeks ?? 8;
-  const todayPT = ymdInPT(opts.now ?? new Date());
-  let day = opts.startDate > todayPT ? opts.startDate : todayPT;
-  const generatedUntil = addDays(todayPT, horizonWeeks * 7);
-  const occurrences: string[] = [];
-  while (day <= generatedUntil) {
-    const wd = weekdayInPT(day);
-    for (const slot of opts.slots) if (slot.weekday === wd) occurrences.push(ptWallClockToUtc(day, slot.time).toISOString());
-    day = addDays(day, 1);
-  }
-  return { occurrences, generatedUntil };
+export function buildSeriesOccurrences(opts: {slots:RecurringSlot[];startDate:string;endDate?:string|null;intervalWeeks?:number;horizonWeeks?:number;now?:Date}):{occurrences:string[];generatedUntil:string}{
+ const now=opts.now??new Date(),today=ymdInPT(now),horizonWeeks=opts.horizonWeeks??8,interval=opts.intervalWeeks??1;
+ const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+"T12:00:00Z"))&&new Date(value+"T12:00:00Z").toISOString().slice(0,10)===value;
+ if(!validDate(opts.startDate)||opts.endDate&&(!validDate(opts.endDate)||opts.endDate<opts.startDate)||!Number.isInteger(interval)||interval<1||interval>4||!Number.isInteger(horizonWeeks)||horizonWeeks<1||horizonWeeks>52||!opts.slots.length||opts.slots.length>4)throw Error("Invalid recurring range or frequency.");
+ if(opts.slots.some(s=>!Number.isInteger(s.weekday)||s.weekday<0||s.weekday>6||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time))||new Set(opts.slots.map(s=>s.weekday+":"+s.time)).size!==opts.slots.length)throw Error("Invalid or duplicate recurring slot.");
+ const start=opts.startDate>today?opts.startDate:today;let day=start;
+ const horizon=addDays(start,horizonWeeks*7),generatedUntil=opts.endDate&&opts.endDate<horizon?opts.endDate:horizon;
+ const monday=(date:string)=>addDays(date,-((new Date(date+"T12:00:00Z").getUTCDay()+6)%7));
+ const anchor=Date.parse(monday(opts.startDate)+"T12:00:00Z"),occurrences:string[]=[];
+ while(day<=generatedUntil){const wd=weekdayInPT(day),week=Math.round((Date.parse(monday(day)+"T12:00:00Z")-anchor)/604800000);
+  if(week%interval===0)for(const slot of opts.slots)if(slot.weekday===wd){const instant=ptWallClockToUtc(day,slot.time);if(instant>now)occurrences.push(instant.toISOString());}
+  day=addDays(day,1);
+ }
+ return {occurrences:occurrences.sort(),generatedUntil};
 }
 
 export interface SeriesRow {
@@ -91,6 +93,8 @@ export interface SeriesRow {
   status: string;
   generated_until: string | null;
   start_date: string;
+  end_date?: string | null;
+  interval_weeks?: number;
 }
 
 /**
@@ -103,105 +107,18 @@ export async function generateSeriesSessions(
   horizonWeeks = 8
 ): Promise<number> {
   if (series.status !== "active") return 0;
-
-  const todayPT = ymdInPT(new Date());
-  const horizonEnd = addDays(todayPT, horizonWeeks * 7);
-
-  // Start from the later of: series start, day after last generated, or today.
-  let cursor = series.start_date > todayPT ? series.start_date : todayPT;
-  if (series.generated_until && series.generated_until >= cursor) {
-    cursor = addDays(series.generated_until, 1);
-  }
-
-  const rows: Array<{
-    client_id: string;
-    trainer_id: string;
-    scheduled_at: string;
-    duration_minutes: number;
-    session_type: string;
-    location: string | null;
-    status: string;
-    recurring_series_id: string;
-  }> = [];
-
-  let day = cursor;
-  while (day <= horizonEnd) {
-    const wd = weekdayInPT(day);
-    for (const slot of series.slots) {
-      if (slot.weekday === wd) {
-        const when = ptWallClockToUtc(day, slot.time);
-        rows.push({
-          client_id: series.client_id,
-          trainer_id: series.trainer_id,
-          scheduled_at: when.toISOString(),
-          duration_minutes: series.duration_minutes,
-          session_type: series.session_type,
-          location: series.location,
-          status: "scheduled",
-          recurring_series_id: series.id,
-        });
-      }
-    }
-    day = addDays(day, 1);
-  }
-
-  if (rows.length === 0) {
-    const { error: advanceError } = await svc
-      .from("recurring_series")
-      .update({ generated_until: horizonEnd })
-      .eq("id", series.id);
-    if (advanceError) throw new Error(`Series cursor update failed: ${advanceError.message}`);
-    return 0;
-  }
-
-  // Idempotency without relying on a partial-index upsert (which can't infer
-  // its conflict target): fetch existing slot times for this series in range
-  // and skip any we've already created.
-  const times = rows.map((r) => r.scheduled_at).sort();
-  const { data: existing, error: existingError } = await svc
-    .from("sessions")
-    .select("scheduled_at")
-    .eq("recurring_series_id", series.id)
-    .gte("scheduled_at", times[0])
-    .lte("scheduled_at", times[times.length - 1]);
-
-  if (existingError) throw new Error(`Existing series lookup failed: ${existingError.message}`);
-  const have = new Set((existing ?? []).map((e: any) => e.scheduled_at));
-  const toInsert = rows.filter((r) => !have.has(r.scheduled_at));
-
-  if (toInsert.length === 0) {
-    const { error: advanceError } = await svc
-      .from("recurring_series")
-      .update({ generated_until: horizonEnd })
-      .eq("id", series.id);
-    if (advanceError) throw new Error(`Series cursor update failed: ${advanceError.message}`);
-    return 0;
-  }
-
-  const { error, count } = await svc
-    .from("sessions")
-    .insert(toInsert, { count: "exact" });
-
-  if (error) {
-    // Surface the real reason instead of silently returning 0.
-    console.error("[recurring] insert failed:", error.message, error.details);
-    throw new Error(`Session insert failed: ${error.message}`);
-  }
-
-  const { error: advanceError } = await svc
-    .from("recurring_series")
-    .update({ generated_until: horizonEnd })
-    .eq("id", series.id);
-  if (advanceError) throw new Error(`Sessions created but series cursor update failed: ${advanceError.message}`);
-
-  return count ?? toInsert.length;
+  const today=ymdInPT(new Date()),start=series.start_date>today?series.start_date:today;
+  const {data,error}=await svc.rpc("fill_recurring_window",{p_series_id:series.id,p_until:addDays(start,horizonWeeks*7)});
+  if(error)throw Error("Recurring extension failed; no partial series window was committed.");
+  if(typeof data!=="number"||!Number.isInteger(data)||data<0)throw Error("Recurring extension receipt unavailable.");
+  return data;
 }
 
 /** Roll every active series forward — used by the cron. */
 export async function generateAllActiveSeries(
   svc: SupabaseClient,
   horizonWeeks = 8
-): Promise<{ series: number; created: number }> {
+): Promise<{ series: number; created: number; failed: string[] }> {
   const { data: list, error: listError } = await svc
     .from("recurring_series")
     .select(
@@ -210,9 +127,9 @@ export async function generateAllActiveSeries(
     .eq("status", "active");
 
   if (listError) throw new Error(`Recurring series lookup failed: ${listError.message}`);
-  let created = 0;
+  let created = 0;const failed:string[]=[];
   for (const s of list ?? []) {
-    created += await generateSeriesSessions(svc, s as SeriesRow, horizonWeeks);
+    try{created += await generateSeriesSessions(svc, s as SeriesRow, horizonWeeks);}catch{failed.push(s.id);}
   }
-  return { series: (list ?? []).length, created };
+  return { series: (list ?? []).length, created, failed };
 }

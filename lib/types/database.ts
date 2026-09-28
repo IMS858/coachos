@@ -25,7 +25,7 @@ interface KnownTables {
   Insert: Partial<KnownTables["plans"]["Row"]> & {client_id:string;kind:PlanKind;tier:PlanTier}; Update: Partial<KnownTables["plans"]["Row"]>; Relationships: [];
  };
  sessions: {
-  Row: {id:string;client_id:string;trainer_id:string|null;program_id:string|null;program_session_index:number|null;location:string|null;recurring_series_id:string|null;scheduled_at:string;duration_minutes:number;session_type:string;service_type:ServiceType|null;status:SessionStatus;plan_id:string|null;notes_pre:string|null;notes_post:string|null;client_rpe:number|null;client_notes:string|null;completed_at:string|null;completed_by:string|null;cancelled_at:string|null;cancelled_by:string|null;cancellation_reason:string|null;late_cancel_fee_charged:boolean;created_at:string;updated_at:string};
+  Row: {id:string;client_id:string;trainer_id:string|null;program_id:string|null;program_session_index:number|null;location:string|null;recurring_series_id:string|null;recurring_original_at:string|null;vagaro_event_id:string|null;scheduled_at:string;duration_minutes:number;session_type:string;service_type:ServiceType|null;status:SessionStatus;plan_id:string|null;notes_pre:string|null;notes_post:string|null;client_rpe:number|null;client_notes:string|null;completed_at:string|null;completed_by:string|null;cancelled_at:string|null;cancelled_by:string|null;cancellation_reason:string|null;late_cancel_fee_charged:boolean;created_at:string;updated_at:string};
   Insert: Partial<KnownTables["sessions"]["Row"]> & {client_id:string;scheduled_at:string}; Update: Partial<KnownTables["sessions"]["Row"]>; Relationships: [];
  };
 }

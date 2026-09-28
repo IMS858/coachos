@@ -1,3 +1,4 @@
+import {SessionScheduleControls} from "@/components/schedule/session-schedule-controls";
 import {notFound,redirect} from "next/navigation";
 import Link from "next/link";
 import {createClient} from "@/lib/supabase/server";
@@ -17,7 +18,7 @@ export default async function SessionPage({params}:{params:Promise<{id:string}>}
  if(me.error)throw new Error("Session authorization unavailable.");if(!me.data||me.data.deleted_at)redirect("/dashboard");
  if(me.data.role==="client")return <ClientSessionSummary sessionId={id} clientId={user.id}/>;
  if(!["owner","trainer"].includes(me.data.role))redirect("/dashboard");
- const result=await db.from("sessions").select("id,scheduled_at,duration_minutes,session_type,service_type,status,notes_pre,notes_post,completed_at,plan_id,client_id,trainer_id").eq("id",id).maybeSingle();
+ const result=await db.from("sessions").select("id,scheduled_at,duration_minutes,session_type,service_type,status,notes_pre,notes_post,completed_at,plan_id,client_id,trainer_id,updated_at,recurring_series_id,vagaro_event_id").eq("id",id).maybeSingle();
  if(result.error)throw new Error("Session could not be loaded.");if(!result.data)notFound();const session=result.data;
  const client=await db.from("clients").select("primary_trainer_id").eq("id",session.client_id).maybeSingle();
  if(client.error)throw new Error("Client assignment unavailable.");if(!client.data||(me.data.role!=="owner"&&session.trainer_id!==user.id&&client.data.primary_trainer_id!==user.id))notFound();
@@ -34,6 +35,7 @@ export default async function SessionPage({params}:{params:Promise<{id:string}>}
  return <AppShell><SessionWorkspace asOf={asOf}><main className="mx-auto w-full max-w-5xl space-y-5 pb-12"><nav aria-label="Session context" className="flex flex-wrap gap-2"><Link href="/dashboard" className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">← Today</Link><Link href={`/schedule?date=${sessionDate}${session.trainer_id?`&trainer=${session.trainer_id}`:""}`} className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">Calendar</Link><Link href={`/clients/${session.client_id}`} className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">Client profile</Link></nav>
  <header className="rounded-3xl bg-band p-5 text-white"><p className="text-xs uppercase tracking-widest text-white/60">IMS / Coaching session</p><div className="mt-2 flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-3xl font-bold">{person.full_name}</h1><p className="mt-2 text-sm text-white/75">{new Date(session.scheduled_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})} · {session.duration_minutes} min · {session.status.replaceAll("_"," ")}</p></div><div className="rounded-2xl bg-white/10 px-4 py-3"><p className="text-[11px] uppercase tracking-wider text-white/60">Training package</p><p className="mt-1 text-sm font-semibold">{packageBalanceLabel(packageEvidence)}</p></div></div></header>
  {session.status==="completed"&&session.session_type==="training"&&!session.plan_id&&<p role="alert" className="rounded-xl border border-status-moderate/30 bg-white p-4 text-sm">This training session is completed without a linked package. Review billing evidence; completion is not proof of payment.</p>}
+ <SessionScheduleControls session={session} owner={me.data.role==="owner"} asOf={asOf}/>
  <nav aria-label="Session workflow" className="grid grid-cols-3 gap-2">{[["#session-prep","1 · Prepare"],["#session-training","2 · Train"],["#session-close","3 · Review & close"]].map(([href,label])=><a key={href} href={href} className="flex min-h-12 items-center justify-center rounded-xl border border-divider bg-white px-2 text-center text-sm font-semibold text-sky">{label}</a>)}</nav>
  <section id="session-prep" className="scroll-mt-24 space-y-3"><SessionCoachPrep clientId={session.client_id} scheduledAt={session.scheduled_at}/><SessionLastDebrief sessionId={session.id}/></section>
  <SessionTrainingExecution sessionId={session.id} asOf={asOf}/>

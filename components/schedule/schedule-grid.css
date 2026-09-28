@@ -1,0 +1,25 @@
+/* The document owns vertical scrolling. No nested overflow:auto, fixed height,
+   touch interception, drag-to-book, or per-slot route prefetching. */
+.schedule-calendar { min-width: 0; border: 1px solid var(--color-divider); border-radius: 16px; background: white; }
+.schedule-calendar-help { padding: 12px 16px; font-size: 13px; line-height: 1.5; color: var(--color-cream-dim); border-bottom: 1px solid var(--color-divider); }
+.schedule-day-grid { display: grid; min-width: 0; touch-action: pan-y pinch-zoom; }
+.schedule-time-heading, .schedule-coach-heading { min-width: 0; padding: 12px 6px; background: var(--color-surface-soft); border-bottom: 1px solid var(--color-divider); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.schedule-coach-heading { border-left: 1px solid var(--color-divider); }
+.schedule-time-heading { font-size: 11px; }
+.schedule-time-gutter, .schedule-coach-column { position: relative; min-width: 0; }
+.schedule-time-gutter > span { position: absolute; right: 4px; font-size: 9px; line-height: 16px; color: var(--color-cream-faint); white-space: nowrap; }
+.schedule-coach-column { border-left: 1px solid var(--color-divider); }
+.schedule-open-slot, .schedule-slot-line { position: absolute; left: 0; right: 0; height: 48px; border-top: 1px solid var(--color-divider); }
+.schedule-open-slot { display: flex; align-items: center; padding: 6px; color: var(--color-sky); font-size: 11px; text-decoration: none; }
+.schedule-open-slot > span { opacity: .5; }
+.schedule-open-slot:hover, .schedule-open-slot:focus-visible { background: var(--color-surface-soft); outline: 2px solid var(--color-sky); outline-offset: -2px; }
+.schedule-open-slot:hover > span, .schedule-open-slot:focus-visible > span { opacity: 1; }
+.schedule-event { position: absolute; z-index: 1; border-radius: 7px; border: 1px solid var(--color-divider); border-left: 3px solid var(--color-sky); background: #e6f1fa; padding: 5px; font-size: 11px; line-height: 1.4; overflow: clip; min-width: 0; text-decoration: none; color: #12344c; }
+.schedule-event strong, .schedule-event span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-event strong { font-size: 12px; }
+.schedule-event:focus-visible { outline: 3px solid var(--color-sky); outline-offset: 1px; z-index: 2; }
+.schedule-event-class { background: #f0eafa; border-left-color: #7956a6; }
+.schedule-event-block { background: #edf0f3; color: #425264; border-left-color: #6e7987; }
+.schedule-event-muted { opacity: .65; text-decoration: line-through; }
+@media (min-width: 768px) { .schedule-event { padding: 6px 9px; font-size: 12px; } .schedule-event strong { font-size: 14px; } .schedule-coach-heading { padding: 14px; } }
+@media print { .schedule-open-slot > span { display: none; } }

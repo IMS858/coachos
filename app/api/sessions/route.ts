@@ -17,7 +17,7 @@ export async function POST(request:NextRequest){
  for(const k of ["notes_pre","notes_post"]){const v=body[k];if(v!==undefined&&v!==null&&(typeof v!=="string"||v.length>4000))return reply({error:"Session notes must be text under 4,000 characters"},400);}
  const {data,error}=await db.rpc("create_staff_session",{p_id:body.request_id,p_body:body});
  if(error?.code==="PGRST202"||error?.code==="42883")return reply({error:"Session creation is not configured in this environment.",code:"SESSION_CREATE_UNAVAILABLE"},503);
- if(error){const status=error.code==="42501"?403:["22023","23P01","40P01","40001"].includes(error.code)?409:503;return reply({error:status===503?"Session save was not confirmed. Retry with the same request.":error.code==="23P01"?"Trainer already has a session at this time.":error.message},status);}
+ if(error){const status=error.code==="42501"?403:["22023","23P01","40P01","40001"].includes(error.code)?409:503;return reply({error:status===503?"Session save was not confirmed. Retry with the same request.":error.code==="23P01"?"Trainer, client, class or time-block conflict. Choose another slot.":error.message},status);}
  if(!data||data.ok!==true||typeof data.session_id!=="string")return reply({error:"Session save receipt was invalid. Check the schedule before retrying."},503);
  return reply(data);
 }

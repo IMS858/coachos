@@ -1,4 +1,4 @@
-import {blankPlan, emptyTargets, FUEL_UUID, shiftDate, validDate, type BodyComp, type FuelPlan, type PlanVersion, type Release} from "@/lib/fuel/model";
+import {blankPlan, emptyTargets, FUEL_UUID, shiftDate, validDate, type BodyComp, type FuelPlan, type PlanVersion, type Release, type Targets} from "@/lib/fuel/model";
 
 export const BUILD_MODES = ["quick", "bod_pod", "performance"] as const;
 export type BuildMode = typeof BUILD_MODES[number];
@@ -12,7 +12,7 @@ export type BuildEvidence = {
   performance:{exercise_name:string; performed_at:string; load_performed:string|null; reps_completed:string|null; rpe_actual:number|null}[];
   unavailable:string[];
 };
-export type BuildInputs = {mode:BuildMode; goal:string; start:string; reviewOn:string; trainingDays:number|null; preferences:string; meals:string; grocery:string; guidance:string};
+export type BuildInputs = {mode:BuildMode; goal:string; start:string; reviewOn:string; trainingDays:number|null; preferences:string; meals:string; grocery:string; guidance:string; targetMode?:"habits"|"targets"; trainingTargets?:Targets; restTargets?:Targets};
 export function object(value:unknown):Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
 export function text(value:unknown):string{return typeof value==="string"?value.trim():"";}
 export function assessmentContext(assessment:BuildAssessment|null){
@@ -55,14 +55,22 @@ export function composeFuelStrategy(evidence:BuildEvidence,input:BuildInputs):{c
   const plan=blankPlan(input.start),baseline=latestBodPod(evidence);
   plan.title="Fuel Strategy · "+evidence.name.slice(0,95);plan.goal=input.goal.trim();plan.review_on=input.reviewOn;
   plan.habits=["fuel","water","sleep"];
+  if(input.targetMode==="targets"){
+    const training=reviewedTargets(input.trainingTargets),rest=reviewedTargets(input.restTargets);
+    if([...Object.values(training),...Object.values(rest)].every(value=>value===null))throw Error("Enter at least one coach-reviewed target, or use habit-led coaching.");
+    plan.mode="targets";plan.phases[0].training=training;plan.phases[0].rest=rest;
+  }
+
   plan.phases[0].focus=input.mode==="quick"?"Establish a repeatable food, hydration and recovery routine. Review what fits your week with your coach.":input.mode==="bod_pod"?"Support the agreed body-composition goal while reviewing training quality and recovery. Compare future Bod Pod tests with the same method; do not treat scale change as measured fat change.":"Coordinate fueling, recovery and the agreed training demands. Review actual performance and client-reported habits before changing the strategy.";
   plan.guidance=["Agree on a practical routine with your coach. Report what happened; unreported habits are not failures.",
     input.trainingDays===null?"Training frequency is not assigned. Confirm independent training as well as IMS sessions.":`Coach-confirmed training context: ${input.trainingDays} day${input.trainingDays===1?"":"s"} per week. Other activity is not inferred from calendar gaps.`,
-    "Training/rest-day calorie and macro targets are unassigned. A Bod Pod reading is body-composition evidence, not a measured daily calorie requirement.",
+    plan.mode==="targets"?"Targets were entered and reviewed by your coach. They are starting estimates, not a metabolic measurement or an automatic result of Bod Pod testing.":"Training/rest-day calorie and macro targets are unassigned. A Bod Pod reading is body-composition evidence, not a measured daily calorie requirement.",
     input.preferences.trim()?"Coach-entered food preferences / agreed accommodations: "+input.preferences.trim():"Confirm food preferences, allergies and relevant referral needs with your coach before choosing foods or targets.",
     input.guidance.trim()].filter(Boolean).join("\n\n");
-  plan.meals=input.meals.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,10).map(name=>({name:name.slice(0,120),day:"either",serving:"Coach-entered meal idea. Agree on portions, ingredients and any substitutions before use.",ingredients:[],swaps:"",targets:emptyTargets()}));
-  plan.grocery=input.grocery.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,30).map(s=>s.slice(0,200));
+  const mealNames=input.meals.split("\n").map(s=>s.trim()).filter(Boolean),groceries=input.grocery.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(mealNames.length>10||mealNames.some(name=>name.length>120)||groceries.length>30||groceries.some(item=>item.length>200))throw Error("Use up to 10 meal ideas (120 characters each) and 30 grocery lines (200 characters each). Your input was not truncated.");
+  plan.meals=mealNames.map(name=>({name,day:"either",serving:"Coach-entered meal idea. Agree on portions, ingredients and any substitutions before use.",ingredients:[],swaps:"",targets:emptyTargets()}));
+  plan.grocery=groceries;
   // Structural references only: private health, pain and performance notes never enter a released strategy.
   const refs=["ims_client_build_v1",`mode:${input.mode}`,`as_of:${evidence.asOf}`];
   if(input.mode!=="quick"&&baseline)refs.push(`body_comp:${baseline.id}`);
@@ -71,7 +79,7 @@ export function composeFuelStrategy(evidence:BuildEvidence,input:BuildInputs):{c
 }
 export function initialBuildInputs(evidence:BuildEvidence,mode:BuildMode):BuildInputs{
   const context=assessmentContext(evidence.assessment);
-  return {mode,goal:context.goal,start:evidence.asOf,reviewOn:shiftDate(evidence.asOf,14),trainingDays:context.trainingDays,preferences:"",meals:"",grocery:"",guidance:""};
+  return {mode,goal:context.goal,start:evidence.asOf,reviewOn:shiftDate(evidence.asOf,14),trainingDays:context.trainingDays,preferences:"",meals:"",grocery:"",guidance:"",targetMode:"habits",trainingTargets:emptyTargets(),restTargets:emptyTargets()};
 }
 /** Deliberately has no client ID, body metrics, persistence action or release path. */
 export function sampleFuelStrategy(today:string):FuelPlan{
@@ -82,4 +90,16 @@ export function sampleFuelStrategy(today:string):FuelPlan{
   plan.meals=["A repeatable breakfast","A packable lunch","An easy dinner","A training-day food option"].map(name=>({name,day:"either",serving:"Example planning slot: select familiar, tolerated foods and coach-reviewed portions. This is a framework, not a calculated menu.",ingredients:[],swaps:"",targets:emptyTargets()}));
   plan.grocery=["Foods chosen for the agreed breakfast","Ingredients for a packable lunch","Ingredients for an easy dinner","A convenient option for training days"];
   return plan;
+}
+
+/** Structural bounds only; this validation does not certify nutritional suitability. */
+export function reviewedTargets(value:Targets|undefined):Targets{
+ if(!value)return emptyTargets();
+ const limits={kcal:10000,protein_g:1000,carbs_g:2000,fat_g:1000};
+ if(Object.keys(value).some(key=>!(key in limits)))throw Error("Unsupported nutrition target.");
+ for(const [key,max] of Object.entries(limits)){
+  const target=value[key as keyof Targets];
+  if(target!==null&&(typeof target!=="number"||!Number.isFinite(target)||target<0||target>max||key==="kcal"&&target===0))throw Error("Use reviewed numeric targets or leave unknown fields blank.");
+ }
+ return {...value};
 }

@@ -1,3 +1,5 @@
+import {ScheduleDayGrid} from "@/components/schedule/day-grid";
+import {calendarDate,wallMinutes,type CalendarEvent} from "@/lib/schedule/booking-context";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, Repeat2, ListChecks, GraduationCap, Clock3 } from "lucide-react";
@@ -22,14 +24,6 @@ export const dynamic = "force-dynamic";
  */
 
 const TZ = "America/Los_Angeles";
-// Day grid bounds expressed in half-hours since midnight, so we can start
-// on a :30. 4:30 AM = 9 half-hours; 7:00 PM = 38 half-hours.
-const DAY_START_HALF = 9; // 4:30 AM
-const DAY_END_HALF = 38; // 7:00 PM
-const DAY_START_HOUR = DAY_START_HALF / 2; // 4.5 (used by time math)
-const PX_PER_30MIN = 36;
-const TOTAL_HALF_HOURS = DAY_END_HALF - DAY_START_HALF;
-
 // Coach OS scheduling is training-only; use one clear training treatment on the grid.
 const TRAINING_STYLE = "bg-sky/10 border-l-[3px] border-l-sky text-sky-deep";
 
@@ -62,18 +56,6 @@ function mondayOf(ymd: string): string {
   return addDays(ymd, -((dow + 6) % 7));
 }
 
-function ptTimeParts(iso: string): { hour: number; minute: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date(iso));
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0) % 24;
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return { hour, minute };
-}
-
 function ptDateOf(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(
     new Date(iso)
@@ -101,14 +83,14 @@ export default async function SchedulePage({
 
   const { data: viewer } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role,deleted_at")
     .eq("id", user.id)
     .single();
-  if (!viewer || viewer.role === "client") redirect("/dashboard");
+  if (!viewer || viewer.deleted_at || !["owner","trainer"].includes(viewer.role)) redirect("/dashboard");
 
   const params = await searchParams;
   const today = todayInPt();
-  const selected = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "")
+  const selected = calendarDate(params.date)
     ? (params.date as string)
     : today;
 
@@ -118,12 +100,13 @@ export default async function SchedulePage({
   // Coach OS self-booking is training-only. Keep the staff calendar focused on training.
 
   // Trainers = staff profiles (owner coaches too)
-  const { data: staff } = await supabase
+  const { data: staff, error: staffError } = await supabase
     .from("profiles")
     .select("id, full_name, role")
-    .in("role", ["owner", "trainer"])
+    .in("role", ["owner", "trainer"]).is("deleted_at",null)
     .order("role", { ascending: false }) // owner first
     .order("full_name");
+  if(staffError)throw Error("Staff calendars unavailable.");
   const trainers = staff ?? [];
   const requestedTrainer = params.trainer ?? "";
   const selectedTrainerId = requestedTrainer === "all"
@@ -142,15 +125,16 @@ export default async function SchedulePage({
   const afterWeek = addDays(monday, 7);
   const weekEnd = `${afterWeek}T00:00:00${ptOffset(afterWeek)}`;
 
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsError } = await supabase
     .from("sessions")
     .select(
-      "id, client_id, trainer_id, scheduled_at, duration_minutes, session_type, status"
+      "id, client_id, trainer_id, scheduled_at, duration_minutes, session_type, status, recurring_series_id"
     )
     .gte("scheduled_at", weekStart)
     .lt("scheduled_at", weekEnd)
     .neq("status", "cancelled")
     .order("scheduled_at");
+  if(sessionsError)throw Error("Schedule unavailable; no empty calendar was inferred.");
   const weekSessions = sessions ?? [];
   const { data: classRows, error: classError } = await supabase.from("class_occurrences").select("id,template_id,trainer_id,starts_at,ends_at,capacity,status,class_templates(name,category)").gte("starts_at",weekStart).lt("starts_at",weekEnd).neq("status","cancelled").order("starts_at");
   if(classError) throw new Error("Class schedule could not be loaded.");
@@ -160,10 +144,11 @@ export default async function SchedulePage({
   const clientIds = Array.from(new Set(weekSessions.map((s) => s.client_id)));
   let clientNames: Record<string, string> = {};
   if (clientIds.length > 0) {
-    const { data: names } = await supabase
+    const { data: names, error: namesError } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", clientIds);
+    if(namesError)throw Error("Client names unavailable.");
     clientNames = Object.fromEntries(
       (names ?? []).map((n) => [n.id, n.full_name])
     );
@@ -195,15 +180,6 @@ export default async function SchedulePage({
   const daySessions = scopedWeekSessions.filter((s) => ptDateOf(s.scheduled_at) === selected);
   const completedToday = daySessions.filter((s) => s.status === "completed").length;
   const remainingToday = daySessions.filter((s) => ["scheduled","confirmed"].includes(s.status)).length;
-
-  // Whole-hour labels within the range. With a 4:30 start, the first whole
-  // hour label is 5:00; the half-hour lead-in still renders as grid space.
-  const firstWholeHour = Math.ceil(DAY_START_HOUR);
-  const lastWholeHour = Math.floor(DAY_END_HALF / 2);
-  const hourLabels = Array.from(
-    { length: lastWholeHour - firstWholeHour + 1 },
-    (_, i) => firstWholeHour + i
-  );
 
   const selectedTitle = new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
@@ -237,9 +213,18 @@ export default async function SchedulePage({
     sessions_remaining: evidence.status==="known" ? evidence.remaining : null,
   }); });
 
+  const blockQuery=await supabase.from("trainer_time_blocks").select("id,trainer_id,starts_at,ends_at").lt("starts_at",weekEnd).gt("ends_at",weekStart);
+  if(blockQuery.error)throw Error("Trainer time blocks unavailable; availability was not inferred.");
+  const allDaySessions=weekSessions.filter(s=>ptDateOf(s.scheduled_at)===selected && visibleTrainers.some(t=>t.id===s.trainer_id));
+  const calendarEvents:CalendarEvent[]=[
+    ...allDaySessions.map(s=>({id:s.id,trainerId:s.trainer_id!,startsAt:s.scheduled_at,endsAt:new Date(Date.parse(s.scheduled_at)+(s.duration_minutes??60)*60000).toISOString(),label:clientNames[s.client_id]??"Client name unavailable",detail:[s.session_type.replaceAll("_"," "),s.status.replaceAll("_"," "),weekPlansError?"Package unavailable":packageEvidenceByClient.has(s.client_id)?packageBalanceLabel(packageEvidenceByClient.get(s.client_id)!):""].filter(Boolean).join(" · "),href:`/sessions/${s.id}`,kind:"session" as const,muted:["late_cancelled","no_show"].includes(s.status),recurring:Boolean(s.recurring_series_id)})),
+    ...dayClasses.map((row:any)=>({id:row.id,trainerId:row.trainer_id,startsAt:row.starts_at,endsAt:row.ends_at,label:row.class_templates?.name??"Class",detail:"Group class",href:"/classes/manage",kind:"class" as const})),
+    ...(blockQuery.data??[]).filter(b=>ptDateOf(b.starts_at)<=selected&&(ptDateOf(b.ends_at)>selected||ptDateOf(b.ends_at)===selected&&wallMinutes(b.ends_at)>0)).map(b=>({id:b.id,trainerId:b.trainer_id,startsAt:b.starts_at,endsAt:b.ends_at,label:"Unavailable",detail:"Trainer time block",href:null,kind:"block" as const})),
+  ];
+
   return (
     <AppShell>
-      <div className="flex flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-5">
         {pendingRequests.length > 0 && <PendingRequests requests={pendingRequests} />}
 
         {/* Header */}
@@ -254,7 +239,7 @@ export default async function SchedulePage({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href={`/schedule?date=${addDays(selected, -7)}${trainerQS}`}>
               <Button variant="ghost" size="icon" title="Previous week">
                 <ChevronLeft className="h-4 w-4" />
@@ -274,7 +259,7 @@ export default async function SchedulePage({
             <Link href={`/schedule/agenda?date=${selected}${trainerQS}`}><Button variant="secondary"><ListChecks className="h-4 w-4" /> Daily agenda</Button></Link>
             <Link href="/schedule/standing"><Button variant="secondary"><Repeat2 className="h-4 w-4" /> Standing bookings</Button></Link>
             <Link href="/classes/manage"><Button variant="secondary"><GraduationCap className="h-4 w-4"/> Classes</Button></Link>
-            <Link href="/sessions/new">
+            <Link href={`/sessions/new?date=${selected}&trainer_id=${isSingleTrainer?selectedTrainerId:user.id}&from=schedule`}>
               <Button>
                 <Plus className="h-4 w-4" />
                 New training session
@@ -357,146 +342,9 @@ export default async function SchedulePage({
           })}
         </div>
 
-        {/* Day grid */}
-        <div className="rounded-xl border border-divider bg-white overflow-x-auto shadow-sm">
-          <div className={isSingleTrainer ? "min-w-[360px]" : "min-w-[640px]"}>
-            {/* Trainer headers */}
-            <div
-              className="grid border-b border-divider"
-              style={{
-                gridTemplateColumns: `64px repeat(${Math.max(visibleTrainers.length, 1)}, minmax(0, 1fr))`,
-              }}
-            >
-              <div />
-              {visibleTrainers.map((t) => {
-                const n = daySessions.filter(
-                  (s) => s.trainer_id === t.id
-                ).length;
-                return (
-                  <div
-                    key={t.id}
-                    className="flex items-center gap-2.5 px-4 py-3 border-l border-divider"
-                  >
-                    <Avatar name={t.full_name} size="sm" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-cream truncate">
-                        {t.full_name}
-                      </div>
-                      <div className="text-[11px] text-cream-faint">
-                        {n} session{n === 1 ? "" : "s"}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {visibleTrainers.length === 0 && (
-                <div className="px-4 py-3 text-sm text-cream-faint border-l border-divider">
-                  No staff profiles yet.
-                </div>
-              )}
-            </div>
+        <ScheduleDayGrid date={selected} trainers={visibleTrainers} events={calendarEvents}/>
 
-            {/* Time gutter + columns */}
-            <div
-              className="grid"
-              style={{
-                gridTemplateColumns: `64px repeat(${Math.max(visibleTrainers.length, 1)}, minmax(0, 1fr))`,
-              }}
-            >
-              {/* Gutter */}
-              <div
-                className="relative"
-                style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
-              >
-                {hourLabels.map((h) => (
-                  <div
-                    key={h}
-                    className="absolute right-2 -translate-y-1/2 text-[11px] text-cream-faint"
-                    style={{ top: (h * 2 - DAY_START_HALF) * PX_PER_30MIN }}
-                  >
-                    {h === 12
-                      ? "12 PM"
-                      : h > 12
-                        ? `${h - 12} PM`
-                        : `${h} AM`}
-                  </div>
-                ))}
-              </div>
-
-              {/* One column per trainer */}
-              {visibleTrainers.map((t) => (
-                <div
-                  key={t.id}
-                  className="relative border-l border-divider bg-white"
-                  style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
-                >
-                  {/* Hour lines */}
-                  {hourLabels.map((h) => (
-                    <div
-                      key={h}
-                      className="absolute inset-x-0 border-t border-divider/50"
-                      style={{ top: (h * 2 - DAY_START_HALF) * PX_PER_30MIN }}
-                    />
-                  ))}
-
-                  {/* Session blocks */}
-                  {daySessions
-                    .filter((s) => s.trainer_id === t.id)
-                    .map((s) => {
-                      const { hour, minute } = ptTimeParts(s.scheduled_at);
-                      // Half-hours since midnight, minus the grid's start.
-                      const startHalf =
-                        hour * 2 + (minute >= 30 ? 1 : 0) - DAY_START_HALF;
-                      if (startHalf < 0 || startHalf >= TOTAL_HALF_HOURS)
-                        return null;
-                      const spanHalves = Math.max(
-                        1,
-                        Math.round((s.duration_minutes ?? 60) / 30)
-                      );
-                      const style = TRAINING_STYLE;
-                      const dimmed =
-                        s.status === "late_cancelled" || s.status === "no_show";
-                      return (
-                        <Link
-                          key={s.id}
-                          href={`/sessions/${s.id}`}
-                          className={`absolute inset-x-1 rounded-md border px-2 py-1 text-xs overflow-hidden transition-opacity hover:opacity-90 ${style} ${
-                            dimmed ? "opacity-40 line-through" : ""
-                          }`}
-                          style={{
-                            top: startHalf * PX_PER_30MIN + 2,
-                            height: spanHalves * PX_PER_30MIN - 4,
-                          }}
-                        >
-                          <div className="font-medium truncate">
-                            {clientNames[s.client_id] ?? "Client"}
-                          </div>
-                          <div className="opacity-75 truncate">
-                            {fmtTime(s.scheduled_at)} ·{" "}
-                            {String(s.session_type).replace("_", " ")}
-                            {s.status === "completed" && " ✓"}
-                          </div>
-                          {!weekPlansError && packageEvidenceByClient.get(s.client_id)?.status !== "none" && (
-                            <div className="mt-0.5 truncate text-[10px] opacity-70">
-                              {packageBalanceLabel(packageEvidenceByClient.get(s.client_id)!)}
-                            </div>
-                          )}
-                        </Link>
-                      );
-                    })}
-                </div>
-              ))}
-              {visibleTrainers.length === 0 && (
-                <div
-                  className="border-l border-divider"
-                  style={{ height: TOTAL_HALF_HOURS * PX_PER_30MIN }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-white p-4 text-xs text-cream-dim"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-sm border ${TRAINING_STYLE}`} />Personal Training</div><div className="flex items-center gap-2"><Clock3 className="h-3.5 w-3.5" />Pacific Time · 4:30 AM–7:00 PM</div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-white p-4 text-xs text-cream-dim"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-sm border ${TRAINING_STYLE}`} />Personal Training</div><div className="flex items-center gap-2"><Clock3 className="h-3.5 w-3.5" />Pacific Time · tap any open slot</div></div>
       </div>
     </AppShell>
   );

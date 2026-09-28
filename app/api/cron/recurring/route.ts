@@ -29,9 +29,10 @@ export async function GET(request: NextRequest) {
   const result = await generateAllActiveSeries(svc);
 
   return NextResponse.json({
-    ok: true,
+    ok: result.failed.length===0,
     active_series: result.series,
     sessions_created: result.created,
+    failed_series: result.failed,
     at: new Date().toISOString(),
-  });
+  },{status:result.failed.length?503:200});
 }
