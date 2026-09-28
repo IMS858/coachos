@@ -18,10 +18,10 @@ export default async function FinancialsReportPage() {
     month: "long",
   });
 
-  const rows: { label: string; value: number; muted?: boolean }[] = [
-    { label: "Membership MRR (recurring)", value: f.membershipMrrCents },
-    { label: "Renter rent (recurring)", value: f.renterRentCents },
-    { label: "Package revenue earned this month", value: f.packageEarnedThisMonthCents },
+  const rows: { label: string; value: number }[] = [
+    { label: "Membership contract value (not collected cash)", value: f.membershipMrrCents },
+    { label: "Renter contract value (not collected cash)", value: f.renterRentCents },
+    { label: "Linked package delivery estimate this month", value: f.packageEarnedThisMonthCents },
   ];
 
   return (
@@ -36,7 +36,7 @@ export default async function FinancialsReportPage() {
 
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-cream">Monthly Revenue</h1>
+            <h1 className="text-2xl font-semibold text-cream">Monthly Operating Value</h1>
             <p className="text-sm text-cream-faint">
               Innovative Movement Solutions · {monthLabel}
             </p>
@@ -55,7 +55,7 @@ export default async function FinancialsReportPage() {
               </div>
             ))}
             <div className="flex justify-between text-base pt-2 mt-1 border-t border-divider">
-              <span className="text-cream font-semibold">Total monthly revenue</span>
+              <span className="text-cream font-semibold">Contract value + linked delivery estimate</span>
               <span className="text-sky font-semibold">
                 {formatCurrency(f.totalMonthlyRevenueCents)}
               </span>
@@ -63,10 +63,15 @@ export default async function FinancialsReportPage() {
           </CardContent>
         </Card>
 
+        <div className="mb-4 rounded-2xl border border-sky/20 bg-sky/5 p-4 text-sm leading-6 text-cream-dim">
+          This report does not establish collected cash. Coach OS payment receipts, imported Vagaro transaction evidence,
+          contracted recurring value and linked-session delivery estimates remain separate until accounting reconciliation.
+        </div>
+
         <div className="grid grid-cols-2 gap-3 mb-4">
           <Card>
             <CardContent className="py-4">
-              <div className="text-xs text-cream-faint">Recurring (MRR)</div>
+              <div className="text-xs text-cream-faint">Recurring contract value</div>
               <div className="text-xl text-cream font-semibold">
                 {formatCurrency(f.recurringMonthlyCents)}
               </div>
@@ -74,7 +79,7 @@ export default async function FinancialsReportPage() {
           </Card>
           <Card>
             <CardContent className="py-4">
-              <div className="text-xs text-cream-faint">Packages sold this month</div>
+              <div className="text-xs text-cream-faint">Package contract value started this month</div>
               <div className="text-xl text-cream font-semibold">
                 {formatCurrency(f.packageBookedThisMonthCents)}
               </div>
