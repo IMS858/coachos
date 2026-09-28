@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: ims_test_only
           POSTGRES_DB: ims_ci
@@ -28,18 +28,25 @@ jobs:
       IMS_TEST_DATABASE_URL: postgresql://postgres:ims_test_only@127.0.0.1:5432/ims_ci
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Package exact checked-out source for verification
-        run: git archive --format=tar.gz -o "$RUNNER_TEMP/coachos-source.tar.gz" HEAD
+        run: |
+          git rev-parse HEAD > "$RUNNER_TEMP/checked-sha.txt"
+          git archive --format=tar.gz -o "$RUNNER_TEMP/coachos-source.tar.gz" HEAD
       - uses: actions/upload-artifact@v4
         with:
           name: checked-source-${{ github.event_name }}
-          path: ${{ runner.temp }}/coachos-source.tar.gz
+          path: |
+            ${{ runner.temp }}/coachos-source.tar.gz
+            ${{ runner.temp }}/checked-sha.txt
           retention-days: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+        id: dependencies
       - name: Registry-backed production dependency security audit
         run: npm audit --omit=dev --audit-level=high
       - name: Parse every source and test file
@@ -49,14 +56,33 @@ jobs:
       - name: Lint
         run: npm run lint -- --max-warnings 0
       - name: Production build and TypeScript validation
-        run: npm run build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee "$RUNNER_TEMP/build-diagnostics.txt"
       - name: Standalone TypeScript validation
-        run: npm run typecheck
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck -- --pretty false 2>&1 | tee "$RUNNER_TEMP/typecheck-diagnostics.txt"
+      - name: Preserve compiler diagnostics and source identity
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiler-diagnostics-${{ github.event_name }}
+          path: |
+            ${{ runner.temp }}/checked-sha.txt
+            ${{ runner.temp }}/build-diagnostics.txt
+            ${{ runner.temp }}/typecheck-diagnostics.txt
+          retention-days: 2
   native-source:
     runs-on: macos-15
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Typecheck all iOS sources against the Apple Simulator SDK
         shell: bash
         run: |
