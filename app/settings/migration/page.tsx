@@ -47,9 +47,9 @@ export default async function MigrationCenter({searchParams}: {searchParams: Pro
   if (batch && records.length) {
     try {
       const recordIds = new Set(records.map(row => row.id));
-      const reviews = await readCompleteEvidence<{record_id:string;record_type:string;source_hash:string;revision:number;decision:string}>(
+      const reviews = await readCompleteEvidence<{id:string;record_id:string;record_type:string;source_hash:string;revision:number;decision:string}>(
         (start, end) => db.from("migration_latest_record_reviews")
-          .select("record_id,record_type,source_hash,revision,decision", {count:"exact"})
+          .select("id:record_id,record_id,record_type,source_hash,revision,decision", {count:"exact"})
           .order("record_id").range(start,end)
       );
       reviewSummary = cutoverReadiness(records, reviews.filter(row => recordIds.has(row.record_id)) as any);
