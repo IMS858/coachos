@@ -1,3 +1,4 @@
+import { CoachingBuildActions } from "@/components/coaching/build-actions";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarPlus, MessageCircle, CreditCard, ClipboardList, Dumbbell } from "lucide-react";
@@ -53,8 +54,9 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
       <Link href={`/clients/${id}/fuel`} className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Fuel &amp; Performance</span></Link>
       <Link href={`/messages/${id}`} className={actionClass}><MessageCircle aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Message client</span></Link>
       {viewerProfile.role === "owner" && <Link href={`/checkout?client_id=${id}`} className={actionClass}><CreditCard aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Client checkout</span></Link>}
-      <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Manage plans</span></Link>
+      <Link href="#client-plans" className={actionClass}><ClipboardList aria-hidden="true" className="h-5 w-5 text-sky" /><span className="text-sm font-semibold text-cream">Memberships &amp; packages</span></Link>
     </nav><div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-divider bg-surface-soft p-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-cream-faint">Training package</p><p className="mt-1 text-sm font-semibold text-cream">{packageBalanceLabel(packageEvidence)}</p></div><Link href={"/schedule?date="+todayPt+"&trainer="+user.id} className="inline-flex min-h-11 items-center rounded-xl border border-divider bg-white px-4 text-sm font-semibold text-sky">Coach calendar →</Link></div></section>
+    <CoachingBuildActions clientId={id}/>
     <ClientCoachBrief clientId={id}/>
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={{...profileRow, email: profileRow.email ?? ""}} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>

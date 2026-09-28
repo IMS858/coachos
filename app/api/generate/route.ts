@@ -1,4 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import {fourWeekStructureIssues} from "@/lib/programs/four-week-integrity";
+import {smallJson} from "@/lib/media/request";
+import {generationRequestSchema,generationIdentity,sameGenerationIdentity} from "@/lib/coaching/generation-request";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { generatorEndpoint } from "@/lib/programs/generator-endpoint";
 import { approvedDeviceEvidence } from "@/lib/devices/approved-evidence";
@@ -155,44 +158,43 @@ function mapStrength(baseline: any, constraints: string[]): { markers: string[];
 }
 
 export async function POST(request: NextRequest) {
+  if(request.headers.get("origin")!==request.nextUrl.origin)return NextResponse.json({error:"Invalid request origin"},{status:403});
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!me || !["owner", "trainer"].includes(me.role)) {
-    return NextResponse.json({ error: "Staff only" }, { status: 403 });
+  const meResult = await supabase.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();
+  if(meResult.error)return NextResponse.json({error:"Staff authorization unavailable"},{status:503});
+  const me=meResult.data;
+  if(!me||me.deleted_at||!["owner","trainer"].includes(me.role))return NextResponse.json({error:"Active staff only"},{status:403});
+  let input:unknown;try{input=await smallJson(request,16384);}catch{return NextResponse.json({error:"Invalid generation request"},{status:400});}
+  const parsed=generationRequestSchema.safeParse(input);
+  if(!parsed.success)return NextResponse.json({error:"Invalid generation request",detail:parsed.error.issues[0]?.message},{status:400});
+  const body=parsed.data,assessmentId=body.assessment_id,pdfMode=body.pdf_mode??"client",workflow=body.response_format==="json",identity=generationIdentity(body);
+  // Caller-scoped assessment and assignment checks happen before elevated storage or external processing.
+  const assessmentResult=await supabase.from("assessments").select("id,client_id,status,updated_at,data").eq("id",assessmentId).maybeSingle();
+  if(assessmentResult.error)return NextResponse.json({error:"Assessment unavailable"},{status:503});
+  const assessment=assessmentResult.data;
+  if(!assessment||workflow&&assessment.client_id!==body.client_id)return NextResponse.json({error:"Assessment not found"},{status:404});
+  const [subject,person]=await Promise.all([
+    supabase.from("clients").select("id,primary_trainer_id").eq("id",assessment.client_id).maybeSingle(),
+    supabase.from("profiles").select("id,full_name,role,deleted_at").eq("id",assessment.client_id).maybeSingle(),
+  ]);
+  if(subject.error||person.error)return NextResponse.json({error:"Client authorization unavailable"},{status:503});
+  if(!subject.data||!person.data||person.data.deleted_at||person.data.role!=="client"||me.role!=="owner"&&subject.data.primary_trainer_id!==user.id)return NextResponse.json({error:"Assigned coach or owner required"},{status:403});
+  const clientProfile=person.data;
+  async function existingDraft(){
+    if(!workflow)return null;
+    const prior=await supabase.from("programs").select("id,client_id,trainer_id,status,data,pdf_client_url,pdf_coach_url").eq("id",body.request_id!).maybeSingle();
+    if(prior.error)return NextResponse.json({error:"Generation receipt unavailable. Retry the same request."},{status:503});
+    if(!prior.data)return null;
+    if(prior.data.status!=="draft")return NextResponse.json({error:"This request already belongs to a non-draft program. Open the saved program instead."},{status:409});
+    if(prior.data.client_id!==assessment!.client_id||prior.data.trainer_id!==user!.id||!sameGenerationIdentity(prior.data.data?.generation_request,identity))return NextResponse.json({error:"Request ID belongs to different saved work. Open the existing program; do not reuse this ID."},{status:409});
+    return NextResponse.json({request_id:body.request_id,program_id:prior.data.id,client_id:assessment!.client_id,state:(pdfMode==="coach"?prior.data.pdf_coach_url:prior.data.pdf_client_url)?"draft_saved":"needs_pdf_review"},{headers:{"Cache-Control":"private, no-store"}});
   }
-
-  const body = await request.json().catch(() => ({}));
-  const assessmentId = body.assessment_id;
-  const pdfMode = body.pdf_mode === "coach" ? "coach" : "client";
-  if (!assessmentId) {
-    return NextResponse.json({ error: "assessment_id required" }, { status: 400 });
-  }
-
-  // Use the caller-scoped client to enforce assessment RLS; never fetch an
-  // arbitrary assessment through service-role privileges from a supplied ID.
-  const svc = createServiceClient();
-  const { data: assessment } = await supabase
-    .from("assessments")
-    .select("id, client_id, data")
-    .eq("id", assessmentId)
-    .maybeSingle();
-  if (!assessment) {
-    return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
-  }
-
-  const { data: clientProfile } = await svc
-    .from("profiles")
-    .select("full_name")
-    .eq("id", assessment.client_id)
-    .maybeSingle();
-
+  const existing=await existingDraft();if(existing)return existing;
+  if(workflow&&(assessment.status!=="complete"||assessment.updated_at!==body.expected_assessment_updated_at))return NextResponse.json({error:"Assessment changed or is incomplete. Refresh and review it before generation."},{status:409});
+  const svc=createServiceClient();
   const a = (assessment.data as any) ?? {};
   const { data: privateEvidence, error: privateEvidenceError } = await supabase
     .from("assessment_device_evidence").select("device_measurements,voltra_sessions")
@@ -209,7 +211,7 @@ export async function POST(request: NextRequest) {
   const summary = a.summary ?? {};
   const client = a.client ?? {};
 
-  const rawFrequency = Number(summary.recommended_sessions_per_week || goals.target_sessions_per_week || 3);
+  const rawFrequency = workflow ? body.sessions_per_week! : Number(summary.recommended_sessions_per_week || goals.target_sessions_per_week || 3);
   const sessionsPerWeek = Number.isInteger(rawFrequency) && rawFrequency >= 1 && rawFrequency <= 5
     ? rawFrequency : 3;
   const { constraints, concerns, concernNotes } = mapConstraints(a);
@@ -256,9 +258,9 @@ export async function POST(request: NextRequest) {
 
   // Build body comp for nutrition calculation
   const bc: Record<string, string> = {};
-  if (bodyComp.weight_lbs) bc.weight = `${bodyComp.weight_lbs} lbs`;
-  if (bodyComp.body_fat_pct) bc.body_fat = `${bodyComp.body_fat_pct}%`;
-  if (bodyComp.lean_mass_lbs) bc.lean_mass = `${bodyComp.lean_mass_lbs} lbs`;
+  if (!workflow && bodyComp.weight_lbs) bc.weight = `${bodyComp.weight_lbs} lbs`;
+  if (!workflow && bodyComp.body_fat_pct) bc.body_fat = `${bodyComp.body_fat_pct}%`;
+  if (!workflow && bodyComp.lean_mass_lbs) bc.lean_mass = `${bodyComp.lean_mass_lbs} lbs`;
 
   // Translate to program-generator format
   const generatorPayload = {
@@ -267,7 +269,7 @@ export async function POST(request: NextRequest) {
     sex: client.sex || "",
     background: bgParts.join(". ") || "",
     ...recommendedTrainingDays(sessionsPerWeek),
-    primary_goal: goals.primary || "General strength and movement quality",
+    primary_goal: workflow ? body.goal! : goals.primary || "General strength and movement quality",
     fra_priorities: fraPriorities,
     mobility_map: mobilityMap,
     strength_markers: strengthMarkers,
@@ -304,8 +306,8 @@ export async function POST(request: NextRequest) {
       Number.isFinite(parseInt(conditioning.hrr_one_min_hr, 10))
         ? parseInt(conditioning.hrr_end_hr, 10) - parseInt(conditioning.hrr_one_min_hr, 10)
         : null,
-    body_comp_method: bodyComp.method || "",
-    body_comp_tested_on: bodyComp.tested_on || "",
+    body_comp_method: workflow ? "" : bodyComp.method || "",
+    body_comp_tested_on: workflow ? "" : bodyComp.tested_on || "",
     assessment_date: client.assessment_date || "",
     posture: a.posture ?? {},
     pain_map: a.pain_map ?? {},
@@ -368,10 +370,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Generator version mismatch: structured response required" }, { status: 502 });
     }
     const result = await res.json().catch(() => null);
-    if (!result || typeof result.program !== "object" || Array.isArray(result.program)
+    if (!result || !result.program || typeof result.program !== "object" || Array.isArray(result.program)
       || typeof result.pdf_base64 !== "string" || result.pdf_base64.length > 7_000_000) {
       return NextResponse.json({ error: "Generator returned an incomplete or oversized plan" }, { status: 502 });
     }
+    if(workflow&&fourWeekStructureIssues(result.program).length)return NextResponse.json({error:"Generator returned an incomplete training structure; no draft was saved."},{status:502});
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(result.pdf_base64)) {
       return NextResponse.json({ error: "Generator returned an invalid PDF encoding" }, { status: 502 });
     }
@@ -379,11 +382,21 @@ export async function POST(request: NextRequest) {
     if (pdfBuffer.byteLength < 5 || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
       return NextResponse.json({ error: "Generator returned an invalid PDF" }, { status: 502 });
     }
+    const [currentActor,currentSubject,currentPerson,currentAssessment]=await Promise.all([
+      supabase.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle(),
+      supabase.from("clients").select("id,primary_trainer_id").eq("id",assessment.client_id).maybeSingle(),
+      supabase.from("profiles").select("role,deleted_at").eq("id",assessment.client_id).maybeSingle(),
+      supabase.from("assessments").select("id,client_id,updated_at").eq("id",assessment.id).maybeSingle(),
+    ]);
+    if(currentActor.error||currentSubject.error||currentPerson.error||currentAssessment.error)return NextResponse.json({error:"Generation authorization could not be rechecked. Retry the same request."},{status:503});
+    if(!currentActor.data||currentActor.data.deleted_at||!["owner","trainer"].includes(currentActor.data.role)||!currentSubject.data||!currentPerson.data||currentPerson.data.deleted_at||currentPerson.data.role!=="client"||currentActor.data.role!=="owner"&&currentSubject.data.primary_trainer_id!==user.id)return NextResponse.json({error:"Generation authorization changed; nothing saved."},{status:403});
+    if(!currentAssessment.data||currentAssessment.data.client_id!==assessment.client_id||currentAssessment.data.updated_at!==assessment.updated_at)return NextResponse.json({error:"Assessment changed during generation. Refresh before retrying."},{status:409});
     // Store structured plan metadata first. The PDF goes into private storage,
     // never into JSONB where it bloats reads and risks accidental exposure.
     const { data: program, error: saveError } = await svc
       .from("programs")
       .insert({
+        ...(workflow?{id:body.request_id}:{}),
         client_id: assessment.client_id,
         assessment_id: assessment.id,
         trainer_id: user.id,
@@ -395,6 +408,7 @@ export async function POST(request: NextRequest) {
         request_payload: generatorPayload,
         data: {
           source: "ims_generator",
+          ...(workflow?{generation_request:identity}:{}),
           structured_program: result.program,
           generator_version: result.generator_version,
           contract_version: result.contract_version,
@@ -411,6 +425,7 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single();
     if (saveError || !program) {
+      if(workflow&&saveError?.code==="23505"){const raced=await existingDraft();if(raced)return raced;}
       console.error("[generate] could not save draft", saveError?.code);
       return NextResponse.json({ error: "PDF generated but could not save the program draft. Please retry." }, { status: 500 });
     }
@@ -419,6 +434,8 @@ export async function POST(request: NextRequest) {
     const { error: uploadError } = await svc.storage.from("ims-program-pdfs")
       .upload(pdfPath, pdfBuffer, { contentType: "application/pdf", upsert: false });
     if (uploadError) {
+      // Preserve the request identity and structured draft for explicit PDF recovery.
+      if(workflow)return NextResponse.json({request_id:body.request_id,program_id:program.id,client_id:assessment.client_id,state:"needs_pdf_review"},{headers:{"Cache-Control":"private, no-store"}});
       await svc.from("programs").delete().eq("id", program.id);
       console.error("[generate] private PDF upload failed", uploadError.name);
       return NextResponse.json({ error: "Could not securely store the generated PDF. Retry generation." }, { status: 502 });
@@ -428,10 +445,12 @@ export async function POST(request: NextRequest) {
         pdf_coach_url: pdfMode === "coach" ? pdfPath : null })
       .eq("id", program.id);
     if (linkError) {
+      if(workflow)return NextResponse.json({request_id:body.request_id,program_id:program.id,client_id:assessment.client_id,state:"needs_pdf_review"},{headers:{"Cache-Control":"private, no-store"}});
       await svc.storage.from("ims-program-pdfs").remove([pdfPath]);
       await svc.from("programs").delete().eq("id", program.id);
       return NextResponse.json({ error: "Could not link the private PDF. Retry generation." }, { status: 502 });
     }
+    if(workflow)return NextResponse.json({request_id:body.request_id,program_id:program.id,client_id:assessment.client_id,state:"draft_saved"},{headers:{"Cache-Control":"private, no-store"}});
     // Return the PDF directly for download
     const safeName = (clientProfile?.full_name ?? "client").toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     return new NextResponse(pdfBuffer, {

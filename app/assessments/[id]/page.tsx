@@ -1,3 +1,4 @@
+import { CoachingBuildActions } from "@/components/coaching/build-actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -12,7 +13,7 @@ import {
   emptyAssessment,
   type AssessmentData,
 } from "@/components/assessments/assessment-data";
-import { GenerateProgramButton } from "@/components/programs/generate-program-button";
+
 
 export const dynamic = "force-dynamic";
 
@@ -131,12 +132,11 @@ export default async function AssessmentPage({
           <Badge tone={STATUS_TONE[row.status] ?? "neutral"}>
             {String(row.status).replace("_", " ")}
           </Badge>
-          <div className="ml-auto">
-            <GenerateProgramButton assessmentId={row.id} />
-          </div>
+
         </div>
 
 
+        <CoachingBuildActions clientId={row.client_id} assessmentId={row.id}/>
         <AssessmentWizard
           assessmentId={row.id}
           clientId={row.client_id}

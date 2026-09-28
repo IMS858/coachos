@@ -1,7 +1,7 @@
 import {FUEL_UUID, type PlanVersion} from "./model";
-export type AdjustmentContext = {clientId: string; entryId: string; current: PlanVersion | null; latest: PlanVersion | null};
+export type AdjustmentContext = {clientId: string; entryId: string; current: PlanVersion | null; latest: PlanVersion | null; evidenceKind?: "checkin" | "body_comp"};
 /** Reuse a newer draft instead of overwriting it or repeatedly copying an older release. */
-export function fuelAdjustmentState({clientId, entryId, current, latest}: AdjustmentContext) {
+export function fuelAdjustmentState({clientId, entryId, current, latest, evidenceKind = "checkin"}: AdjustmentContext) {
   if (!FUEL_UUID.test(clientId) || !FUEL_UUID.test(entryId) || !current || !latest
     || !FUEL_UUID.test(current.id) || !FUEL_UUID.test(latest.id)
     || !["coach_authored", "source_transcription", "ai_proposed"].includes(current.origin)
@@ -15,7 +15,7 @@ export function fuelAdjustmentState({clientId, entryId, current, latest}: Adjust
   if (latest.id !== current.id) return {kind: "existing_draft" as const, revision: latest.revision};
   return {kind: "ready" as const, expectedRevision: latest.revision, nextRevision: latest.revision + 1,
     // Structural provenance only. Never place private rationale in a potentially released source_reference.
-    sourceReference: "checkin:" + entryId + "; base_version:" + current.id + "; origin:" + current.origin};
+    sourceReference: evidenceKind + ":" + entryId + "; base_version:" + current.id + "; origin:" + current.origin};
 }
 export function fuelAdjustmentDraft(context: AdjustmentContext, requestId: string) {
   const state = fuelAdjustmentState(context);

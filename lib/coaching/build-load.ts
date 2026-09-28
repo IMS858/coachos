@@ -1,0 +1,19 @@
+import type {createClient} from "@/lib/supabase/server";
+import {readCompleteEvidence} from "@/lib/migration/complete-read";
+import {fuelDate,shiftDate,FUEL_UUID,type BodyComp,type PlanVersion,type Release} from "@/lib/fuel/model";
+import type {BuildAssessment,BuildEvidence} from "./build";
+
+/** Called only after active staff and assigned-client authorization. Every read remains caller-scoped. */
+export async function loadBuildEvidence(db:Awaited<ReturnType<typeof createClient>>,clientId:string,name:string,assessmentId?:string,now=new Date()):Promise<BuildEvidence>{
+  if(!FUEL_UUID.test(clientId)||(assessmentId!==undefined&&!FUEL_UUID.test(assessmentId)))throw Error("Invalid coaching identity.");
+  const asOf=fuelDate(now),unavailable:string[]=[];
+  async function section<T>(label:string,load:()=>Promise<T>,fallback:T):Promise<T>{try{return await load();}catch{unavailable.push(label);return fallback;}}
+  const [body,assessment,fuel,upcoming,performance]=await Promise.all([
+    section<BodyComp[]>("Body composition",async()=>readCompleteEvidence<BodyComp>((a,b)=>db.from("body_comp_records").select("id,recorded_at,weight_lb,body_fat_pct,lean_mass_lb,method",{count:"exact"}).eq("client_id",clientId).order("id").range(a,b)),[]),
+    section<BuildAssessment|null>("Assessment",async()=>{let q=db.from("assessments").select("id,client_id,assessment_date,updated_at,status,data").eq("client_id",clientId);q=assessmentId?q.eq("id",assessmentId):q.lte("assessment_date",asOf).order("assessment_date",{ascending:false}).order("updated_at",{ascending:false}).limit(1);const r=await q.maybeSingle();if(r.error||assessmentId&&!r.data)throw Error("Assessment unavailable");if(r.data&&(r.data.client_id!==clientId||r.data.assessment_date>asOf))throw Error("Assessment context mismatch");return r.data as BuildAssessment|null;},null),
+    section<{latest:PlanVersion|null;release:Release|null}>("Fuel versions",async()=>{const [v,r]=await Promise.all([db.from("fuel_plan_versions").select("id,client_id,revision,content,origin,source_reference,created_at").eq("client_id",clientId).order("revision",{ascending:false}).limit(1).maybeSingle(),db.from("fuel_plan_releases").select("id,client_id,version_id,sequence,reason,created_at").eq("client_id",clientId).order("sequence",{ascending:false}).limit(1).maybeSingle()]);if(v.error||r.error||v.data&&v.data.client_id!==clientId||r.data&&r.data.client_id!==clientId)throw Error("Fuel versions unavailable");return {latest:v.data as PlanVersion|null,release:r.data as Release|null};},{latest:null,release:null}),
+    section<BuildEvidence["upcoming"]>("Upcoming schedule",async()=>{const r=await db.from("sessions").select("id,scheduled_at,status,session_type").eq("client_id",clientId).in("status",["scheduled","confirmed"]).gte("scheduled_at",now.toISOString()).lt("scheduled_at",shiftDate(asOf,15)+"T00:00:00Z").order("scheduled_at").limit(30);if(r.error)throw Error("Schedule unavailable");return r.data??[];},[]),
+    section<BuildEvidence["performance"]>("Performed exercise history",async()=>{const s=await db.from("sessions").select("id").eq("client_id",clientId).eq("status","completed").lte("scheduled_at",now.toISOString()).order("scheduled_at",{ascending:false}).limit(30);if(s.error)throw Error("Session evidence unavailable");const ids=(s.data??[]).map(row=>row.id);if(!ids.length)return [];const r=await db.from("session_exercise_performance").select("exercise_name,performed_at,load_performed,reps_completed,rpe_actual").eq("client_id",clientId).in("session_id",ids).lte("performed_at",now.toISOString()).order("performed_at",{ascending:false}).limit(12);if(r.error)throw Error("Performance unavailable");return (r.data??[]) as BuildEvidence["performance"];},[]),
+  ]);
+  return {clientId,name,asOf,capturedAt:now.toISOString(),body,assessment,...fuel,upcoming,performance,unavailable};
+}

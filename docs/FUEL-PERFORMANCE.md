@@ -39,3 +39,42 @@ New tables are select-only through RLS; commands append records, receipts and au
 Tests execute real TypeScript/model logic, the actual route handlers and mutation hook, and both SQL migrations against isolated synthetic PostgreSQL. Source tests include broad-policy storage isolation, source byte preservation, registration rollback, identical orphan recovery, changed-file rejection and privilege checks. These are not authenticated physical iPhone or production schema acceptance.
 
 Before client use: host-schema compatibility/rehearsal, apply reviewed migrations, one integrated preview, owner/assigned coach/unrelated coach/two-client auth acceptance, real iPhone/Safari upload and Print/Save PDF checks, and individualized plan review. Existing database-reproduction and calendar-data-migration blockers remain separate and unresolved by this module.
+
+## Client-first authoring — September 28 continuation
+
+Client Profile and Assessment now expose **Build Training / Build Fuel / Build Both**.
+`/clients/[id]/build` loads the authorized client's evidence; no plan picker, account creation,
+package adjustment or billing operation is involved. The three approaches are **Quick Start**,
+**Bod Pod Build**, and **Full Performance**. Quick Start does not require testing. Bod Pod Build
+requires an actual nonfuture Bod Pod record and never substitutes home BIA. Full Performance
+requires an assessment; exercise generation additionally requires a complete, unchanged assessment
+and explicitly confirmed 1–5 training days. A missing booking is never inferred to be rest.
+
+The Fuel output is a deterministic, editable **habit-led strategy scaffold**, NOT an LLM nutrition
+prescription. It incorporates the coach-confirmed goal, training frequency, optional food preferences,
+meal ideas, grocery/prep list and review date. Numeric targets are blank until coach-entered in the
+existing editor. Baseline and assessment IDs are linked in structural source references; private
+health/restriction notes are not copied into client-visible content. No automatic PDF extraction or
+measured-RMR claim is added. Existing private versions are continued, not silently replaced.
+
+**Build Both** coordinates two deliverables but is not one atomic transaction: training generation
+saves a private training draft; Fuel is first an explicitly UNSAVED PREVIEW, then separately saved
+through the existing transactional Fuel command. The screen shows each outcome independently and
+cannot release either. A lost training response retains the same request ID; the program primary key
+prevents duplicate destination programs. A partial PDF failure preserves the structured draft and
+returns `needs_pdf_review` instead of silently deleting and re-generating. Training rechecks active
+staff, assignment, client status and the assessment snapshot after the external operation. The
+client-first request does not send body-composition values for the legacy generator's nutrition math;
+its output is not imported as a Fuel Strategy. Existing exercise approval/publication gates remain.
+
+`/fuel/sample` is staff-only and display-only: no client query, fake measurement, save, import,
+assignment or publish path. It illustrates the finished strategy layout and an unassigned meal
+planning framework. Actual Bod Pod saves offer a direct build action. A Bod Pod/retest adjustment
+uses the existing immutable copy/review/release workflow; current targets and source/AI origin are
+preserved and never automatically adjusted. User-facing labels distinguish **Training Program**,
+**Fuel Strategy**, and **Memberships & packages**; persisted API/schema names remain compatible.
+
+No new hosted database migration is required. Source parsing, behavioral/authorization/receipt tests,
+ESLint, standalone TypeScript, production build and native simulator compile/link remain release
+gates. CI is not a substitute for authenticated iPhone/Safari and real generator acceptance. This
+implementation does not create real Fuel strategies, measurements or client releases during QA.
