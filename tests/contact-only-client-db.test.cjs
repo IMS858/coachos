@@ -52,7 +52,7 @@ before(async()=>{
 after(async()=>{await db?.close();if(admin){try{if(databaseName)await admin.query('drop database "'+databaseName+'"');}finally{await admin.end();}}});
 async function raw(sql,p=[]){await db.exec('reset role');return(await db.query(sql,p)).rows;}
 async function role(id=ids.owner,as='authenticated'){await db.exec('reset role;set role '+as);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);}
-async function source(email){const id=randomUUID(),batch=randomUUID(),sourceId='source-'+id,calendar='calendar-'+id,name='Source Client '+id,phone='800555'+(++phoneSequence),date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);email??=id+'@example.test';
+async function source(email,nameOverride){const id=randomUUID(),batch=randomUUID(),sourceId='source-'+id,calendar='calendar-'+id,name=nameOverride??('Source Client '+id),phone='800555'+(++phoneSequence),date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);email??=id+'@example.test';
  await raw("insert into migration_batches(id,source_system,label,created_by) values($1,'vagaro','Synthetic identity batch',$2)",[batch,ids.owner]);
  await raw("insert into migration_records(id,batch_id,record_type,source_id,source_payload,source_hash) values($1,$2,'client',$3,$4,$5)",[id,batch,sourceId,JSON.stringify({fields:{'Source Name':name,Email:email,Phones:'Cell Phone\n'+phone+'\nDay Phone\n---'}}),hash]);
  for(const imported of [false,true]){const event=randomUUID();await raw("insert into migration_records(batch_id,record_type,source_id,source_parent_id,source_payload,source_hash,reconciliation_status,destination_id,destination_trainer_id) values($1,'appointment',$2,$3,$4,$5,$6,$7,$8)",[batch,event,imported?'witness':sourceId,JSON.stringify({fields:{'Calendar ID':calendar,'Raw date':date}}),hash,imported?'imported':'unmatched',imported?ids.client:null,imported?ids.trainer:null]);
@@ -123,6 +123,7 @@ test('changed source, stale manifest, changed coverage and explicit holds cannot
  await raw('delete from migration_latest_record_reviews where record_id=$1',[s.id]);await raw("update migration_batches set expected_counts=jsonb_set(expected_counts,'{appointment}','3') where id=$1",[s.batch]);await role();await assert.rejects(importContact(s),e=>e.code==='40001');
 });
 test('identical full names and existing portal reservations are not silently duplicated',async()=>{
- const s=await source();await raw("update migration_records set source_payload=jsonb_set(source_payload,'{fields,Source Name}',to_jsonb('Existing Client'::text)) where id=$1",[s.id]);await role();await assert.rejects(importContact(s),e=>e.code==='23514');
+ // Establish the duplicate name before approval; do not invalidate the source hash.
+ const s=await source(undefined,'Existing Client');await role();await assert.rejects(importContact(s),e=>e.code==='23514');
  const reserved=await source();await raw('insert into migration_client_identity_receipts values($1)',[reserved.id]);await role();await assert.rejects(importContact(reserved),e=>e.code==='40001');
 });
