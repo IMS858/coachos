@@ -16,7 +16,11 @@ export function clientUsageSurface(pathname:string):ClientUsageSurface{
  if(p.startsWith("/account"))return "account";
  return "other";
 }
+/** Best-effort telemetry only. It must never join or alter a business-action fetch. */
 export function recordClientUsage(event:ClientUsageEvent,surface:ClientUsageSurface){
- if(typeof window==="undefined"||typeof crypto==="undefined"||typeof crypto.randomUUID!=="function")return;
- void fetch("/api/events",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({request_id:crypto.randomUUID(),event,surface}),keepalive:true}).catch(()=>{});
+ if(typeof window==="undefined"||typeof navigator==="undefined"||typeof navigator.sendBeacon!=="function"||typeof crypto==="undefined"||typeof crypto.randomUUID!=="function")return false;
+ try{
+  const payload=new Blob([JSON.stringify({request_id:crypto.randomUUID(),event,surface})],{type:"application/json"});
+  return navigator.sendBeacon("/api/events",payload);
+ }catch{return false;}
 }

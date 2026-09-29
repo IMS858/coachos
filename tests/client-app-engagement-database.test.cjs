@@ -7,6 +7,7 @@ test("client app engagement is idempotent, metadata-free and scoped to owner/pri
  create function public.is_owner() returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.profiles where id=auth.uid() and role='owner' and deleted_at is null)$$;
  create table public.app_events(id bigserial primary key,user_id uuid references public.profiles(id),role text,event text not null,path text,meta jsonb,created_at timestamptz not null default now());
  alter table public.app_events enable row level security;create policy app_events_insert_self on public.app_events for insert to authenticated with check(user_id=auth.uid());create policy app_events_owner_read on public.app_events for select to authenticated using(public.is_owner());
+ grant select on public.profiles,public.clients to authenticated,service_role;
  grant all on public.app_events to anon,authenticated,service_role;grant usage,select on sequence public.app_events_id_seq to authenticated,service_role;
  insert into public.profiles values
  ('${owner}','o@example.invalid','Owner','owner',null,false,'${owner}'),
