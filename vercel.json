@@ -1,38 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "git": {
-    "deploymentEnabled": {
-      "release/ims-unified-2026-09": false
-    }
-  },
+  "git": { "deploymentEnabled": { "release/ims-unified-2026-09": false } },
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "installCommand": "npm ci",
-  "functions": {
-    "app/api/generate/route.ts": {
-      "maxDuration": 60
-    }
-  },
+  "functions": { "app/api/generate/route.ts": { "maxDuration": 60 } },
   "crons": [
-    {
-      "path": "/api/cron/low-balance",
-      "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron/recurring",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/session-reminders",
-      "schedule": "0 16 * * *"
-    },
-    {
-      "path": "/api/cron/growth-research",
-      "schedule": "0 15 * * *"
-    }
+    { "path": "/api/cron/low-balance", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/recurring", "schedule": "0 14 * * *" },
+    { "path": "/api/cron/session-reminders", "schedule": "0 16 * * *" },
+    { "path": "/api/cron/growth-research", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/acquisition-sync", "schedule": "0 15 * * *" }
   ],
-  "env": {
-    "VERCEL_PREVIEW_FEEDBACK_ENABLED": "0"
-  }
+  "env": { "VERCEL_PREVIEW_FEEDBACK_ENABLED": "0" }
 }
