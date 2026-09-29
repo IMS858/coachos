@@ -2,7 +2,7 @@ import {researchInstructions,researchOutputJsonSchema,validateResearchOutput,typ
 const API='https://api.openai.com/v1/responses';
 const RESPONSE_ID=/^resp_[A-Za-z0-9_-]{1,160}$/;
 export function researchProviderReady(){return process.env.GROWTH_RESEARCH_ENABLED==='true'&&Boolean(process.env.GROWTH_RESEARCH_API_KEY);}
-export function researchModel(){return process.env.GROWTH_RESEARCH_MODEL||'gpt-5.4-mini';}
+export function researchModel(){return process.env.GROWTH_RESEARCH_MODEL||'gpt-5.6-terra';}
 async function boundedJson(response:Response){if(!response.ok)throw Error('provider_unavailable');if(!response.body)throw Error('provider_empty');const reader=response.body.getReader();let size=0;const parts:Uint8Array[]=[];try{for(;;){const x=await reader.read();if(x.done)break;size+=x.value.byteLength;if(size>1000000){await reader.cancel();throw Error('provider_oversized');}parts.push(x.value);}}finally{reader.releaseLock();}return JSON.parse(Buffer.concat(parts).toString('utf8')) as Record<string,any>;}
 /** Only fixed OpenAI endpoints. No client records, consumer contacts or business private notes enter this request. */
 export async function beginResearch(config:ResearchSettings,excluded:string[],today:string){
