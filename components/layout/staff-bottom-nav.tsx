@@ -7,7 +7,7 @@ import {cn} from '@/lib/utils';
 import {activeWorkspace,navigationGroup,WORKSPACE_GROUPS} from '@/lib/navigation/workspaces';
 import type {UserRole} from '@/lib/types/database';
 const coreItems = [
- {href:'/dashboard',label:'Today',icon:LayoutDashboard},{href:'/clients',label:'Clients',icon:Users},{href:'/schedule',label:'Schedule',icon:CalendarDays},{href:'/action-center',label:'Actions',icon:ListChecks},
+ {href:'/dashboard',label:'Today',icon:LayoutDashboard},{href:'/clients',label:'Clients',icon:Users},{href:'/schedule',label:'Schedule',icon:CalendarDays},{href: "/action-center", label: "Actions", icon:ListChecks},
 ];
 const ownerMore = [
  {href:'/messages',label:'Communications',icon:MessageCircle},
