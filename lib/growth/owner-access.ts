@@ -1,0 +1,3 @@
+import {createClient} from '@/lib/supabase/server';
+export class GrowthAccessError extends Error{constructor(public status:number,message:string){super(message);}}
+export async function requireGrowthOwner(){const db=await createClient(),auth=await db.auth.getUser();if(auth.error||!auth.data.user)throw new GrowthAccessError(401,'Sign in required.');const actor=await db.from('profiles').select('id,role,deleted_at').eq('id',auth.data.user.id).maybeSingle();if(actor.error)throw new GrowthAccessError(503,'Owner authorization unavailable.');if(!actor.data||actor.data.deleted_at||actor.data.role!=='owner')throw new GrowthAccessError(403,'Active owner access required.');return {db,user:auth.data.user};}

@@ -1,0 +1,9 @@
+"use client";
+import {useRef,useState} from 'react';
+import {useRouter} from 'next/navigation';
+import {parseRelationshipCommand,validRelationshipReceipt,type RelationshipCommand} from '@/lib/leads/relationships';
+export function useRelationshipCommand(){const router=useRouter(),pending=useRef<RelationshipCommand|null>(null),lock=useRef(false),unclear=useRef(false),done=useRef(false);const [busy,setBusy]=useState(false),[uncertain,setUncertain]=useState(false),[error,setError]=useState<string|null>(null),[receipt,setReceipt]=useState<{id:string;updated_at:string}|null>(null);
+ async function send(c:RelationshipCommand){if(lock.current||done.current)return;lock.current=true;setBusy(true);setError(null);try{const response=await fetch('/api/relationships',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)}),r=await response.json().catch(()=>null);if(!response.ok){if(response.status>=500||unclear.current){unclear.current=true;setUncertain(true);}else pending.current=null;setError(r?.error??'Save unconfirmed.');return;}if(!validRelationshipReceipt(r,c)){unclear.current=true;setUncertain(true);setError('Incomplete receipt. Retry this exact save.');return;}pending.current=null;done.current=true;setUncertain(false);setReceipt({id:r.id,updated_at:r.updated_at});router.refresh();}catch{unclear.current=true;setUncertain(true);setError('Connection interrupted. Retry the preserved save; do not duplicate it.');}finally{lock.current=false;setBusy(false);}}
+ async function submit(value:unknown){if(lock.current||pending.current||done.current)return;let c;try{c=parseRelationshipCommand(value);}catch(e){setError(e instanceof Error&&!e.message.startsWith('[')?e.message:'Review the required fields.');return;}pending.current=c;await send(c);}
+ return {submit,retry:()=>pending.current?send(pending.current):Promise.resolve(),busy,uncertain,error,receipt,locked:busy||uncertain||Boolean(receipt)};
+}

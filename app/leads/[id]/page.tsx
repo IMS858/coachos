@@ -1,0 +1,9 @@
+import Link from 'next/link';
+import {notFound} from 'next/navigation';
+import {AppShell} from '@/components/layout/app-shell';
+import {requireGrowthOwner} from '@/lib/growth/owner-access';
+import {LEAD_COLUMNS} from '@/lib/leads/queries';
+import {leadBucket,sourceLabel,type LeadRecord} from '@/lib/leads/workspace';
+import {RelationshipWorkbench} from '@/components/leads/relationship-workbench';
+export const dynamic='force-dynamic';
+export default async function InquiryProfile({params}:{params:Promise<{id:string}>}){const {id}=await params,{db}=await requireGrowthOwner(),r=await db.from('leads').select(LEAD_COLUMNS).eq('id',id).maybeSingle();if(r.error)throw Error('Inquiry evidence unavailable.');if(!r.data||leadBucket(r.data)!=='pipeline')notFound();const lead=r.data as LeadRecord;return <AppShell expectedRole="owner"><main className="mx-auto max-w-5xl space-y-5 pb-16"><Link href="/leads" className="inline-flex min-h-11 items-center text-sm font-semibold text-sky">← New Business</Link><header className="rounded-3xl bg-band p-6 text-white"><p className="text-xs uppercase tracking-wider text-white/70">IMS / New Business</p><h1 className="mt-2 text-3xl font-bold">{lead.full_name}</h1><p className="mt-2 text-sm text-white/80">{sourceLabel(lead.source)} · {lead.stage.replaceAll('_',' ')}</p><p className="mt-3 text-sm text-white/75">{lead.interest??'Service interest not established'}</p></header><RelationshipWorkbench lead={lead}/><section className="rounded-2xl border border-divider bg-white p-5"><h2 className="font-semibold">Original source &amp; inquiry history</h2><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{lead.notes??'No original note supplied.'}</p><p className="mt-3 text-xs text-cream-faint">Created {lead.created_at}. Changing contact details does not rewrite this history.</p></section></main></AppShell>;}
