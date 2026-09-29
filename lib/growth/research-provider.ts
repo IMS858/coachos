@@ -11,6 +11,7 @@ export async function beginResearch(config:ResearchSettings,excluded:string[],to
 }
 export async function readResearch(id:string,cancel=false){if(!RESPONSE_ID.test(id))throw Error('invalid_provider_identity');if(!process.env.GROWTH_RESEARCH_API_KEY)throw Error('provider_not_configured');return boundedJson(await fetch(API+'/'+encodeURIComponent(id)+(cancel?'/cancel':'?include[]=web_search_call.action.sources'),{method:cancel?'POST':'GET',headers:{Authorization:`Bearer ${process.env.GROWTH_RESEARCH_API_KEY}`},cache:'no-store',signal:AbortSignal.timeout(18000)}));}
 export function researchResponseIdentity(value:Record<string,any>){if(!RESPONSE_ID.test(value.id))throw Error('invalid_provider_identity');return value.id as string;}
+export function safeProviderFailure(value:Record<string,any>){const code=typeof value.error?.code==='string'?value.error.code.toLowerCase():'';if(/quota|billing|credit/.test(code))return 'provider_billing_or_quota';if(/rate|limit/.test(code))return 'provider_rate_limit';if(/model|access|permission/.test(code))return 'provider_model_access';if(/invalid|request|parameter/.test(code))return 'provider_invalid_request';if(value.status==='incomplete')return 'provider_incomplete';return 'provider_failed';}
 export function completedResearch(response:Record<string,any>,config:ResearchSettings,today:string){
  if(response.status!=='completed'||!Array.isArray(response.output))throw Error('provider_incomplete');
  const urls:string[]=[],texts:string[]=[];let searchCalls=0;
