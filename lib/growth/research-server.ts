@@ -1,7 +1,7 @@
 import {createServiceClient,type createClient} from '@/lib/supabase/server';
 import {allCatalogPages} from '@/lib/exercises/catalog';
 import {researchEvidence} from './model';
-import {beginResearch,readResearch,completedResearch,researchResponseIdentity,researchProviderReady} from './research-provider';
+import {beginResearch,readResearch,completedResearch,researchResponseIdentity,researchProviderReady,safeProviderFailure} from './research-provider';
 import {DEFAULT_RESEARCH_SETTINGS,organizationDomain,type ResearchRun,type ResearchControl} from './research-engine';
 export type ResearchDb=Awaited<ReturnType<typeof createClient>>;
 export async function researchSnapshot(db:ResearchDb){
@@ -36,7 +36,7 @@ export async function pollResearch(db:ResearchDb,id:string,provided?:Record<stri
  else if(response.status==='completed'){
   let result;try{result=completedResearch(response,run.config,new Date().toISOString().slice(0,10));}catch{await record(svc,run,'failed',run.response_id,{},'unusable_source_evidence');return runRecord(db,id);}
   await record(svc,run,'completed',run.response_id,result);
- }else if(['failed','incomplete','cancelled'].includes(response.status)){await record(svc,run,response.status==='cancelled'?'cancelled':'failed',run.response_id,{},'provider_'+response.status);}
+ }else if(['failed','incomplete','cancelled'].includes(response.status)){await record(svc,run,response.status==='cancelled'?'cancelled':'failed',run.response_id,{},response.status==='cancelled'?'owner_cancelled':safeProviderFailure(response));}
  else if(!['queued','in_progress'].includes(response.status))throw Error('Unknown provider state. Refresh this run without starting another.');
  return runRecord(db,id);
 }
