@@ -5,6 +5,7 @@ import { Loader2, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {recordClientUsage} from "@/lib/usage/client-event";
 
 type Message = {
   id: string;
@@ -106,6 +107,7 @@ export function MessageThread({
     // A new message makes this conversation active again if staff had cleared it.
     void fetch(`/api/messages/${clientId}/archive`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: false }) }).catch(() => {});
     void fetch("/api/messages/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message_id: data?.id }) }).catch(() => {});
+    recordClientUsage("message","messages");
     // Append optimistically (realtime may also deliver it; de-duped by id)
     if (data) {
       setMessages((prev) =>

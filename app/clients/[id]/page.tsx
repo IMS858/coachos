@@ -11,6 +11,7 @@ import { ClientProgramLink } from "@/components/clients/client-program-link";
 import { ClientExerciseSets } from "@/components/clients/client-exercise-sets";
 import { ClientProgrammingStatus } from "@/components/clients/client-programming-status";
 import { ClientEvidenceSummary } from "@/components/clients/client-evidence-summary";
+import {ClientAppEngagement} from "@/components/clients/client-app-engagement";
 import { ClientCoachBrief } from "@/components/clients/client-coach-brief";
 import { ClientCoachingTimeline } from "@/components/clients/client-coaching-timeline";
 import { ClientPerformanceTrends } from "@/components/clients/client-performance-trends";
@@ -61,6 +62,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     <section id="client-plans" className="flex scroll-mt-24 flex-col gap-6" aria-label="Client profile and plans"><ClientEditor clientId={id} initialProfile={{...profileRow, email: profileRow.email ?? ""}} initialPlans={plans ?? []}/></section>
     <ClientProgrammingStatus clientId={id}/>
     <ClientEvidenceSummary clientId={id}/>
+    <ClientAppEngagement clientId={id}/>
     <ClientCoachingTimeline clientId={id}/>
     <ClientPerformanceTrends clientId={id}/>
     <ClientExerciseSets clientId={id}/>

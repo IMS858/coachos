@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Play, Loader2, CheckCircle2 } from "lucide-react";
 import { CoachingPlayer } from "@/components/media/coaching-player";
 import { formatDuration } from "@/lib/video";
+import {recordClientUsage} from "@/lib/usage/client-event";
 
 type Item = {
   id: string;
@@ -56,15 +57,7 @@ export function HomeworkList({ items }: { items: Item[] }) {
         setPoster(item.poster_url ?? null);
         setOpenId(item.id);
         setSeen((s) => new Set(s).add(item.id));
-        void fetch("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event: "watch",
-            path: "/plan",
-            meta: { media_id: item.id, title: item.title },
-          }),
-        }).catch(() => {});
+        recordClientUsage("watch","training");
         setLoading(null);
         return;
       }
@@ -76,15 +69,7 @@ export function HomeworkList({ items }: { items: Item[] }) {
       setOpenId(item.id);
       setSeen((s) => new Set(s).add(item.id));
       // Watching homework is the engagement signal worth tracking.
-      void fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: "watch",
-          path: "/plan",
-          meta: { media_id: item.id, title: item.title },
-        }),
-      }).catch(() => {});
+      recordClientUsage("watch","training");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load.");
     } finally {

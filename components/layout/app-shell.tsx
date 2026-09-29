@@ -25,5 +25,5 @@ export async function AppShell({ children, expectedRole }: { children: React.Rea
   if (role === "client") {
     return <div className="theme-light min-h-screen bg-paper pb-24"><UsageTracker /><MobileTopBar /><main className="mx-auto max-w-2xl px-4 py-5 sm:px-6 sm:py-7">{children}</main><ClientBottomNav /></div>;
   }
-  return <div className="flex min-h-screen bg-navy"><AppSidebar role={role} fullName={profile.full_name} email={profile.email ?? ""} /><UsageTracker /><main className="min-w-0 flex-1 pb-20 lg:pb-0"><MobileTopBar /><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">{children}</div></main><StaffBottomNav role={role} fullName={profile.full_name} email={profile.email ?? ""} /></div>;
+  return <div className="flex min-h-screen bg-navy"><AppSidebar role={role} fullName={profile.full_name} email={profile.email ?? ""} /><main className="min-w-0 flex-1 pb-20 lg:pb-0"><MobileTopBar /><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">{children}</div></main><StaffBottomNav role={role} fullName={profile.full_name} email={profile.email ?? ""} /></div>;
 }

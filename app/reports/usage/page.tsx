@@ -1,266 +1,41 @@
-import { redirect } from "next/navigation";
+import {redirect} from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, Activity, Eye, Video } from "lucide-react";
-import { AppShell } from "@/components/layout/app-shell";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
-import { PrintButton } from "@/components/reports/print-button";
+import {Activity,AlertTriangle,Eye,Video,CalendarClock,MessageCircle} from "lucide-react";
+import {AppShell} from "@/components/layout/app-shell";
+import {createClient,createServiceClient} from "@/lib/supabase/server";
+import {Card,CardContent} from "@/components/ui/card";
+import {PrintButton} from "@/components/reports/print-button";
+import {clientUsageSurface,CLIENT_USAGE_LABELS} from "@/lib/usage/client-event";
 
-export const dynamic = "force-dynamic";
-export const metadata = { title: "App usage" };
-
-function daysSince(iso: string | null): number | null {
-  if (!iso) return null;
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-}
-
-function relative(iso: string | null): string {
-  const d = daysSince(iso);
-  if (d === null) return "never";
-  if (d === 0) return "today";
-  if (d === 1) return "yesterday";
-  if (d < 7) return `${d} days ago`;
-  if (d < 30) return `${Math.floor(d / 7)} wk ago`;
-  return `${Math.floor(d / 30)} mo ago`;
-}
-
-export default async function UsagePage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: me } = await supabase
-    .from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (me?.role !== "owner") redirect("/dashboard");
-
-  const svc = createServiceClient();
-
-  const { data: engagement } = await svc
-    .from("client_engagement")
-    .select("*");
-
-  const { data: recent } = await svc
-    .from("app_events")
-    .select("user_id, role, event, path, created_at")
-    .order("created_at", { ascending: false })
-    .limit(40);
-
-  const rows = (engagement ?? []) as any[];
-
-  // Names for the activity feed, resolved in one query.
-  const ids = [...new Set((recent ?? []).map((r: any) => r.user_id).filter(Boolean))];
-  let names: Record<string, string> = {};
-  if (ids.length) {
-    const { data: profs } = await svc
-      .from("profiles").select("id, full_name").in("id", ids);
-    names = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.full_name]));
-  }
-
-  const active7 = rows.filter((r) => Number(r.events_7d) > 0).length;
-  const active30 = rows.filter((r) => Number(r.events_30d) > 0).length;
-  const neverOpened = rows.filter((r) => !r.last_active_at);
-  // The number worth acting on: had the app, stopped using it.
-  const wentQuiet = rows
-    .filter((r) => {
-      const d = daysSince(r.last_active_at);
-      return d !== null && d >= 21;
-    })
-    .sort(
-      (a, b) =>
-        new Date(a.last_active_at).getTime() - new Date(b.last_active_at).getTime()
-    );
-
-  const totalWatched = rows.reduce((n, r) => n + Number(r.videos_watched ?? 0), 0);
-
-  const stat = (label: string, value: string | number, hint?: string) => (
-    <div className="stat-rule rounded-lg rounded-t-sm border border-divider bg-navy-soft p-4">
-      <div className="text-[11px] uppercase tracking-widest text-cream-faint">{label}</div>
-      <div
-        className="tabular text-3xl font-bold text-sky mt-1"
-        style={{ fontFamily: "var(--font-display)" }}
-      >
-        {value}
-      </div>
-      {hint && <div className="text-xs text-cream-faint mt-0.5">{hint}</div>}
-    </div>
-  );
-
-  return (
-    <AppShell>
-      <div className="flex flex-col gap-5 print-area">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="eyebrow">Reports</div>
-            <h1 className="text-3xl font-bold text-cream">App usage</h1>
-            <p className="prose-ims text-sm text-cream-dim mt-1">
-              Who&apos;s actually opening the app — and who&apos;s gone quiet.
-            </p>
-          </div>
-          <div className="no-print"><PrintButton /></div>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {stat("Active this week", active7, `of ${rows.length} clients`)}
-          {stat("Active this month", active30, `of ${rows.length} clients`)}
-          {stat("Videos watched", totalWatched, "all time")}
-          {stat("Never opened", neverOpened.length, "no activity yet")}
-        </div>
-
-        {/* The actionable list, first — this is the churn signal */}
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="h-4 w-4 text-status-moderate" />
-              <h2 className="text-base font-semibold text-cream">Gone quiet</h2>
-            </div>
-            <p className="prose-ims text-sm text-cream-dim mb-3">
-              Used the app before, nothing in three weeks. Usually the first sign
-              someone&apos;s drifting.
-            </p>
-            {wentQuiet.length === 0 ? (
-              <p className="text-sm text-status-optimal">
-                Nobody&apos;s gone quiet. Everyone active in the last three weeks.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {wentQuiet.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-center justify-between gap-3 border-b border-divider last:border-0 pb-2 last:pb-0"
-                  >
-                    <Link href={`/clients/${r.id}`} className="text-cream hover:text-sky truncate">
-                      {r.full_name}
-                    </Link>
-                    <span className="text-sm text-status-moderate shrink-0">
-                      {relative(r.last_active_at)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {neverOpened.length > 0 && (
-          <Card>
-            <CardContent className="pt-5">
-              <h2 className="text-base font-semibold text-cream mb-1">Never opened it</h2>
-              <p className="prose-ims text-sm text-cream-dim mb-3">
-                Accounts exist but have never been used. Most likely they never
-                got — or never opened — their invite.
-              </p>
-              <ul className="flex flex-col gap-2">
-                {neverOpened.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-center justify-between gap-3 border-b border-divider last:border-0 pb-2 last:pb-0"
-                  >
-                    <Link href={`/clients/${r.id}`} className="text-cream hover:text-sky truncate">
-                      {r.full_name}
-                    </Link>
-                    <span className="text-xs text-cream-faint truncate">{r.email}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Everyone, ranked by how recently they were here */}
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Activity className="h-4 w-4 text-sky" />
-              <h2 className="text-base font-semibold text-cream">Every client</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-widest text-cream-faint border-b border-divider">
-                    <th className="pb-2 font-medium">Client</th>
-                    <th className="pb-2 font-medium text-right">Last seen</th>
-                    <th className="pb-2 font-medium text-right">7d</th>
-                    <th className="pb-2 font-medium text-right">30d</th>
-                    <th className="pb-2 font-medium text-right">Watched</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        new Date(b.last_active_at ?? 0).getTime() -
-                        new Date(a.last_active_at ?? 0).getTime()
-                    )
-                    .map((r) => (
-                      <tr key={r.id} className="border-b border-divider/60 last:border-0">
-                        <td className="py-2">
-                          <Link href={`/clients/${r.id}`} className="text-cream hover:text-sky">
-                            {r.full_name}
-                          </Link>
-                        </td>
-                        <td className="py-2 text-right text-cream-dim">
-                          {relative(r.last_active_at)}
-                        </td>
-                        <td className="py-2 text-right tabular text-cream-dim">{r.events_7d}</td>
-                        <td className="py-2 text-right tabular text-cream-dim">{r.events_30d}</td>
-                        <td className="py-2 text-right tabular text-cream-dim">
-                          {r.videos_watched}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="no-print">
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Eye className="h-4 w-4 text-sky" />
-              <h2 className="text-base font-semibold text-cream">Recent activity</h2>
-            </div>
-            <ul className="flex flex-col gap-1.5">
-              {(recent ?? []).map((r: any, i: number) => (
-                <li key={i} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-cream truncate">
-                    {names[r.user_id] ?? "Someone"}
-                    <span className="text-cream-faint">
-                      {" "}
-                      {r.event === "watch" ? (
-                        <>
-                          <Video className="inline h-3 w-3" /> watched a video
-                        </>
-                      ) : (
-                        `opened ${r.path ?? "the app"}`
-                      )}
-                    </span>
-                  </span>
-                  <span className="text-xs text-cream-faint shrink-0">
-                    {new Date(r.created_at).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </li>
-              ))}
-              {(recent ?? []).length === 0 && (
-                <li className="text-sm text-cream-faint">
-                  Nothing yet — activity appears here once people start using the app.
-                </li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <p className="text-xs text-cream-faint">
-          Page views and video plays only. No location, device or browsing data
-          is collected, and this page is visible to you alone.
-        </p>
-      </div>
-    </AppShell>
-  );
+export const dynamic="force-dynamic";export const metadata={title:"Client app usage"};
+function daysSince(iso:string|null){if(!iso)return null;const n=Math.floor((Date.now()-new Date(iso).getTime())/86400000);return Number.isFinite(n)?Math.max(0,n):null;}
+function relative(iso:string|null){const d=daysSince(iso);if(d===null)return "No recorded activity";if(d===0)return "Today";if(d===1)return "Yesterday";if(d<7)return `${d} days ago`;if(d<30)return `${Math.floor(d/7)} wk ago`;return `${Math.floor(d/30)} mo ago`;}
+function eventText(event:string,path:string|null){const surface=clientUsageSurface(path??"other");if(event==="watch")return "opened a coaching video";if(event==="book")return "submitted a training request";if(event==="message")return "sent a coach message";if(event==="complete")return "completed an app action";return `viewed ${CLIENT_USAGE_LABELS[surface]}`;}
+export default async function UsagePage(){
+ const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+ const me=await db.from("profiles").select("role,deleted_at").eq("id",user.id).maybeSingle();if(me.error||me.data?.role!=="owner"||me.data.deleted_at)redirect("/dashboard");
+ const svc=createServiceClient();
+ const [engagement,recent]=await Promise.all([
+  svc.from("client_engagement").select("*"),
+  svc.from("app_events").select("user_id,event,path,created_at").eq("role","client").order("created_at",{ascending:false}).limit(50)
+ ]);
+ const rows=(engagement.data??[]) as any[];
+ const ids=[...new Set((recent.data??[]).map((r:any)=>r.user_id).filter(Boolean))];let names:Record<string,string>={};
+ if(ids.length){const profs=await svc.from("profiles").select("id,full_name").in("id",ids);names=Object.fromEntries((profs.data??[]).map((p:any)=>[p.id,p.full_name]));}
+ const provisioned=rows.filter(r=>r.portal_provisioned===true);
+ const active7=provisioned.filter(r=>Number(r.events_7d)>0).length,active30=provisioned.filter(r=>Number(r.events_30d)>0).length;
+ const neverOpened=provisioned.filter(r=>!r.last_active_at);
+ const quiet=provisioned.filter(r=>{const d=daysSince(r.last_active_at);return d!==null&&d>=21;}).sort((a,b)=>new Date(a.last_active_at).getTime()-new Date(b.last_active_at).getTime());
+ const videos30=rows.reduce((n,r)=>n+Number(r.videos_watched_30d??0),0);
+ const stat=(label:string,value:string|number,hint?:string)=><div className="stat-rule rounded-lg rounded-t-sm border border-divider bg-navy-soft p-4"><div className="text-[11px] uppercase tracking-widest text-cream-faint">{label}</div><div className="tabular mt-1 text-3xl font-bold text-sky" style={{fontFamily:"var(--font-display)"}}>{value}</div>{hint&&<div className="mt-0.5 text-xs text-cream-faint">{hint}</div>}</div>;
+ return <AppShell><div className="flex flex-col gap-5 print-area">
+  <div className="flex items-start justify-between gap-3"><div><div className="eyebrow">Reports</div><h1 className="text-3xl font-bold text-cream">Client app usage</h1><p className="prose-ims mt-1 text-sm text-cream-dim">Recorded Coach OS activity only—useful context for follow-up, not a churn score.</p></div><div className="no-print"><PrintButton/></div></div>
+  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{stat("Active this week",active7,`of ${provisioned.length} provisioned portals`)}{stat("Active this month",active30,`of ${provisioned.length} provisioned portals`)}{stat("Videos opened · 30d",videos30,"recorded coaching video opens")}{stat("Never recorded",neverOpened.length,"among provisioned portals")}</div>
+  <Card><CardContent className="pt-5"><div className="mb-1 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-status-moderate"/><h2 className="text-base font-semibold text-cream">App quiet · 21+ days</h2></div><p className="prose-ims mb-3 text-sm text-cream-dim">These clients have recorded app activity in the past but none for at least three weeks. This does not mean they stopped training or disengaged from coaching.</p>{quiet.length===0?<p className="text-sm text-cream-dim">No provisioned client portal currently meets this recorded-app threshold.</p>:<ul className="flex flex-col gap-2">{quiet.map(r=><li key={r.id} className="flex items-center justify-between gap-3 border-b border-divider pb-2 last:border-0 last:pb-0"><Link href={`/clients/${r.id}`} className="truncate text-cream hover:text-sky">{r.full_name}</Link><span className="shrink-0 text-sm text-status-moderate">{relative(r.last_active_at)}</span></li>)}</ul>}</CardContent></Card>
+  {neverOpened.length>0&&<Card><CardContent className="pt-5"><h2 className="mb-1 text-base font-semibold text-cream">Provisioned but no recorded activity</h2><p className="prose-ims mb-3 text-sm text-cream-dim">A portal login exists, but Coach OS has no app event for these clients. This may mean they have not opened it, or an event was not recorded.</p><ul className="flex flex-col gap-2">{neverOpened.map(r=><li key={r.id} className="flex items-center justify-between gap-3 border-b border-divider pb-2 last:border-0 last:pb-0"><Link href={`/clients/${r.id}`} className="truncate text-cream hover:text-sky">{r.full_name}</Link><span className="truncate text-xs text-cream-faint">{r.email??"No email recorded"}</span></li>)}</ul></CardContent></Card>}
+  <Card><CardContent className="pt-5"><div className="mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-sky"/><h2 className="text-base font-semibold text-cream">Every portal client</h2></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b border-divider text-left text-[11px] uppercase tracking-widest text-cream-faint"><th className="pb-2 font-medium">Client</th><th className="pb-2 text-right font-medium">Portal</th><th className="pb-2 text-right font-medium">Last recorded</th><th className="pb-2 text-right font-medium">Active days · 7d</th><th className="pb-2 text-right font-medium">Active days · 30d</th><th className="pb-2 text-right font-medium">Events · 30d</th><th className="pb-2 text-right font-medium">Videos · 30d</th></tr></thead><tbody>{rows.slice().sort((a,b)=>new Date(b.last_active_at??0).getTime()-new Date(a.last_active_at??0).getTime()).map(r=><tr key={r.id} className="border-b border-divider/60 last:border-0"><td className="py-2"><Link href={`/clients/${r.id}`} className="text-cream hover:text-sky">{r.full_name}</Link></td><td className="py-2 text-right text-cream-dim">{r.portal_provisioned?"Ready":"Not provisioned"}</td><td className="py-2 text-right text-cream-dim">{relative(r.last_active_at)}</td><td className="py-2 text-right tabular text-cream-dim">{r.active_days_7d??0}</td><td className="py-2 text-right tabular text-cream-dim">{r.active_days_30d??0}</td><td className="py-2 text-right tabular text-cream-dim">{r.events_30d??0}</td><td className="py-2 text-right tabular text-cream-dim">{r.videos_watched_30d??0}</td></tr>)}</tbody></table></div></CardContent></Card>
+  <Card className="no-print"><CardContent className="pt-5"><div className="mb-3 flex items-center gap-2"><Eye className="h-4 w-4 text-sky"/><h2 className="text-base font-semibold text-cream">Recent normalized activity</h2></div><ul className="flex flex-col gap-1.5">{(recent.data??[]).map((r:any,i:number)=><li key={i} className="flex items-center justify-between gap-3 text-sm"><span className="truncate text-cream">{names[r.user_id]??"Client"} <span className="text-cream-faint">{eventText(r.event,r.path)}</span></span><span className="shrink-0 text-xs text-cream-faint">{new Date(r.created_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</span></li>)}{(recent.data??[]).length===0&&<li className="text-sm text-cream-faint">No client app events are recorded yet.</li>}</ul></CardContent></Card>
+  <div className="grid gap-3 text-xs leading-5 text-cream-faint sm:grid-cols-3"><p className="flex gap-2"><Video className="mt-0.5 h-4 w-4 shrink-0"/>Video opens are counts, not proof a video was watched to completion.</p><p className="flex gap-2"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0"/>Message counts do not include message text.</p><p className="flex gap-2"><CalendarClock className="mt-0.5 h-4 w-4 shrink-0"/>Booking actions mean a training request was saved, not that the appointment was confirmed.</p></div>
+  <p className="text-xs leading-5 text-cream-faint">Client-level usage stays inside Coach OS. New events store no raw URL, client/session identifier in the route, device fingerprint, location, message content, health data or Google Analytics ID.</p>
+ </div></AppShell>;
 }

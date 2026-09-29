@@ -7,6 +7,7 @@ import {Button} from "@/components/ui/button";
 import {Card,CardContent,CardHeader,CardTitle} from "@/components/ui/card";
 import {addCalendarDays} from "@/lib/time/pacific";
 import {parseAvailabilityReceipt,parseRequestReceipt,requestedInstant,requestToday,type AvailabilityReceipt,type RequestPayload,type RequestReceipt} from "@/lib/booking/client-contract";
+import {recordClientUsage} from "@/lib/usage/client-event";
 
 export function BookingForm(){
   const router=useRouter();
@@ -54,7 +55,7 @@ export function BookingForm(){
         setError(data?.error||"The save was not confirmed. Retry this same request.");return;
       }
       const receipt=parseRequestReceipt(data,payload.request_id);
-      setConfirmed({receipt,when:payload.scheduled_at});setUncertain(false);attempt.current=null;router.refresh();
+      setConfirmed({receipt,when:payload.scheduled_at});setUncertain(false);attempt.current=null;recordClientUsage("book","booking");router.refresh();
     }catch(cause){setUncertain(true);setError(cause instanceof Error?cause.message:"Connection interrupted. Retry the same request before changing it.");}
     finally{lock.current=false;setBusy(false);}
   }
