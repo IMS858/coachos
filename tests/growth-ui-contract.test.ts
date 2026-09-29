@@ -19,5 +19,5 @@ test("exercise picker captures dosage in the actual save request",()=>{
 test("release development no longer causes automatic Vercel preview deployments",()=>{
   const config=JSON.parse(readFileSync("vercel.json","utf8"));
   assert.equal(config.git.deploymentEnabled["release/ims-unified-2026-09"],false);
-  assert.equal(config.framework,"nextjs");assert.equal(config.crons.length,3);
+  assert.equal(config.framework,"nextjs");assert.equal(config.crons.length,4);assert.ok(config.crons.some((c:any)=>c.path==="/api/cron/growth-research"&&c.schedule==="0 15 * * *"));
 });
